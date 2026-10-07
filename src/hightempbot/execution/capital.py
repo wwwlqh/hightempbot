@@ -1,29 +1,14 @@
-"""Capital computation: wallet-derived in live, ledger-derived in dry-run.
+"""Capital and drawdown basis.
 
-LIVE MODE (operator decision 2026-05-20):
-    realized_capital = max(wallet_balance + CLOB-submitted open cost,
-                           initial_bankroll + realized PnL - return transfers)
-    peak_realized_capital = ledger realized high-water, never below current basis
-    deployable_capital = wallet_balance - sum(local-only PENDING)
-    stake_basis_capital = realized_capital
-    pending_exposure = sum(ledger PENDING bet_size) -- audit visibility
+Live:
+    realized = max(wallet + open cost on CLOB, bankroll + realized PnL − withdrawals)
+    peak     = session realized-ledger high-water, never below realized
+    deployable = wallet − PENDING rows not yet sent to CLOB
+Dry-run: everything comes from the ledger.
 
-    Every successful wallet read appends to bankroll_peak for wallet audit
-    history, but live drawdown peak comes from realized ledger PnL so old
-    wallet samples or open positions cannot create fake drawdown.
-
-DRY-RUN MODE:
-    realized_capital = initial_bankroll + SUM(live_pnl)
-    peak_realized_capital = MAX over running ledger PnL
-    Unchanged from the original ledger-based model. Dry-run does not touch
-    the wallet so dry-run drawdown can't influence live drawdown.
-
-The wallet view IS net of CLOB-locked open orders (Polymarket V2 locks
-collateral synchronously on place_order). The bot's own ledger PENDING
-rows MAY or MAY NOT be on CLOB yet (record_bet commits before
-execute_or_log calls place_order); deployable subtracts only the
-``not-yet-on-CLOB`` set (order_id IS NULL) so PENDING-on-CLOB exposure
-is not double-counted.
+The peak uses the ledger, not wallet samples, so open positions and stale
+reads can't fake a drawdown. The wallet already excludes collateral locked
+by CLOB orders, so only rows without an order_id are subtracted.
 """
 
 from __future__ import annotations
@@ -41,17 +26,10 @@ logger = logging.getLogger(__name__)
 
 @dataclass(frozen=True, kw_only=True)
 class CapitalSnapshot:
-    """Capital view used by the betting pipeline + dashboard.
+    """Capital view for the pipeline and dashboard.
 
-    ``wallet_available`` is True iff ``wallet_balance`` was successfully read
-    from CLOB this snapshot. False means the read failed (live) or the snapshot
-    is dry-run synthetic (no read attempted). Callers in live mode MUST treat
-    ``wallet_available is False`` as a HALT condition rather than silently
-    falling back to ledger capital (ce-code-review P1 #10).
-
-    ce-code-review P1 #30: ``kw_only=True`` so the field order is not a public
-    contract. Future additions can land in any position without silently
-    shifting positional callers onto wrong field assignments.
+    In live mode ``wallet_available=False`` (wallet read failed) must halt
+    betting rather than fall back to ledger capital.
     """
 
     realized_pnl: float
@@ -68,13 +46,7 @@ class CapitalSnapshot:
 
 
 def live_pending_notional(conn: sqlite3.Connection) -> float:
-    """SUM(bet_size) of live PENDING rows (excluding RECOVERED sentinel).
-
-    ce-code-review P2 #47: canonical public version of the PENDING-exposure
-    query. Previously duplicated in polymarket_transfer, pipeline (in-tick
-    re-check), and v2_data — those should call this instead so changes to
-    the exclusion set (RECOVERED, etc.) land in one place.
-    """
+    """SUM(bet_size) of live PENDING rows, excluding RECOVERED sentinels."""
     row = conn.execute(
         """SELECT COALESCE(SUM(bet_size), 0) AS x
         FROM ledger
@@ -85,14 +57,8 @@ def live_pending_notional(conn: sqlite3.Connection) -> float:
 
 
 def _ledger_local_pending_exposure(conn: sqlite3.Connection) -> float:
-    """SUM(bet_size) of live PENDING rows that have NOT been submitted to CLOB.
-
-    These are rows where record_bet committed but execute_or_log hasn't yet
-    received an order_id from place_order. The wallet has NOT been debited
-    for them yet, so they need to be subtracted from wallet_balance to get
-    the true deployable capital. PENDING rows WITH order_id are already
-    reflected in the wallet (CLOB locked the collateral).
-    """
+    """SUM(bet_size) of live PENDING rows not yet sent to CLOB (no order_id),
+    which the wallet hasn't been debited for."""
     row = conn.execute(
         """SELECT COALESCE(SUM(bet_size), 0) AS x
         FROM ledger
@@ -136,12 +102,7 @@ def return_transfer_notional(
     since_utc: str | None = None,
     statuses: tuple[str, ...] = RETURN_TRANSFER_CAPITAL_STATUSES,
 ) -> float:
-    """Return pUSD moved out through the dashboard transfer workflow.
-
-    These transfers are operator capital withdrawals, not trading losses. They
-    reduce the bankroll basis used for future stake sizing and the drawdown
-    peak, so withdrawing $10 does not look like a strategy drawdown.
-    """
+    """pUSD withdrawn via the dashboard; lowers basis and peak, not counted as loss."""
     if not statuses:
         return 0.0
     where, params = return_transfer_status_filter(statuses)
@@ -160,12 +121,7 @@ def return_transfer_notional(
 
 
 def _ledger_open_cost_basis(conn: sqlite3.Connection) -> float:
-    """SUM(bet_size) of live PENDING rows already submitted to CLOB.
-
-    CLOB debits available pUSD when an order fills, so live wallet balance is
-    cash after open-position cost. Adding this cost back gives the stake basis
-    for sizing top-ups without counting unrealized PnL.
-    """
+    """SUM(bet_size) of live PENDING rows already on CLOB (open cost basis)."""
     row = conn.execute(
         """SELECT COALESCE(SUM(bet_size), 0) AS x
         FROM ledger
@@ -192,14 +148,8 @@ def live_capital_basis(
     open_cost_basis: float,
     ledger_realized_capital: float,
 ) -> float:
-    """Return live bankroll basis without charging open fills as drawdown.
-
-    Wallet cash plus open cost basis is the normal live cash view. Floor that
-    at ledger realized capital after return transfers so resolved-but-not-yet-
-    redeemed proceeds do not show as drawdown or shrink the next 5%-of-capital
-    target. Deployable cash is still wallet-based, so the placement path cannot
-    spend unavailable cash.
-    """
+    """Wallet + open cost, floored at ledger realized capital (so unredeemed
+    winnings don't look like drawdown)."""
     wallet_cost_basis = float(wallet_balance) + float(open_cost_basis)
     ledger_basis = max(0.0, float(ledger_realized_capital))
     return max(wallet_cost_basis, ledger_basis)
@@ -212,20 +162,8 @@ def live_gate_capital_view(
     wallet_balance: float,
     api_position_value: float | None = None,
 ) -> tuple[float, float]:
-    """Return ``(capital, peak)`` exactly as the live drawdown gate computes them.
-
-    Pure read-only mirror of :func:`get_capital_snapshot`'s live path, fed a
-    stored wallet reading instead of a fresh CLOB call, for display surfaces
-    (dashboard) that must agree with the halt gate. Keep in lockstep with the
-    live branch of ``get_capital_snapshot`` — a fork between the two puts a
-    drawdown number on the dashboard that the gate is not actually acting on.
-
-    Why the ledger-only math is wrong for display after a re-deposit: an
-    operator deposit reaches the wallet but has no ledger row, so
-    ``initial_bankroll + SUM(pnl) - transfers`` reports $0 capital and a fake
-    100% drawdown after a full withdrawal + re-fund, while the gate itself
-    (wallet-floored) trades normally.
-    """
+    """``(capital, peak)`` as the live halt gate computes them, from a stored
+    wallet reading. Keep in sync with ``get_capital_snapshot``."""
     realized_pnl = _ledger_realized_pnl(conn)
     return_transfers = return_transfer_notional(conn)
     ledger_realized = max(
@@ -286,13 +224,7 @@ def prune_bankroll_peak(
     *,
     retention_days: int = 30,
 ) -> int:
-    """Delete bankroll_peak rows older than ``retention_days``.
-
-    ce-code-review P2 #31: the table accrues a row per live capital snapshot
-    (~every tick). Without pruning it grows unbounded; only the recent window
-    drives the wallet-derived peak. Keep enough history to detect multi-day
-    drawdown patterns, drop the rest.
-    """
+    """Delete bankroll_peak rows older than ``retention_days``."""
     try:
         cur = conn.execute(
             "DELETE FROM bankroll_peak "
@@ -313,13 +245,7 @@ def _persist_wallet_peak(
     realized_pnl: float,
     pending_exposure: float,
 ) -> None:
-    """Append the current wallet reading to bankroll_peak.
-
-    Cheap insert; the index on sampled_at supports the MAX(wallet_balance)
-    read pattern used by the dashboard and the peak query below. Failures
-    here are non-fatal -- we log and continue so a transient DB lock never
-    blocks a live tick.
-    """
+    """Record a wallet reading in bankroll_peak. Failures are logged, not raised."""
     try:
         conn.execute(
             "INSERT INTO bankroll_peak (wallet_balance, realized_pnl, pending_exposure) "
@@ -356,25 +282,12 @@ def _session_ledger_peak(
     *,
     session_start_utc: str | None = None,
 ) -> float:
-    """Session-anchored drawdown peak (operator fresh-start reset 2026-08-10).
+    """Drawdown peak for the current session (since DASHBOARD_SESSION_START_UTC).
 
-    The halt gate protects the CURRENT session's bankroll, not all-time
-    history: DD reads 0 at the session epoch, session losses ratchet it toward
-    MAX_DD, recorded in-session withdrawals shrink the peak instead of looking
-    like losses, and pre-epoch history (old peaks, old withdrawals — e.g. the
-    2026-07-27 $84.05 return transfer) has no influence. Before this change
-    the all-time walk had the live gate stuck at ~48% DD, silently halting the
-    FLIP experiment from its first day.
-
-    Mechanics: walk realized PnL over bets PLACED (``bet_ts``) at/after the
-    epoch, reconstruct the session-start basis as
-        ``seed = stake_basis - session_pnl + session_return_transfers``
-    then ``peak = seed + max(0, cummax(session walk)) - session_returns``,
-    floored at the current basis. A pre-epoch bet resolving post-epoch moves
-    basis and seed equally (treated as an external flow, not session PnL).
-    Unrecorded wallet flows (UI deposits/withdrawals) shift the seed instead
-    of faking a drawdown; every trading loss is ledger-recorded, so real
-    session losses can never hide from the gate.
+    ``seed = stake_basis − session_pnl + session_withdrawals``;
+    ``peak = seed + max(0, cummax(session pnl walk)) − session_withdrawals``,
+    floored at the current basis. Unrecorded wallet flows move the seed, so
+    they never look like drawdown; trading losses always do.
     """
     if session_start_utc is None:
         from hightempbot.execution import strategy_constants
@@ -409,23 +322,11 @@ def get_capital_snapshot(
     order_client: "OrderClient | None" = None,
     dry_run: bool = True,
 ) -> CapitalSnapshot:
-    """Return the bankroll state.
+    """Current capital snapshot (see module docstring).
 
-    In live mode (``dry_run=False`` AND ``order_client`` provided):
-      * deployable = wallet_balance - local-only PENDING (rows not yet on CLOB)
-      * stake/realized basis = wallet_balance + submitted open cost, floored
-        at ledger realized capital so resolved proceeds do not count as DD
-      * peak = session-anchored realized high-water (``_session_ledger_peak``,
-        epoch = DASHBOARD_SESSION_START_UTC), never below the current basis
-
-    If the wallet read FAILS in live mode, return ``wallet_available=False``
-    and zero-valued financials. The caller MUST treat this as a HALT (ce-code-
-    review P1 #10) -- silent fallback to ledger capital is unsafe because the
-    ledger doesn't know about external wallet movement (deposits, withdrawals,
-    settled positions outside the bot's bookkeeping).
-
-    In dry-run mode (or when no order_client is supplied), keep the legacy
-    ledger-derived behavior so backtest replay and tests stay deterministic.
+    Live needs ``order_client``; a failed wallet read returns zeros with
+    ``wallet_available=False``, which callers must treat as a halt. Without
+    a client (dry-run), everything comes from the ledger.
     """
     realized_pnl = _ledger_realized_pnl(conn)
     pending_exposure = live_pending_notional(conn)
