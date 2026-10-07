@@ -19,7 +19,6 @@ from scipy.optimize import minimize
 
 logger = logging.getLogger(__name__)
 
-# Minimum sigma to prevent numerical issues
 _SIGMA_FLOOR = 0.1  # °C
 
 
@@ -45,10 +44,8 @@ def fit_emos(
     ensemble_matrix: np.ndarray,
     actuals: np.ndarray,
 ) -> EMOSParams | None:
-    """Fit EMOS parameters from (n_days, n_members) ensemble and (n_days,) actuals.
-
-    Returns EMOSParams or None if optimisation fails.
-    """
+    """Fit EMOS from an (n_days, n_members) ensemble and (n_days,) actuals.
+    None with fewer than 10 days."""
     n_days, n_members = ensemble_matrix.shape
 
     if n_days < 10:
@@ -56,15 +53,12 @@ def fit_emos(
         return None
 
     ens_means = ensemble_matrix.mean(axis=1)
-    # ddof=0: population variance — ensemble members are the full forecast
-    # distribution sample, not a sample from an unknown population (Gneiting 2005)
+    # Population variance (ddof=0), as in Gneiting 2005.
     ens_vars = ensemble_matrix.var(axis=1, ddof=0)
 
-    # Initial guess: identity regression + moderate spread
     x0 = np.array([0.0, 1.0, 0.0, 0.0])
 
-    # Bounds: a, b unconstrained; c, d bounded to prevent exp() overflow
-    # exp(10) ≈ 22000 — more than enough variance for temperature in °C
+    # Bound c, d so exp() can't overflow.
     bounds = [(None, None), (None, None), (-10, 10), (-10, 10)]
 
     result = minimize(
@@ -78,13 +72,9 @@ def fit_emos(
 
     if not result.success:
         logger.error("EMOS optimisation did not converge: %s", result.message)
-        # Still return the result — partial convergence is usually usable
+        # A partially converged fit is usually fine.
 
-    # Degenerate-fit alarm: compare the FITTED sigma against the floor, not
-    # the log-space parameter `d` (which is on a different scale and can never
-    # equal _SIGMA_FLOOR). When the per-row sigma collapses to the floor for
-    # every training pair, the predictive distribution is over-confident and
-    # downstream tail probabilities will be misleading.
+    # Warn when the fitted sigma has collapsed to the floor (over-confident fit).
     a, b, c, d = result.x
     sigma2_fitted = np.exp(c) + np.exp(d) * ens_vars
     sigma_fitted = np.sqrt(np.maximum(sigma2_fitted, _SIGMA_FLOOR ** 2))
@@ -108,17 +98,7 @@ def predict_emos(
     params: EMOSParams,
     ensemble_members: np.ndarray,
 ) -> tuple[float, float]:
-    """Predict (mu, sigma) from EMOS params and a single day's ensemble.
-
-    Parameters
-    ----------
-    params : fitted EMOSParams
-    ensemble_members : array of shape (n_members,)
-
-    Returns
-    -------
-    (mu, sigma) of the predictive Gaussian in °C
-    """
+    """(mu, sigma) in °C for one day's ensemble."""
     ens_mean = ensemble_members.mean()
     ens_var = ensemble_members.var(ddof=0) if len(ensemble_members) > 1 else 0.0
 
@@ -134,12 +114,8 @@ def emos_probability(
     ensemble_members: np.ndarray,
     threshold: float,
 ) -> float:
-    """P(tmax > threshold) from the EMOS Gaussian.
-
-    Returns a probability in [0, 1].
-    """
+    """P(tmax > threshold) = 1 − Φ((threshold − mu) / sigma)."""
     from scipy.stats import norm
 
     mu, sigma = predict_emos(params, ensemble_members)
-    # P(X > threshold) = 1 - Φ((threshold - mu) / sigma)
     return float(1.0 - norm.cdf((threshold - mu) / sigma))

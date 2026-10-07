@@ -1,35 +1,10 @@
-"""Operator escape-hatch: settle PENDING bets via WU actuals fallback.
+"""Settle PENDING bets from WU actuals when Polymarket archived the event
+without resolving it. Same helper as the dashboard's resolve-pending action.
 
-The automatic resolution tick does NOT call the WU fallback. Production
-settlement is Gamma close-state only (see
-[resolution/settler.py](src/hightempbot/resolution/settler.py)
-`_resolve_station_date`); when Polymarket archives an event without ever
-finalizing it (Gamma drops daily-temp events some time after close — the
-2026-05-20 incident), the affected rows stay PENDING until an operator runs
-this CLI or the dashboard action (`POST /api/v2/admin/resolve-pending`).
+Dry-run by default. Dates fewer than POLYMARKET_FALLBACK_DAYS old are refused
+unless ``--force``.
 
-What this script covers:
-
-- Settle PENDINGs for archived events Polymarket will never resolve.
-  By default the script refuses to resolve a date that's less than
-  `POLYMARKET_FALLBACK_DAYS` past today, to keep it from settling against
-  a still-live market by accident; ``--force`` overrides that floor (use
-  only when the operator has confirmed Polymarket will never resolve).
-- Re-settle a batch of historical PENDINGs.
-- Settle in dry-run / staging where the scheduler isn't running.
-
-This calls the SAME `_resolve_via_wu_actual_fallback` helper the dashboard
-admin endpoint uses, so the audit trail
-(`resolution_source='wu_actual_fallback'` +
-`event_detail.fallback_reason=...`) matches in either flow.
-
-Usage (run as a module so it ships with the regular src/ deploy):
-    python -m hightempbot.cli.resolve_pending_via_wu --target-date 2026-05-17 --target-date 2026-05-18
-    python -m hightempbot.cli.resolve_pending_via_wu --target-date 2026-05-17 --commit
-    python -m hightempbot.cli.resolve_pending_via_wu --station KSEA --target-date 2026-05-17 --commit
-
-Default is dry-run (prints planned outcomes, writes nothing). Pass --commit
-to apply.
+    python -m hightempbot.cli.resolve_pending_via_wu --target-date 2026-05-17 [--station KSEA] [--commit]
 """
 
 from __future__ import annotations
@@ -154,8 +129,6 @@ def main() -> int:
             print(" that --target-date has PENDING rows in the ledger.)")
             return 0
 
-        # Group by (station_id, target_date) so we can call the production
-        # helper once per group with the matching actual_tmax.
         groups: dict[tuple[str, str], list[sqlite3.Row]] = {}
         for r in rows:
             groups.setdefault((r["station_id"], r["target_date"]), []).append(r)
@@ -171,8 +144,7 @@ def main() -> int:
             if station_cfg is None:
                 print(f"  SKIP {sid} {td}: station not enrolled (no StationConfig)")
                 continue
-            # Empty unit is unresolvable — production fail-closes on this in
-            # _resolve_via_wu_actual_fallback. Dry-run must match (#14).
+            # Unknown unit: unresolvable (same as the real resolver).
             if not station_cfg.unit:
                 print(
                     f"  SKIP {sid} {td}: station_cfg.unit is empty — "
@@ -196,9 +168,6 @@ def main() -> int:
             except (TypeError, ValueError):
                 days_past = -1
 
-            # Floor gate: refuse --commit when days_past is below the
-            # auto-path threshold unless operator explicitly forces (#3).
-            # The auto-path also enforces this in _resolve_station_date.
             if args.commit and days_past < POLYMARKET_FALLBACK_DAYS and not args.force:
                 print(
                     f"  REFUSE {sid} {td} (days_past={days_past} < "
@@ -242,8 +211,7 @@ def _print_dry_run_preview(
     days_past: int,
     preview_fn,
 ) -> None:
-    """Delegate to ``preview_wu_fallback_outcome`` so dry-run can't drift from
-    the dashboard endpoint or production resolver (findings #4, #24)."""
+    """Same preview as the dashboard endpoint."""
     for r in grp:
         p = preview_fn(r, actual_tmax, station_cfg, days_past)
         if p["outcome"] == "SKIP":

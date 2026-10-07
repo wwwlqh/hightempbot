@@ -113,7 +113,7 @@ def bracket_probabilities(
     Uses CalibrationModel.predict(ensemble, threshold) which returns P(tmax > threshold).
 
     Bracket bounds are the TRUE continuous [lo, hi) actual-temperature range
-    (produced by _parse_bracket_bounds under ROUND semantics). No further shift needed.
+    (produced by parse_bracket_bounds under ROUND semantics). No further shift needed.
     """
     probs = []
     for btype, lo, hi in brackets:

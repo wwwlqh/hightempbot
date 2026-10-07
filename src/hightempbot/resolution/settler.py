@@ -17,13 +17,10 @@ import pytz
 from hightempbot.db.connection import get_connection
 from hightempbot.persistence.actuals import actual_source_clause
 from hightempbot.persistence.ledger import decode_event_detail
-from hightempbot.resolution.gamma import (
-    fetch_gamma_resolution_markets,
-    winning_bracket_from_gamma,
-)
+from hightempbot.decision.brackets import actual_in_bracket
+from hightempbot.resolution.gamma import winning_bracket_from_gamma
 from hightempbot.scheduler.market_data import _fetch_market_data
 from hightempbot.scheduler.station_scanner import (
-    _actual_matches_bracket,
     _log_pipeline_health,
     _notify,
     _station_actual_display,
@@ -511,7 +508,7 @@ def _resolve_station_date(
 
         if actual_display is not None:
             try:
-                actual_agrees = _actual_matches_bracket(actual_display, winning_low, winning_high)
+                actual_agrees = actual_in_bracket(actual_display, winning_low, winning_high)
                 if not actual_agrees:
                     logger.warning(
                         "R29 MISMATCH %s %s: Polymarket resolved bracket %s but actual=%.1f%s (display=%s). "

@@ -114,7 +114,7 @@ def _insert_pending_bet(
 def _make_resolved_market_data(winning_idx=3):
     """Create market data where bracket `winning_idx` has resolved (price ~1.0).
 
-    Bounds use continuous [lo, hi) semantics produced by _parse_bracket_bounds:
+    Bounds use continuous [lo, hi) semantics produced by parse_bracket_bounds:
       - floor "<60°F" → (None, 59.5)
       - interior "60-61°F" → (59.5, 61.5)  (2°F-wide)
       - ceiling "≥78°F" → (77.5, None)
@@ -1757,8 +1757,6 @@ class TestResolutionPolymarket:
         bets = conn.execute("SELECT * FROM ledger WHERE outcome = 'PENDING'").fetchall()
 
         with patch("hightempbot.resolution.settler._fetch_market_data", return_value={}), \
-             patch("hightempbot.resolution.settler.fetch_gamma_resolution_markets",
-                   return_value=None), \
              patch("hightempbot.resolution.settler.winning_bracket_from_gamma",
                    return_value=None), \
              patch("hightempbot.resolution.settler.get_all_stations",
@@ -1790,8 +1788,6 @@ class TestResolutionPolymarket:
         bets = conn.execute("SELECT * FROM ledger WHERE outcome = 'PENDING'").fetchall()
 
         with patch("hightempbot.resolution.settler._fetch_market_data", return_value={}), \
-             patch("hightempbot.resolution.settler.fetch_gamma_resolution_markets",
-                   return_value=None), \
              patch("hightempbot.resolution.settler.winning_bracket_from_gamma",
                    return_value=None), \
              patch("hightempbot.resolution.settler.get_all_stations",
@@ -2109,8 +2105,6 @@ class TestResolutionGammaPerBracket:
                    return_value={i: dict(m) for i, m in gamma_markets.items()}), \
              patch("hightempbot.execution.walker.ClobReader",
                    return_value=_mock_clob_below_threshold()), \
-             patch("hightempbot.resolution.settler.fetch_gamma_resolution_markets",
-                   return_value=gamma_markets), \
              patch("hightempbot.resolution.gamma.fetch_gamma_resolution_markets",
                    return_value=gamma_markets):
             _resolve_station_date(conn, "KDAL", "2026-04-07", bets)
@@ -2140,8 +2134,6 @@ class TestResolutionGammaPerBracket:
                    return_value={i: dict(m) for i, m in gamma_markets.items()}), \
              patch("hightempbot.execution.walker.ClobReader",
                    return_value=_mock_clob_below_threshold()), \
-             patch("hightempbot.resolution.settler.fetch_gamma_resolution_markets",
-                   return_value=gamma_markets), \
              patch("hightempbot.resolution.gamma.fetch_gamma_resolution_markets",
                    return_value=gamma_markets):
             _resolve_station_date(conn, "KDAL", "2026-04-07", bets)
@@ -2174,8 +2166,6 @@ class TestResolutionGammaPerBracket:
                    return_value={i: dict(m) for i, m in gamma_markets.items()}), \
              patch("hightempbot.execution.walker.ClobReader",
                    return_value=_mock_clob_below_threshold()), \
-             patch("hightempbot.resolution.settler.fetch_gamma_resolution_markets",
-                   return_value=gamma_markets), \
              patch("hightempbot.resolution.gamma.fetch_gamma_resolution_markets",
                    return_value=gamma_markets):
             _resolve_station_date(conn, "KDAL", "2026-04-07", bets)
@@ -2204,8 +2194,6 @@ class TestResolutionGammaPerBracket:
                    return_value={i: dict(m) for i, m in gamma_markets.items()}), \
              patch("hightempbot.execution.walker.ClobReader",
                    return_value=_mock_clob_below_threshold()), \
-             patch("hightempbot.resolution.settler.fetch_gamma_resolution_markets",
-                   return_value=gamma_markets), \
              patch("hightempbot.resolution.gamma.fetch_gamma_resolution_markets",
                    return_value=gamma_markets):
             _resolve_station_date(conn, "KDAL", "2026-04-07", bets)
@@ -2238,9 +2226,7 @@ class TestResolutionGammaPerBracket:
              patch("hightempbot.execution.walker.ClobReader",
                    return_value=_mock_clob_below_threshold()), \
              patch("hightempbot.resolution.settler.winning_bracket_from_gamma",
-                   return_value=None), \
-             patch("hightempbot.resolution.settler.fetch_gamma_resolution_markets",
-                   return_value=gamma_markets):
+                   return_value=None):
             _resolve_station_date(conn, "KDAL", "2026-04-07", bets)
 
         row = conn.execute("SELECT outcome FROM ledger WHERE id = 1").fetchone()
@@ -2304,9 +2290,7 @@ class TestResolutionGammaPerBracket:
              patch("hightempbot.execution.walker.ClobReader",
                    return_value=_mock_clob_below_threshold()), \
              patch("hightempbot.resolution.settler.winning_bracket_from_gamma",
-                   return_value=None), \
-             patch("hightempbot.resolution.settler.fetch_gamma_resolution_markets",
-                   return_value=gamma_markets):
+                   return_value=None):
             _resolve_station_date(conn, "KDAL", "2026-04-07", bets)
 
         del loser
@@ -2335,9 +2319,7 @@ class TestResolutionGammaPerBracket:
              patch("hightempbot.execution.walker.ClobReader",
                    return_value=_mock_clob_below_threshold()), \
              patch("hightempbot.resolution.settler.winning_bracket_from_gamma",
-                   return_value=None), \
-             patch("hightempbot.resolution.settler.fetch_gamma_resolution_markets",
-                   return_value=gamma_markets):
+                   return_value=None):
             _resolve_station_date(conn, "KDAL", "2026-04-07", bets)
 
         del loser
@@ -2438,8 +2420,6 @@ class TestResolutionGammaCloseEventLevel:
                    return_value={i: dict(m) for i, m in gamma_markets.items()}), \
              patch("hightempbot.execution.walker.ClobReader",
                    return_value=_mock_clob_below_threshold()), \
-             patch("hightempbot.resolution.settler.fetch_gamma_resolution_markets",
-                   return_value=gamma_markets), \
              patch("hightempbot.resolution.gamma.fetch_gamma_resolution_markets",
                    return_value=gamma_markets):
             _resolve_station_date(conn, "KDAL", "2026-04-07", bets)
@@ -2475,8 +2455,6 @@ class TestResolutionGammaCloseEventLevel:
                    return_value={i: dict(m) for i, m in gamma_markets.items()}), \
              patch("hightempbot.execution.walker.ClobReader",
                    return_value=_mock_clob_below_threshold()), \
-             patch("hightempbot.resolution.settler.fetch_gamma_resolution_markets",
-                   return_value=gamma_markets), \
              patch("hightempbot.resolution.gamma.fetch_gamma_resolution_markets",
                    return_value=gamma_markets):
             _resolve_station_date(conn, "KDAL", "2026-04-07", bets)
@@ -2642,8 +2620,6 @@ class TestResolutionWuFallback:
 
         with patch("hightempbot.resolution.settler._fetch_market_data",
                    return_value={}), \
-             patch("hightempbot.resolution.settler.fetch_gamma_resolution_markets",
-                   return_value=None), \
              patch("hightempbot.resolution.settler.winning_bracket_from_gamma",
                    return_value=None):
             _resolve_station_date(conn, "KDAL", today, bets)

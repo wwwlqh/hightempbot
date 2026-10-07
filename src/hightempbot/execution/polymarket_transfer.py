@@ -53,9 +53,6 @@ class TransferPreview:
     snapshot_fresh: bool
 
     def to_dict(self) -> dict[str, Any]:
-        # camelCase keys to match peer JSON responses
-        # (operator/wallet payloads, v2 envelope). Snake-case was inconsistent
-        # with the rest of the dashboard contract.
         return {
             "ok": self.ok,
             "amountUsd": self.amount_usd,
@@ -71,14 +68,7 @@ class TransferPreview:
 
 
 def ensure_transfer_schema(conn: sqlite3.Connection) -> None:
-    """Assert transfer_requests table exists; schema.sql is authoritative.
-
-    ce-code-review P1 #25: previously this duplicated the DDL from db/schema.sql,
-    which risked silent drift. Now schema.sql owns the table definition (applied
-    by db.connection.init_db) and this helper is a NO-OP safety check. It still
-    ensures the idempotency partial unique index exists for older DBs that pre-
-    date the index addition, since CREATE INDEX IF NOT EXISTS is cheap and safe.
-    """
+    """Check transfer_requests exists and add its one-in-flight index on old DBs."""
     row = conn.execute(
         "SELECT name FROM sqlite_master WHERE type='table' AND name='transfer_requests'"
     ).fetchone()
@@ -87,9 +77,6 @@ def ensure_transfer_schema(conn: sqlite3.Connection) -> None:
             "transfer_requests table is missing; run init_db "
             "(hightempbot.db.connection.init_db) to apply schema.sql"
         )
-    # Idempotency partial index — kept here because it was added later than
-    # the base table (ce-code-review P1 #11) and not all production DBs have
-    # it yet. CREATE...IF NOT EXISTS is a no-op when present.
     conn.execute(
         "CREATE UNIQUE INDEX IF NOT EXISTS transfer_requests_single_submit "
         "ON transfer_requests(from_wallet) WHERE status='SUBMITTING'"
@@ -124,8 +111,6 @@ def pusd_amount_to_base_units(amount: str | float | Decimal) -> int:
 
 
 def _live_local_pending_notional(conn: sqlite3.Connection) -> float:
-    # Delegate to capital.live_local_pending_notional so the in-flight PENDING
-    # query lives in one place.
     from hightempbot.execution.capital import live_local_pending_notional
 
     return live_local_pending_notional(conn)
@@ -159,10 +144,7 @@ def preview_return_transfer(
     return_wallet = (getattr(config, "poly_return_wallet", "") or "").strip()
     destination = (to_wallet or return_wallet).strip()
 
-    # pin destination to POLY_RETURN_WALLET. The
-    # operator-supplied `to_wallet` is rejected if it doesn't case-insensitively
-    # equal POLY_RETURN_WALLET so a compromised dashboard cannot redirect
-    # outbound transfers. Burn/zero address blocks are layered below.
+    # Only POLY_RETURN_WALLET is allowed as a destination.
     if not return_wallet:
         errors.append("POLY_RETURN_WALLET is not configured; transfer disabled")
     elif destination.lower() != return_wallet.lower():
@@ -245,10 +227,7 @@ def preview_return_transfer(
     elif amount_usd > available:
         errors.append(f"amount ${amount_usd:.2f} exceeds available pUSD ${available:.2f}")
 
-    # Lowercase destination in the confirmation string so user-typed mixed-case
-    # input doesn't disagree with our canonical form at submit-time comparison.
-    # If the destination is missing/invalid, keep confirmation blank instead of
-    # rendering a confusing "TRANSFER ... TO " preview.
+    # Lowercase address in the confirmation; blank if the destination is invalid.
     confirmation = (
         f"TRANSFER {amount_usd:.6f} PUSD TO {destination.lower()}"
         if amount_base_units > 0 and is_address(destination)
@@ -288,11 +267,7 @@ def submit_return_transfer(
     if state.state != TRANSFER_LOCK:
         raise TransferSafetyError("Transfer Submit requires active TRANSFER_LOCK")
 
-    # agent-native and other non-dashboard callers can
-    # opt in to a forced refresh via `snapshot_refresher`. The dashboard refreshes
-    # upstream (in _assert_fresh_live_action_context) so it leaves this None and
-    # relies on the tight SUBMIT_FRESHNESS_TTL_S window below to gate staleness.
-    # Refresh failures are non-fatal — the freshness gate will catch a stale snapshot.
+    # Optional refresh for non-dashboard callers; the freshness check still applies.
     if snapshot_refresher is not None:
         try:
             snapshot_refresher(conn)
@@ -312,10 +287,7 @@ def submit_return_transfer(
     if confirmation != preview.confirmation:
         raise TransferSafetyError("confirmation text does not match preview")
 
-    # idempotency. BEGIN IMMEDIATE + unique partial
-    # index on (from_wallet) WHERE status='SUBMITTING' converts a concurrent
-    # second submit into a fast IntegrityError that we re-raise as a
-    # TransferSafetyError. The unique index is created by ensure_transfer_schema.
+    # The unique SUBMITTING index turns a concurrent second submit into an error.
     try:
         conn.execute("BEGIN IMMEDIATE")
     except sqlite3.OperationalError as exc:

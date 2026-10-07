@@ -1,30 +1,10 @@
-"""Operator CLI: read + safely mutate live operator state from the shell.
+"""Operator controls from the shell, using the same code as the dashboard.
 
-ce-code-review P1 #10: gives the operator a non-dashboard surface to inspect
-state, halt processing, and execute return-transfers when the dashboard is
-unavailable (lost SSH tunnel, browser failure, locked-out auth). All actions
-go through the same primitives the dashboard uses
-(``hightempbot.execution.operator_control`` /
-``hightempbot.execution.polymarket_transfer``) so audit events and DRY_RUN
-fuses are identical.
+Subcommands: status, stop, start, transfer-preview, transfer-lock,
+transfer-submit (needs --amount, the exact --confirmation text and
+--i-have-read-the-confirmation), orphan-list, orphan-patch. Audit actor is
+``cli:<subcommand>``.
 
-Subcommands:
-
-* ``status`` — print the current operator state JSON (state, version, dry_run).
-* ``stop`` — set state=STOPPED_PROCESSING (refuses new bets, holds existing).
-* ``start`` — set state=LIVE (only when the process did NOT boot DRY_RUN).
-* ``transfer-preview`` — read-only transfer eligibility + amount preview.
-* ``transfer-lock`` — set state=TRANSFER_LOCK (required before submit).
-* ``transfer-submit`` — execute the return transfer. Requires --amount,
-  --confirmation (exact string from preview), and the explicit
-  ``--i-have-read-the-confirmation`` flag to prevent accidental fund movement.
-* ``orphan-list`` — list recovered CLOB fills needing manual bracket linkage.
-* ``orphan-patch`` — attach station/date/token/bracket metadata to one orphan.
-
-Every subcommand uses ``actor=f"cli:<subcommand>"`` so the audit log
-distinguishes CLI actions from dashboard / agent actions.
-
-Example:
     python -m hightempbot.cli.operator status --json
     python -m hightempbot.cli.operator stop --reason "manual halt"
     python -m hightempbot.cli.operator transfer-preview --amount 50

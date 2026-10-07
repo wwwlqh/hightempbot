@@ -99,12 +99,12 @@ class TestBracketProbabilities:
 
     def test_interior_c_brackets_from_parser_nonzero(self):
         """Regression: before the continuous-range fix, 1°C interior brackets
-        from _parse_bracket_bounds collapsed to p=0 because lo==hi. With the
+        from parse_bracket_bounds collapsed to p=0 because lo==hi. With the
         parser emitting [X-0.5, X+0.5), every interior bracket near the
         ensemble mean must carry real probability mass."""
         from scipy.stats import norm
 
-        # Brackets as produced post-fix by _parse_bracket_bounds for non-US
+        # Brackets as produced post-fix by parse_bracket_bounds for non-US
         # 1°C markets: floor "<22°C", interiors 23..31, ceiling "≥32°C".
         parsed = [("floor", None, 22.5)]
         for label_val in range(23, 32):

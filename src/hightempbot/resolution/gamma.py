@@ -1,10 +1,4 @@
-"""Polymarket Gamma close-state resolution helpers.
-
-Leaf module shared by `scheduler.station_scanner` (live settlement paths) and
-`execution.ledger` (label backfill). Owns the Gamma `/events` HTTP fetch, the
-question-text parser, and the winning-bracket gate so the same safety
-predicates apply everywhere.
-"""
+"""Gamma helpers: the /events fetch, bracket-bound parsing and the winner gate."""
 
 from __future__ import annotations
 
@@ -35,17 +29,8 @@ def normalize_bracket_question(question: str) -> str:
 def parse_bracket_bounds(
     question: str,
 ) -> tuple[float | None, float | None, str] | None:
-    """Parse bracket boundaries from Polymarket question text.
-
-    Returns the TRUE continuous [lo, hi) actual-temperature range the bracket
-    resolves YES over, under ROUND-rule semantics: label X <-> actual in
-    [X-0.5, X+0.5). Returns ``None`` if the question doesn't match any known
-    shape.
-
-    The regex unit token (``[^0-9A-Za-z-]*``) accepts both the literal ``°``
-    and the mojibake ``Â°`` form Polymarket emits intermittently, so callers
-    do not need separate normalised and raw branches.
-    """
+    """Continuous ``(lo, hi)`` from a market question: label X covers
+    ``[X-0.5, X+0.5)``. None if unrecognized. Tolerates the ``Â°`` mojibake."""
     question = normalize_bracket_question(question)
     unit_token = r"\s*[^0-9A-Za-z-]*([FC])"
 
@@ -85,22 +70,13 @@ def fetch_gamma_resolution_markets(
     *,
     conn=None,
 ) -> dict[int, dict] | None:
-    """Fetch Polymarket markets for resolution via Gamma `/events`.
-
-    Bypasses any tradability filter so closed markets (no CLOB book) are
-    returned -- their `outcomePrices` are the authoritative resolution.
-    Returns ``None`` on lookup failure or unknown station/event.
-    """
+    """All of an event's markets from Gamma, closed ones included. None on failure."""
     city_slug = poly_slug_for_station_id(station_id, conn=conn)
     if not city_slug:
         return None
     slug = gamma_event_slug(city_slug, target_date)
 
     try:
-        # 8s timeout (was 15s): the resolution scan tick runs this twice per
-        # station per cycle (event-level + per-bracket paths) directly on the
-        # APScheduler thread. Cap per-call cost so a slow Gamma can't blow the
-        # 20-thread pool budget. Real Gamma p99 latency is well under 5s.
         resp = requests.get(
             f"{GAMMA_API}/events", params={"slug": slug}, timeout=8,
         )
@@ -165,16 +141,8 @@ def winning_bracket_from_gamma(
     *,
     conn=None,
 ) -> dict | None:
-    """Return the winning bracket market when Gamma reports a final result.
-
-    Gate (must all hold, else returns ``None``):
-    - Every bracket in the event has ``closed: True`` (excludes partial UMA).
-    - Exactly one bracket has ``yes_price >= RESOLUTION_PRICE_THRESHOLD``.
-    - The winning bracket has parseable bounds (``bracket_low`` and/or
-      ``bracket_high`` present). Without bounds we can't render a meaningful
-      label, so callers should treat the row as not-yet-resolvable rather
-      than persist a placeholder.
-    """
+    """The winning market, only if every bracket is closed, exactly one has
+    YES ≥ RESOLUTION_PRICE_THRESHOLD, and it has bounds. Otherwise None."""
     markets = fetch_gamma_resolution_markets(station_id, target_date, conn=conn)
     if not markets:
         return None
