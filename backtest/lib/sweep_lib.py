@@ -1,15 +1,8 @@
-"""Reusable harness for backtest strategy exploration.
+"""Shared backtest pieces: bracket parser, walk-forward EMOS and LUT loaders,
+the 9 signal flavors, entry-price loaders, leakage asserts and ``evaluate_config``.
 
-Pieces:
-- bracket parser (single °C/°F, range "between X-Y°F", tail "X or below/higher")
-- walk-forward EMOS loader (calibration_params_history, asof_date <= market_date)
-- walk-forward LUT builder (pred_bucket_history with local_date < market_date)
-- 9 signal flavors as columns
-- entry-time price loader (latest snapshot >= 4h before bracket close UTC)
-- leakage asserts (per-row, raise on violation)
-- evaluate_config(parquet_df, config) -> metrics  (the function ce:optimize calls)
-
-Used by build_decision_table.py (Phase 1) and eval_strategy.py (search loop).
+Leakage rules: EMOS as of ≤ market date, LUT from days < market date, entry
+≥ 4h before close.
 """
 from __future__ import annotations
 
@@ -73,21 +66,7 @@ def _f_to_c(f: float) -> float:
 
 
 def parse_bracket(label: str) -> tuple[float, float, str] | None:
-    """Parse a Polymarket bracket label into (lo_C, hi_C, kind).
-
-    Uses ROUND-rule semantics matching the live parser
-    (`src/hightempbot/resolution/gamma.py::parse_bracket_bounds`):
-    a label "X" represents actual ∈ [X-0.5, X+0.5) before unit conversion. This
-    matches Polymarket's resolution mechanic of rounding the reported integer
-    actual to the nearest bracket label.
-
-    Returns (lo, hi, kind) where bounds are in Celsius and kind ∈ {'low','mid','high'}.
-    None if unparseable.
-
-    Was "extends-to-next-bracket-lower-edge" semantics (val + 1.0 / val + 2.0) until
-    2026-05-09 — produced the same `kind` classification but bounds shifted by
-    +0.5°F at every edge vs live. Aligned to live 2026-05-09 after the parity audit.
-    """
+    """Parse a Polymarket bracket label into (lo_C, hi_C, kind)."""
     if not label:
         return None
     s = re.sub(r"[°˚℃℉]", "", label).strip()
@@ -163,15 +142,7 @@ def bucket_low_for(p: float) -> float:
 
 # --------------------------------------------------------------------------- ensemble + EMOS
 
-# Sigma floor matches src/hightempbot/calibration/emos.py::_SIGMA_FLOOR.
-# Was 0.5°C in this file from creation until 2026-05-09 — diverged from live
-# (which used 0.1°C from its creation), producing a backtest Gaussian that was
-# 5× wider-floored than what the live bot trades against. Aligned to live
-# 2026-05-09 after the parity audit.
-#
-# Diagnostic finding 2026-05-09: sigma floor accounts for ~$3 of the $121 BR100
-# train PnL shift; the bracket-parser P0-2 fix accounts for the other ~$118.
-# Bracket parsing was the dominant driver, not sigma floor.
+# Must match src/hightempbot/calibration/emos.py::_SIGMA_FLOOR.
 _SIGMA_FLOOR = 0.1  # °C
 
 
@@ -192,17 +163,12 @@ def emos_p_in_bracket(mu: float, sigma: float, lo: float, hi: float) -> float:
 
 # --------------------------------------------------------------------------- walk-forward loaders
 
-# Exponential recency half-lives (days) for the p_Recency_h{hl} LUT flavor (plan
-# 2026-05-29-002 U3). The recency-weighted hit rate down-weights stale bucket
-# observations so seasonal drift in calibration fades from the estimate.
+# Half-lives (days) for the recency-weighted LUT flavor p_Recency_h{hl}.
 LUT_RECENCY_HALF_LIVES = (15, 30)
 
 
 def load_walk_forward_emos(live_conn) -> pd.DataFrame:
-    """All historical EMOS params, sorted for merge_asof.
-
-    Returns DataFrame with columns: station_id, asof_date (datetime64), a, b, c, d.
-    """
+    """All historical EMOS params, sorted for merge_asof."""
     rows = []
     for sid, asof, blob in live_conn.execute(
         "SELECT station_id, asof_date, params_blob FROM calibration_params_history WHERE horizon=1"
@@ -218,21 +184,8 @@ def load_walk_forward_emos(live_conn) -> pd.DataFrame:
 
 
 def load_walk_forward_lut(live_conn, half_lives: tuple[int, ...] = LUT_RECENCY_HALF_LIVES) -> pd.DataFrame:
-    """Cumulative (n, hits) and recency-decayed sums per (station, pred_bucket_low)
-    up through each local_date.
-
-    Returns DataFrame with: station_id, pred_bucket_low, local_date (datetime64),
-    n_cum, hits_cum, and for each half-life hl the columns w{hl} (sum of decayed
-    weights = effective sample size) and wh{hl} (decayed hit sum).
-
-    The recency-weighted hit rate as of any market_date is wh{hl}/w{hl} taken from
-    the latest row with local_date < market_date. Because both numerator and
-    denominator scale by the same extra decay over the (market_date - last_obs)
-    gap, the ratio is gap-invariant — so the merge_asof match carries the correct
-    decayed estimate without needing the market_date at accumulation time.
-
-    Walk-forward semantics: when joining, use local_date < market_date (strict).
-    """
+    """Cumulative (n, hits) and recency-decayed sums per (station, pred_bucket_low) up
+    through each local_date."""
     df = pd.read_sql(
         "SELECT station_id, local_date, pred_bucket_low, hit "
         "FROM pred_bucket_history WHERE local_date IS NOT NULL",
@@ -283,11 +236,8 @@ def load_walk_forward_lut(live_conn, half_lives: tuple[int, ...] = LUT_RECENCY_H
 
 def lut_lookup_for_rows(rows: pd.DataFrame, lut_cum: pd.DataFrame) -> pd.DataFrame:
     """For each row in `rows` (must have station_id, market_date, p_raw_for_bucket),
-    return a copy with n_cum, hits_cum filled via merge_asof on local_date < market_date.
-
-    rows.market_date and rows.p_raw_for_bucket must be present.
-    Adds columns: pred_bucket_low, n_cum, hits_cum.
-    """
+    return a copy with n_cum, hits_cum filled via merge_asof on local_date <
+    market_date."""
     rows = rows.copy()
     rows["pred_bucket_low"] = rows["p_raw_for_bucket"].apply(bucket_low_for)
     rows["market_date_dt"] = pd.to_datetime(rows["market_date"])
@@ -295,9 +245,7 @@ def lut_lookup_for_rows(rows: pd.DataFrame, lut_cum: pd.DataFrame) -> pd.DataFra
 
     lut_cum = lut_cum.sort_values("local_date").reset_index(drop=True)
 
-    # merge_asof requires both sides sorted by the asof key.
-    # We need: latest lut row where local_date < market_date_dt (strict less-than).
-    # Use direction='backward' with allow_exact_matches=False to enforce strict inequality.
+    # Latest LUT row with local_date strictly before market_date.
     out = pd.merge_asof(
         rows,
         lut_cum,
@@ -311,10 +259,7 @@ def lut_lookup_for_rows(rows: pd.DataFrame, lut_cum: pd.DataFrame) -> pd.DataFra
 
 
 def emos_for_rows(rows: pd.DataFrame, emos_hist: pd.DataFrame) -> pd.DataFrame:
-    """For each row (with station_id, market_date), attach as-of EMOS (a,b,c,d).
-
-    Uses asof_date <= market_date. Direction='backward', allow_exact_matches=True.
-    """
+    """For each row (with station_id, market_date), attach as-of EMOS (a,b,c,d)."""
     rows = rows.copy()
     rows["market_date_dt"] = pd.to_datetime(rows["market_date"])
     rows = rows.sort_values("market_date_dt").reset_index(drop=True)
@@ -335,14 +280,7 @@ def emos_for_rows(rows: pd.DataFrame, emos_hist: pd.DataFrame) -> pd.DataFrame:
 # --------------------------------------------------------------------------- ensembles + actuals
 
 def load_ensembles(live_conn, start_date: str, end_date: str) -> dict[tuple[str, str], np.ndarray]:
-    """Load forecast ensembles in the exact live model order.
-
-    Historical DB snapshots may contain extra centers from older ingestion
-    experiments (for example ``jma_seamless``). The live bot scores only the
-    calibrated 9-model set, so the backtest does the same: keep a group only
-    when every expected model is present, ignore extras, and return arrays in
-    ``EXPECTED_MODELS`` order.
-    """
+    """Load forecast ensembles in the exact live model order."""
     grouped: dict[tuple[str, str], dict[str, float]] = {}
     for sid, td, centre, t in live_conn.execute(
         "SELECT station_id, target_date, centre, tmax_celsius FROM forecast_archive "
@@ -386,15 +324,8 @@ def load_entry_prices_by_local_hour(
     station_tz: dict[str, str],
     candidate_hours: tuple[int, ...] = ENTRY_LOCAL_HOURS,
 ) -> dict[str, dict]:
-    """For each market_slug, return {yes_price_h{H}, no_price_h{H}, entry_ts_h{H}}
-    for each H in candidate_hours.
-
-    "Local hour H" means: latest snapshot whose timestamp converted to the
-    station's local TZ is ≤ market_date H:00:00 local. So h=12 = the price
-    you'd see at noon local on market_date.
-
-    Snapshots without enough history before H simply have NaN for that column.
-    """
+    """For each market_slug, return {yes_price_h{H}, no_price_h{H}, entry_ts_h{H}} for
+    each H in candidate_hours."""
     # Per-market: list of (ts_unix, yes_price, no_price) sorted ascending.
     # We aggregate yes/no into one row per ts so we can do one pass per market.
     by_slug: dict[str, dict[int, dict]] = {}
@@ -495,14 +426,8 @@ def load_entry_prices_by_local_hour(
 
 
 def load_entry_prices(market_conn, hours_before_close: int = 4) -> dict[str, dict]:
-    """For each market_slug, latest YES/NO price >= hours_before_close before market_date+1 00:00 UTC.
-
-    Approximation: bracket close treated as market_date 23:59 UTC. For US stations that's
-    actually some hours short of local midnight close, which is fine — we still avoid
-    using info from the final hours.
-
-    Returns {market_slug: {yes_price, yes_ts, no_price, no_ts, avg_volume, avg_liquidity, avg_spread}}.
-    """
+    """For each market_slug, latest YES/NO price >= hours_before_close before
+    market_date+1 00:00 UTC."""
     cur = market_conn.execute("""
         SELECT m.market_slug, m.market_date, p.side, p.ts_unix, p.price
         FROM markets m JOIN prices p USING (market_slug)
@@ -594,11 +519,8 @@ def add_signal_flavors(df: pd.DataFrame, lut_min_n: int = 30) -> pd.DataFrame:
     L_safe = np.where(np.isnan(L_obs), E, L_obs)
     df["p_Ramp"] = lam * L_safe + (1.0 - lam) * E
 
-    # Recency-weighted LUT flavor (plan 2026-05-29-002 U3). Requires the decayed
-    # weight columns from load_walk_forward_lut; absent (e.g. the live parity
-    # test feeds only p_raw/n_cum/hits_cum) it is silently skipped. Shrinks toward
-    # the EMOS prior E with a pseudo-count of 10, mirroring p_Shrink_n10's form so
-    # sparse buckets fall back to E rather than to a noisy recent rate.
+    # Recency-weighted flavor (shrunk toward E like p_Shrink_n10); skipped
+    # when the decayed columns are absent.
     for hl in LUT_RECENCY_HALF_LIVES:
         wcol, whcol = f"w{hl}", f"wh{hl}"
         if wcol in df.columns and whcol in df.columns:
@@ -627,11 +549,7 @@ class LeakageReport:
 
 
 def assert_no_leakage(df: pd.DataFrame, hours_before_close: int = 4) -> LeakageReport:
-    """Hard asserts for walk-forward correctness. Raises on any violation.
-
-    Required columns: market_date, asof_date (EMOS), local_date (LUT, may be NaT for cold start),
-    entry_ts_unix, close_ts_unix.
-    """
+    """Hard asserts for walk-forward correctness."""
     md = pd.to_datetime(df["market_date"])
     emos_asof = pd.to_datetime(df["asof_date"])
     lut_local = pd.to_datetime(df["local_date"])
@@ -654,29 +572,11 @@ def assert_no_leakage(df: pd.DataFrame, hours_before_close: int = 4) -> LeakageR
     return LeakageReport(n_rows=len(df), emos_violations=0, lut_violations=0, entry_violations=0)
 
 
-# --------------------------------------------------------------------------- evaluate config (the function ce:optimize calls)
+# --------------------------------------------------------------------------- evaluate config
 
 def evaluate_config(df: pd.DataFrame, config: dict, train_end: str = "2026-04-04",
                     test_end: str = "2026-05-02") -> dict:
-    """Evaluate one strategy config against the decision table.
-
-    Config keys:
-        side: 'YES' or 'NO'
-        signal: one of SIGNAL_COLUMNS (e.g. 'p_E', 'p_L_loose', ...)
-        min_edge: float
-        max_edge: float
-        min_fill_price: float (YES = max acceptable yes_price; NO = min acceptable no_price)
-        max_fill_price: float (optional, default 1.0 for YES, 1.0 for NO upper bound)
-        bracket_kind: 'low'|'mid'|'high'|'all' (optional, default 'all')
-        min_liquidity: float (optional, default 0)
-        min_lut_n: int (optional, default 0; filters rows where n_cum < min_lut_n)
-        min_alpha_ratio: float (optional, default 0; require p >= alpha * fill_price.
-            For YES: p >= alpha * yes_price. For NO: (1-p) >= alpha * no_price.
-            Use this for cheap-tail betting where additive edge is uninformative.)
-
-    Returns dict of metrics: train_pnl, test_pnl, train_n, test_n, train_sharpe, test_sharpe,
-    train_win_rate, test_win_rate, train_avg_edge.
-    """
+    """Evaluate one strategy config against the decision table."""
     side = config["side"]
     sig = config["signal"]
     min_edge = float(config["min_edge"])
@@ -731,11 +631,7 @@ def evaluate_config(df: pd.DataFrame, config: dict, train_end: str = "2026-04-04
     if entry_h is None:
         not_leakage = ~np.isnan(entry_ts)
     else:
-        # Force seconds explicitly — `astype("int64") // 10**9` assumes the
-        # underlying datetime64 unit is nanoseconds (true on pandas <=2.x but
-        # NOT on pandas 3.x where the default is microseconds), which silently
-        # collapsed this leakage gate. See live_match_eval.py:349 for the same
-        # fix.
+        # datetime64[s]: pandas 3 defaults to microseconds.
         md_unix = pd.to_datetime(df["market_date"]).astype("datetime64[s]").astype("int64").to_numpy()
         not_leakage = ~np.isnan(entry_ts) & (entry_ts >= md_unix)
     sel = (edge >= min_edge) & (edge <= max_edge) & fp_ok & alpha_ok & ~np.isnan(p) & price_ok & not_leakage
@@ -750,9 +646,7 @@ def evaluate_config(df: pd.DataFrame, config: dict, train_end: str = "2026-04-04
     is_train = (md >= "2026-02-04") & (md <= train_end)
     is_test = (md > train_end) & (md <= test_end)
 
-    # Honest-reporting inputs (Phase 2): claimed P(win), realized win, per-bet
-    # stake. For a YES bet claimed=p, stake=yes_price; for a NO bet claimed=1-p,
-    # stake=no_price. `won` is whether the bet's side resolved in the money.
+    # For honest_report: claimed P(win), won, stake per bet (side-aware).
     won_yes = df["won_yes"].to_numpy()
     if side == "YES":
         claimed = p.astype(float)
@@ -775,15 +669,7 @@ def evaluate_config(df: pd.DataFrame, config: dict, train_end: str = "2026-04-04
 def _metrics(pnl: np.ndarray, edge: np.ndarray, sel: np.ndarray, prefix: str,
              claimed: np.ndarray | None = None, won: np.ndarray | None = None,
              staked: np.ndarray | None = None) -> dict:
-    """Summarize a selected slice.
-
-    Existing keys ({prefix}n/pnl/sharpe/win_rate/avg_edge) are preserved for
-    backward compatibility. When claimed/won/staked are supplied, honest keys
-    are APPENDED: win-rate SE, mean claimed P(win) vs realized frequency,
-    overconfidence (pp), per-stake ROS, and a compact reliability table. This is
-    what makes model overconfidence and the razor-thin ROS margin visible in
-    every summary, not just PnL.
-    """
+    """Summarize a selected slice."""
     n = int(sel.sum())
     if n == 0:
         base = {f"{prefix}n": 0, f"{prefix}pnl": 0.0, f"{prefix}sharpe": 0.0,

@@ -1,28 +1,9 @@
-"""STAGE 2: neighbor-augmented ML forecast models vs the EMOS+blend pipeline.
+"""Do neighbor-augmented ML forecasts beat EMOS ``p_E`` on walk-forward trading
+metrics? The ML only replaces the probability; gate, calibration and fills are
+the same as sweep_calibrated_gate.py. Features use data through D−1 only.
+(Live ERA5 lags ~5 days, so the D−5 ablation is the live-feasible bound.)
 
-ONE question: do neighbor-ML bracket probabilities beat the current EMOS ``p_E``
-on WALK-FORWARD TRADING metrics, under the *identical* calibrated-gate protocol
-used by ``sweep_calibrated_gate.py`` (blend refit per window, gate 0.04 / cap
-0.15, fee 0.05*p*(1-p), $10 flat, honest_report metrics)?
-
-The ML replaces only the probability engine: for each decision-table bracket row
-we compute ``p_ML = P(lo_c <= Tmax < hi_c)`` under a leak-free predictive
-distribution, then feed ``claimed = 1 - p_ML`` through the SAME blend + gate
-machinery (imported from sweep_calibrated_gate). CONTROL is the untouched
-``p_E``.
-
-Leak-safety:
-  * features per (station, target_date) use only the h1 ensemble issued for
-    target_date and all obs strictly <= target_date - 1.
-  * trading eval: p_ML for a decision-table row comes from a model trained on
-    target_dates strictly before that row's ABCD window start (A/B/C/D).
-  * forecast eval: expanding monthly refit (train strictly before each month).
-
-Deployment caveat (flagged, not fixed here): live ERA5 has a ~5-day lag, so the
-D-1/D-2 neighbor columns are NOT live-feasible without a real-time obs feed. The
-"D-5 neighbors" ablation shows the live-feasible-with-ERA5 lower bound.
-
-Usage:  python backtest/scripts/explore_ml_neighbors.py [--stage all|features|trade|forecast]
+    python backtest/scripts/explore_ml_neighbors.py [--stage all|features|trade|forecast]
 """
 from __future__ import annotations
 
@@ -284,9 +265,8 @@ def bracket_prob_quant(lo, hi, qpreds):
 
 # --------------------------------------------------------------------------- p_ML for decision table
 def compute_pml_for_decision(feat, model="M1", neighbors=True, era5_lag="D1"):
-    """Return DataFrame(row_idx-> p_ML) for every decision-table row, leak-free:
-    each row uses a model trained on target_dates strictly before its ABCD window
-    start. Also returns per-station-day (mu,sig) for diagnostics."""
+    """Return DataFrame(row_idx-> p_ML) for every decision-table row, leak-free: each
+    row uses a model trained on target_dates strictly before its ABCD window start."""
     dec = pd.read_parquet(DECISION, columns=["station_id", "market_date",
                                              "bracket_index", "lo_c", "hi_c"])
     dec = dec.reset_index().rename(columns={"index": "row_idx"})

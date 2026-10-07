@@ -1057,11 +1057,7 @@ def variants() -> list[Variant]:
         ),
     ]
 
-    # Recency-weighted LUT flavor variants (plan 2026-05-29-002 U3). Each mirrors
-    # the current champion profile (selected L2 profile + TAIL alpha 4.0 / fp_max
-    # 0.03 / consensus 0.40 + NO 0.05 / TAIL 0.07 edges + 10c premium guard) and
-    # only swaps the calibration signal to the recency flavor, so the walk-forward
-    # compares them head-to-head with sel_taila40_fp03_cs40.
+    # Champion profile with only the calibration signal swapped to a recency flavor.
     champion_tail_params = set_config_tail_params(alpha=4.0, fp_max=0.03, consensus=0.40)
     recency_checks: list[Variant] = []
     for hl in (15, 30):
@@ -1200,9 +1196,7 @@ def main() -> None:
     )
     bet_cache = {json.dumps(config, sort_keys=True): base_bets}
 
-    # Recency variants (plan 2026-05-29-002 U3) need the p_Recency_h{hl} columns,
-    # which only exist after a decision-table rebuild on the updated sweep_lib.
-    # Self-disable them when absent so the sweep stays runnable on an older parquet.
+    # Skip recency variants if the decision table predates those columns.
     cols = set(df.columns)
     active_variants = []
     skipped_recency: list[str] = []

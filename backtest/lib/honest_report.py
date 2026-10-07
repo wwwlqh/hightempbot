@@ -1,32 +1,8 @@
-"""Honest backtest reporting + per-bet record persistence.
+"""Honest per-bet metrics and per-bet parquet persistence.
 
-Phase 2 (2026-07-16). The backtest engine historically summarized a config or
-variant by bankroll PnL alone. That single number hid three failure modes that
-later bit live trading:
-
-1. Model overconfidence — the champion claimed a mean NO-win probability of
-   ~0.941 while realizing ~0.895 in-sample (+4.6pp too confident). PnL alone
-   never showed the gap.
-2. A razor-thin ROS margin over breakeven (~+5%) that PnL magnitude masked.
-3. A degrees-C vs degrees-F asymmetry: the same config that earned on F markets
-   bled on C markets. A blended PnL averaged the two into a positive headline.
-
-This module computes, from a per-bet stream, the metrics that make those risks
-visible and ALWAYS reports them alongside PnL:
-
-  - n bets, win rate +/- standard error
-  - mean claimed P(win) vs realized frequency (overconfidence in pp)
-  - per-stake ROS = PnL / total staked
-  - max drawdown (of the slice's own cumulative-PnL curve, in dollars)
-  - a compact reliability table (claimed-prob bin x realized freq x n)
-
-...each split by strategy (NO / TAIL / ...) and by bracket unit (C / F).
-
-It also persists the raw per-bet stream to parquet so future live-vs-backtest
-joins (see scripts/shadow_replay.py) are possible.
-
-Kept deliberately dependency-free within the package (only numpy / pandas /
-stdlib) so any evaluator can import it without creating an import cycle.
+PnL alone hid model overconfidence, a thin return on stake and a °C/°F split.
+For any bet stream this reports, by strategy and by unit: n, win rate ± SE,
+claimed vs realized probability, ROS, max drawdown and a reliability table.
 """
 from __future__ import annotations
 
@@ -37,9 +13,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-# Canonical per-bet record schema. New columns are APPENDED here; never rename
-# an existing one (downstream parquet consumers and shadow_replay depend on the
-# names). entry_ts is a Unix-seconds int64.
+# Per-bet record columns. Append only; shadow_replay reads these names.
 BET_COLUMNS = [
     "period",         # replay period / chunk label (e.g. "A", "B-D", "TRAIN")
     "strategy",       # NO / TAIL / YMID / YHIGH
@@ -63,20 +37,14 @@ BET_COLUMNS = [
     "row_idx",        # decision-table row index (debug / re-join)
 ]
 
-# Reliability bins over claimed P(win). Fine near the extremes because the NO
-# sleeve lives at ~0.90-0.99 claimed and the TAIL sleeve at ~0.90-0.99 too
-# (cheap YES tails whose model prob is the vote average). Right edge inclusive.
+# Claimed-probability bins, finer near 0.9–1.0 where the bets are.
 DEFAULT_BINS = (0.0, 0.02, 0.05, 0.10, 0.25, 0.50, 0.75, 0.90, 0.95, 0.99, 1.0)
 
 _UNIT_RX = re.compile(r"[CF]")
 
 
 def unit_from_label(label) -> str:
-    """Return 'C' or 'F' (or '?' if unknown) from a Polymarket bracket label.
-
-    US stations quote 2F ranges; everyone else quotes 1C. The unit letter is
-    always present in the label (e.g. 'between 70-72F', '21C', '16C or below').
-    """
+    """Return 'C' or 'F' (or '?' if unknown) from a Polymarket bracket label."""
     if label is None:
         return "?"
     m = _UNIT_RX.search(str(label).upper())
@@ -92,12 +60,7 @@ def proportion_se(k: int, n: int) -> float:
 
 
 def _max_drawdown_abs(pnls_in_order: np.ndarray) -> float:
-    """Max peak-to-trough dollar drawdown of a cumulative-PnL curve starting 0.
-
-    This is the drawdown of *this slice's own* contribution replayed in entry
-    order, NOT a re-simulated bankroll. For the true portfolio bankroll DD (%),
-    pass the simulator's value into summarize(portfolio_dd_pct=...).
-    """
+    """Max peak-to-trough dollar drawdown of a cumulative-PnL curve starting 0."""
     if len(pnls_in_order) == 0:
         return 0.0
     cum = np.concatenate([[0.0], np.cumsum(pnls_in_order)])
@@ -106,11 +69,7 @@ def _max_drawdown_abs(pnls_in_order: np.ndarray) -> float:
 
 
 def reliability_table(records: list[dict], bins=DEFAULT_BINS) -> list[dict]:
-    """Bucket bets by claimed P(win); report realized frequency and n per bin.
-
-    Each row: {bin_lo, bin_hi, n, claimed_mean, realized_freq, gap_pp}. Bins
-    with no bets are omitted to keep the table compact.
-    """
+    """Bucket bets by claimed P(win); report realized frequency and n per bin."""
     if not records:
         return []
     claimed = np.array([float(r["claimed_p"]) for r in records], dtype=float)
@@ -186,13 +145,7 @@ def _group(records: list[dict], key) -> dict[str, list[dict]]:
 
 def summarize(records: list[dict], *, portfolio_dd_pct: float | None = None,
               bins=DEFAULT_BINS) -> dict:
-    """Full honest summary of a per-bet stream.
-
-    Returns overall metrics plus splits by strategy, by bracket unit, and by
-    strategy x unit. portfolio_dd_pct (from the bankroll simulator) is echoed as
-    the authoritative path drawdown; the per-slice max_dd_abs is a diagnostic on
-    that slice's isolated cumulative PnL.
-    """
+    """Full honest summary of a per-bet stream."""
     summary = {
         "overall": slice_metrics(records, bins),
         "by_strategy": {
@@ -218,12 +171,7 @@ def summarize(records: list[dict], *, portfolio_dd_pct: float | None = None,
 # --------------------------------------------------------------------------- meta join
 
 def attach_meta(records: list[dict], df: pd.DataFrame) -> list[dict]:
-    """Fill station / bracket bounds / unit onto each record via its row_idx.
-
-    Mutates and returns `records`. Safe to call once per replay. Fields that are
-    already present are overwritten with the decision-table values so the
-    persisted stream is authoritative.
-    """
+    """Fill station / bracket bounds / unit onto each record via its row_idx."""
     if not records:
         return records
     station = df["station_id"].to_numpy()
@@ -255,12 +203,7 @@ def attach_meta(records: list[dict], df: pd.DataFrame) -> list[dict]:
 # --------------------------------------------------------------------------- persistence
 
 def persist_bets(records: list[dict], path: str | Path, *, period: str | None = None) -> Path:
-    """Write the per-bet stream to a parquet at `path`.
-
-    pandas 3 defaults datetime64 to microseconds; we store entry_ts as int64
-    Unix seconds (no datetime column) so there is no unit-drift to guard. All
-    BET_COLUMNS are written; missing keys become NA.
-    """
+    """Write the per-bet stream to a parquet at `path`."""
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     rows = []

@@ -1,43 +1,8 @@
-"""Two-sided, all-bracket calibrated-edge ATLAS for the Polymarket weather bot.
+"""Map walk-forward, real-fill calibrated edge for every (side, price band, unit)
+cell, with a multiplicity screen. Uses the same ABCD protocol and market-aware
+calibration as sweep_calibrated_gate.py. Read-only; prints a report and writes CSVs.
 
-The definitive map of where tradeable edge exists across every
-(bracket, side, price-band, unit) so both YES and NO strategies can be designed
-from one framework. READ-ONLY on src/ and backtest/lib. Writes only stdout +
-scratchpad CSVs. No server, no commits.
-
-WHAT THIS ANSWERS
-  - For every (side in {YES,NO}) x (price-band) x (unit in {C,F}) cell: how much
-    honest, walk-forward, real-fill edge is there?
-  - Which cells are REAL vs spurious under multiplicity discipline (~28 cells).
-  - The four never-under-blend questions: YMID (YES 0.10-0.50), YHIGH (YES
-    0.50-0.90), NO mid (0.25-0.75), NO near-cert (0.90-0.99).
-  - "Would YES bet better?" — a plain verdict consistent with the settled
-    adverse-selection + market-informativeness findings.
-
-PROTOCOL (identical machinery to sweep_calibrated_gate.py)
-  * ABCD expanding chunks by market_date (np.array_split into 4). B,C,D are the
-    OOS evaluation windows; each cell/gate is fit STRICTLY on data before the
-    window it is scored in.
-  * Calibration: per (side, unit) group a market-aware logit blend
-    calibrated = sigmoid(b0 + b1*logit(model_claim) + b2*logit(price)) refit each
-    window on prior data (hightempbot.calibration.reliability.fit_blend). The
-    degeneracy guard (blend_degenerate_reason) status is REPORTED per window; for
-    the atlas map the direct fitted blend is applied (so the real market-aware
-    calibrated probability is visible even where price dominates), and the
-    champion gate-replay additionally uses the guard+fallback exactly.
-  * Model claim: P(YES)=p_E ; P(NO)=1-p_E. Price: yes_price / no_price (mids;
-    yes+no==1 exactly). Fill: walk the nearest-book L2 ask ladder for a $10 order
-    where it fills >=$9.99; else mid + half(entry_spread) haircut. Source labeled.
-  * fee = 0.05*p*(1-p) at the FILL price. PnL@$10 net of entry fee.
-
-MULTIPLICITY: a cell is claimed positive only if realized EV/$ is (a) positive in
->=2 of 3 OOS windows, (b) >= 1.5x its SE, (c) still positive on the L2-fill-only
-subset (survives real fills), and (d) has a mechanistic story (author-supplied in
-the report). Cells failing any are reported as noise.
-
-Usage:
-    python backtest/scripts/edge_atlas.py \
-        --parquet backtest/data/decision_table_may11plus_l2.parquet
+Result: no tradeable cell outside NO favorites.
 """
 from __future__ import annotations
 
@@ -357,15 +322,7 @@ def build_atlas(cells):
 
 
 def classify(cell):
-    """Multiplicity discipline. Returns (verdict, reasons).
-
-    A cell is a REAL candidate only if realized EV/$ is positive AND survives
-    (a) >=2/3 OOS windows, (b) EV/SE>=1.5, (c) still >0 on L2-fill subset, and
-    (d) the model can actually SELECT it -- mean calibrated edge > 0. A cell with
-    positive realized EV but non-positive calibrated edge is untradeable: no
-    positive-edge gate would ever fire on it, so the realized win is unharvestable
-    luck, not a signal.
-    """
+    """Multiplicity discipline."""
     reasons = []
     ev = cell["ev_pd"]
     if ev <= 0:
@@ -387,9 +344,7 @@ def classify(cell):
 # --------------------------------------------------------------------------- gate replay
 def gate_replay(cells, *, side, bands, unit, min_cal_edge, max_cal_edge=math.inf,
                 price_mode="fill", label=""):
-    """Honest OOS gate: fire on cells matching side/unit/band with cal_edge in
-    [min,max]. price_mode 'fill' = real L2/haircut fill (default); 'mid' = the
-    champion sweep's mid entry. Returns slice_metrics dict + per-window."""
+    """Honest OOS gate: fire on cells matching side/unit/band with cal_edge in [min,max]."""
     edge_col = "cal_edge" if price_mode == "fill" else "mid_cal_edge"
     pnl_col = "pnl10" if price_mode == "fill" else "pnl10_mid"
     price_col = "fill" if price_mode == "fill" else "mid"

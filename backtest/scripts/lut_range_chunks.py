@@ -1,15 +1,8 @@
-"""Candidate #1 LUT-range chunk diagnostic.
+"""Replay the strategy on four chunks, betting only when the LUT hit rate is in a
+given range, to see whether any range is more robust. Also holds the shared
+ABCD chunk helpers.
 
-Sweeps contiguous ranges of the walk-forward LUT observed hit rate
-(`hits_cum / n_cum`) and replays Candidate #1 on four chronological chunks.
-
-The goal is not to optimize a new strategy in the old broad-search sense. It is
-to answer one narrow question: does Candidate #1 get more robust if we only bet
-when the row's LUT-observed YES probability falls inside a particular range?
-
-Run:
-    python backtest/lut_range_chunks.py
-    python backtest/lut_range_chunks.py --step 0.02 --top 25
+    python backtest/scripts/lut_range_chunks.py [--step 0.02] [--top 25]
 """
 from __future__ import annotations
 

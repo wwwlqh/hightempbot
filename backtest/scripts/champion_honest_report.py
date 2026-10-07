@@ -1,26 +1,8 @@
-"""Champion honest-report + per-bet persistence driver (Phase 2, 2026-07-16).
+"""Replay the champion over chunks A–D, print the honest report and save the
+per-bet stream for shadow_replay.py (fixed = A–D, OOS = B–D).
 
-Replays the L2-depth champion (candidate_l2_depth.json, the committed
-`sel_taila40_fp03_cs40` profile) over the four chronological chunks A/B/C/D at
-the ranking bankroll and reports, alongside PnL:
-
-  - n bets, win rate +/- SE
-  - mean claimed P(win) vs realized frequency (overconfidence, pp)
-  - per-stake ROS
-  - reliability table (claimed bin x realized freq x n)
-  - the C-vs-F asymmetry (bracket-unit split)
-
-It also PERSISTS the per-bet stream so live-vs-backtest joins are possible
-(scripts/shadow_replay.py). Fixed = A-D; OOS = B-D.
-
-Why this exists: `measure_tp_sl.py` uses a Feb-Apr / Apr-May TRAIN/TEST split.
-The champion headline (+$464 fixed / +$252 OOS) came from the L2-depth ABCD
-chunk replay, so this driver reproduces THAT harness while adding honest metrics.
-
-Usage:
-    python backtest/scripts/champion_honest_report.py            # champion as configured
-    python backtest/scripts/champion_honest_report.py --immediate-tail   # committed methodology
-    HTB_DUMP_BETS=0 python backtest/scripts/champion_honest_report.py     # skip parquet dump
+    python backtest/scripts/champion_honest_report.py [--immediate-tail]
+    HTB_DUMP_BETS=0 python backtest/scripts/champion_honest_report.py   # don't save bets
 """
 from __future__ import annotations
 

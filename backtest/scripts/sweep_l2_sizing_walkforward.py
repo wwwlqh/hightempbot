@@ -225,11 +225,7 @@ def simulate_window(
     chunk_lookup: Callable[[str], str | None] | None = None,
     bet_log: list | None = None,
 ) -> dict:
-    """Mirror measure_tp_sl.simulate while also tracking exposure diagnostics.
-
-    bet_log: when a list is passed, every executed bet appends one honest
-    per-bet record (backtest/lib/honest_report.py::BET_COLUMNS). Additive only.
-    """
+    """Mirror measure_tp_sl.simulate while also tracking exposure diagnostics."""
     capital = cfg.initial_bankroll_usd
     peak = capital
     pnl_list: list[float] = []

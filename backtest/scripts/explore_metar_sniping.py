@@ -1,16 +1,6 @@
-"""Feasibility backtest: METAR "observation sniping" for Polymarket daily-high markets.
-
-Quantifies the edge from buying NO on a provably-dead bracket (running observed
-max already above the bracket's upper bound) or YES on the post-peak leading
-bracket, when the thin 10-min market has not yet repriced.
-
-READ-ONLY on src/ and backtest/lib. Data sources:
-  - backtest/data/polymarket_history.db  (markets, prices[10-min mid], metrics)
-  - backtest/data/decision_table_may11plus_l2.parquet (bracket bounds, actual, won_yes)
-  - <scratchpad>/metar_{ICAO}.csv  (IEM ASOS tmpf, UTC-stamped, degF)
-
-Prints a dense report to stdout; writes event-level CSVs to the scratchpad.
-No server access. No writes outside scratchpad.
+"""Can we profit from the market lagging live METAR observations (buy NO on a
+bracket already exceeded, or YES on the post-peak leader)? Read-only; prints a
+report and writes event CSVs.
 """
 from __future__ import annotations
 

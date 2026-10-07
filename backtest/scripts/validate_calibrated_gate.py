@@ -1,50 +1,9 @@
-"""Offline validation: raw NO gate vs 1D-calibrated vs market-aware blend.
+"""Replay the NO gate with raw, 1D-isotonic and market-aware blend calibration
+(°F only and both units) and check which closes the over-confidence on the bets
+that actually fire without killing return on stake.
 
-Replays the backtest decision table through the live NO gate arithmetic under
-three claimed-probability transforms and reports, per variant, whether the
-transform closes the gate's over-confidence (claimed ≈ realized *on the bets
-that actually fire*) without destroying return-on-stake:
-
-    raw    — the model's raw claim ``1 - p_E`` (no calibration).
-    1d     — 1D isotonic claimed->realized (selection-conditional; cannot close
-             the gate's over-confidence — see below).
-    blend  — market-aware logit blend
-             ``sigmoid(b0 + b1*logit(claimed) + b2*logit(no_price))``, which
-             estimates ``P(NO wins | model claim, market NO price)``.
-
-6 variants: {raw, 1d, blend} × {°F-only, both-units}.
-
-Why the blend: a 1D claimed->realized curve is SELECTION-CONDITIONAL. Over the
-full candidate population claimed ≈ realized (gap ~0.5pp), but the gate fires
-exactly where the model DISAGREES with the market, and there the market carries
-information the model lacks (fired-slice claimed 0.969 vs market NO 0.847 vs
-realized 0.899). A 1D curve trained on the population maps claimed->~claimed on
-that slice and leaves the over-confidence intact. Adding ``logit(no_price)`` as a
-second feature lets the calibrator pull the claim toward the market.
-
-Gate replayed (mirrors src/hightempbot/decision/strategies._evaluate_no_branch
-+ the NO StrategyConfig):
-    * fill price = ``no_price`` (the price paid to buy NO).
-    * common pre-filters: n_cum >= 30 (LUT cold-start), avg_volume >= 50.
-    * strict: price in [0.75, 1.0], edge = claimed - price - fee in [0.090, 0.15].
-    * ceiling extension (bracket_kind == 'high'): price in [0.50, 1.0], claimed
-      from ``1 - p_B_50``, edge in [0.090, 0.35]; only when strict missed.
-    * fee = 0.05 * price * (1 - price) (Polymarket taker fee per share).
-
-Both curves are fit *in-sample* on this same decision table over ALL candidates
-(claimed in [0.70, 1.0]) — NOT on the fired slice — and then VALIDATED on the
-fired slice. That is the honest test: fitting on all candidates and scoring on
-the bets the gate actually opens. The blend's degenerate guardrail
-(price-weight > 0.90, or wrong-signed slopes) is reported per group.
-
-The load-bearing result is the °F blend fired slice: does its calibrated claim
-match realized (rel-gap <= ~3pp) at ROS >= +6% without n collapsing below ~50?
-If the blend shrinks edge so much that almost nothing fires, that is itself the
-finding — the raw "edge" was mostly miscalibration.
-
-Usage:
-    python backtest/scripts/validate_calibrated_gate.py \
-        --parquet backtest/data/decision_table_may11plus_l2.parquet
+The 1D curve can't: the gate fires where the model disagrees with the market,
+and there the market price carries information. The blend adds it as a feature.
 """
 
 from __future__ import annotations
@@ -120,12 +79,7 @@ def fit_curves(df) -> dict[str, ReliabilityCurve]:
 
 
 def fit_blend_curves(df) -> dict[str, ReliabilityCurve]:
-    """Fit one market-aware logit-blend curve per group over ALL candidates.
-
-    Fit population = every candidate with claimed in [0.70,1.0] and a valid NO
-    price (0,1) — NOT the fired slice. The fired-slice scoring in ``replay`` is
-    the honest out-of-selection test.
-    """
+    """Fit one market-aware logit-blend curve per group over ALL candidates."""
     triples: dict[str, list[tuple[float, float, float]]] = {"NO_F": [], "NO_C": []}
     for label, p_yes, won_yes, no_price in zip(
         df["bracket_label"], df["p_E"], df["won_yes"], df["no_price"], strict=False
@@ -148,11 +102,7 @@ def fit_blend_curves(df) -> dict[str, ReliabilityCurve]:
 
 
 def replay(df, curves, blend_curves, *, mode: str, f_only: bool) -> dict:
-    """Replay the NO gate over the decision table; return fired-slice metrics.
-
-    ``mode`` selects the claimed transform: ``"raw"`` (identity), ``"1d"`` (1D
-    isotonic; ignores price), ``"blend"`` (market-aware logit blend; needs price).
-    """
+    """Replay the NO gate over the decision table; return fired-slice metrics."""
     def transform(group: str, claimed_raw: float, price: float) -> float:
         if mode == "raw":
             return claimed_raw

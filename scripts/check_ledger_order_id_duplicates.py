@@ -1,14 +1,9 @@
-"""Pre-deploy check: report duplicate `order_id` rows in the `ledger` table.
+"""Report duplicate ``order_id`` rows in the ledger. ``init_db`` won't start
+while duplicates exist.
 
-Run this BEFORE applying `db/migrations/2026_05_13_ledger_order_id_unique.sql`.
-If duplicates exist, the migration's CREATE UNIQUE INDEX will fail.
-
-Usage:
     python scripts/check_ledger_order_id_duplicates.py /path/to/hightempbot.db
 
-Exit code:
-    0 - no duplicates; migration is safe to apply.
-    1 - duplicates found; review the report and reconcile before migrating.
+Exit 0: none. Exit 1: duplicates found.
 """
 
 from __future__ import annotations

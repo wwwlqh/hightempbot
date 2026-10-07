@@ -1,16 +1,8 @@
-"""Server-side Gamma discovery for daily-temperature markets (Jun-Aug 2026).
+"""Discover daily-temperature markets via per-(city, date) Gamma slug lookups and
+write them in the polymarket_history.db ``markets`` schema. Was run on the
+server because Gamma was unreachable from the dev machine.
 
-Runs ON THE ORACLE SERVER (gamma-api.polymarket.com is unreachable from the
-Windows dev box). Uses per-(city,date) `?slug=` lookups because
-`/events?tag_slug=...&offset=` is hard-capped at offset 2100 and only reaches
-Feb-Apr 2026.
-
-Writes a slim sqlite with the same `markets` schema as
-backtest/data/polymarket_history.db so it can be merged locally.
-
-Usage (on server):
-    python3.11 discover_gamma_events_server.py --start 2026-06-01 --end 2026-08-08 \
-        --out /tmp/pmd_discovery.db
+    python3.11 discover_gamma_events_server.py --start 2026-06-01 --end 2026-08-08 --out /tmp/pmd_discovery.db
 """
 from __future__ import annotations
 

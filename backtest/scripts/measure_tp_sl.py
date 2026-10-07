@@ -1,31 +1,8 @@
-"""TP/SL measurement harness with realistic exit modeling and bankroll sweep.
+"""Bankroll simulator with TP/SL exits (per-snapshot spread, exit impact) over a
+bankroll grid. Prints one JSON line: train/test PnL and drawdown overall, per
+strategy and per bankroll.
 
-Improvements over v1:
-1. Per-snapshot spread (from metrics table) instead of fixed 0.005 haircut
-2. Walk-book impact on exit (linear impact above 5% of liquidity, mirroring entry)
-3. Bankroll grid: $100, $300, $500, $1k, $10k, $100k in one run
-
-Output (single-line JSON on stdout):
-{
-  "train_pnl":   <BR1000 train pnl, used by ce-optimize for ranking>,
-  "test_pnl":    <BR1000 test pnl>,
-  "train_dd":    <BR1000>, "test_dd": <BR1000>,
-  "total_n_train": ..., "total_n_test": ...,
-  "no_pnl_train": ..., "no_pnl_test": ...,
-  "ymid_pnl_train": ..., "ymid_pnl_test": ...,
-  "tail_pnl_train": ..., "tail_pnl_test": ...,
-  "results_by_bankroll": {
-    "BR100":   {train_pnl, test_pnl, train_dd, test_dd, train_return_pct, test_return_pct, ...},
-    "BR300":   {...},
-    "BR500":   {...},
-    "BR1000":  {...},
-    "BR10000": {...},
-    "BR100000":{...}
-  },
-  "config": {...}
-}
-
-Run: python backtest/measure_tp_sl.py
+    python backtest/scripts/measure_tp_sl.py
 """
 from __future__ import annotations
 
@@ -384,11 +361,7 @@ def metrics_at(metrics_idx: dict, slug: str, ts: int) -> tuple[float, float, flo
 def find_exit_trigger(entry_price: float, entry_ts: int, close_ts: int,
                        prices: list[tuple[int, float]],
                        tp: float | None, sl: float | None) -> tuple[float, int, str] | None:
-    """First post-entry snapshot that crosses TP or SL threshold.
-
-    Returns (trigger_mid_price, exit_ts, reason) or None if held to close.
-    Caller applies walk-book on exit using metrics at exit_ts.
-    """
+    """First post-entry snapshot that crosses TP or SL threshold."""
     if tp is None and sl is None:
         return None
     for ts, p in prices:
@@ -404,13 +377,7 @@ def find_exit_trigger(entry_price: float, entry_ts: int, close_ts: int,
 
 
 def exit_walk_book(stake_usd: float, mid: float, liquidity: float, spread: float) -> float:
-    """Realized per-share exit price when selling stake_usd worth of shares.
-
-    Mirrors entry walk-book but on the bid side:
-      bid_top   = mid - spread/2  (cross to bid)
-      no impact for first 5% of liquidity
-      linear impact above that, capped at 30% of bid_top per unit-of-liquidity consumed
-    """
+    """Realized per-share exit price when selling stake_usd worth of shares."""
     if mid < 1e-4:
         return 0.001
     if mid > 0.9999:
@@ -437,15 +404,7 @@ def simulate(bets, prices_by_ss, metrics_idx, df_records, cfg: LiveConfig,
              min_fill_ratio: dict[str, float] | None = None,
              max_l2_ask_premium: float | None = None,
              bet_log: list | None = None) -> dict:
-    """Sequential bet simulator with optional per-strategy capital fraction.
-
-    size_frac: {strat_name: fraction_of_capital} - if absent, uses cfg.max_bet_capital_frac.
-    max_stake: {strat_name: dollar_cap} - caps per-bet stake at high BR. Applied
-    AFTER frac sizing but BEFORE DD-halving and min_bet floor.
-    bet_log: when a list is passed, every executed bet appends one honest per-bet
-    record (see backtest/lib/honest_report.py::BET_COLUMNS) for calibration
-    reporting and live-vs-backtest joins. Purely additive; PnL is unchanged.
-    """
+    """Sequential bet simulator with optional per-strategy capital fraction."""
     size_frac = size_frac or {}
     max_stake = max_stake or {}
     min_fill_ratio = min_fill_ratio or {}
@@ -642,7 +601,7 @@ def main():
         cfg_br = _live_config_from_spec(config, br)
         max_stake = _stake_caps_for_bankroll(config, br)
         # Capture the honest per-bet stream only at the ranking bankroll so the
-        # calibration report reflects the same path ce-optimize ranks on.
+        # calibration report reflects the same path the ranking uses.
         capture = (br == RANKING_BR)
         tr = simulate(bets, prices_by_ss, metrics_idx, df_records, cfg_br,
                       tp_sl, TRAIN_START, TRAIN_END,
@@ -720,11 +679,7 @@ def main():
         }
         results_by_br[f"BR{int(br)}"] = rec
 
-    # ---------------------------------------------------------------- honest report
-    # Attach bracket meta, then compute calibration / ROS / reliability splits by
-    # strategy and by bracket unit at the ranking bankroll. Persist the per-bet
-    # streams for later live-vs-backtest joins (shadow_replay.py) unless the dump
-    # flag is turned off. This is a champion/final driver, so the dump defaults ON.
+    # Honest report at the ranking bankroll; save bets unless HTB_DUMP_BETS=0.
     hr.attach_meta(train_bet_log, df)
     hr.attach_meta(test_bet_log, df)
     for r in train_bet_log:
@@ -751,7 +706,7 @@ def main():
     honest["dumped_bet_files"] = dumped
 
     # Human-readable calibration block to STDERR so the stdout JSON stays a
-    # single line for ce-optimize.
+    # single JSON line.
     print(hr.render_text(honest["train"], f"HONEST REPORT - {variant} - TRAIN ({TRAIN_START}..{TRAIN_END})"),
           file=sys.stderr)
     print(hr.render_text(honest["test"], f"HONEST REPORT - {variant} - TEST ({TEST_START}..{TEST_END})"),
@@ -759,7 +714,7 @@ def main():
     if dumped:
         print(f"[honest] per-bet streams written: {dumped}", file=sys.stderr)
 
-    # Top-level uses RANKING_BR ($1000) for ce-optimize gate evaluation
+    # Top-level numbers use RANKING_BR ($1000)
     primary = results_by_br[f"BR{int(RANKING_BR)}"]
     out = {
         "train_pnl": primary["train_pnl"],

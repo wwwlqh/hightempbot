@@ -1,49 +1,9 @@
-"""Walk-forward sweep for the market-aware calibrated NO gate.
+"""Walk-forward sweep of the NO edge band behind the market-aware calibration.
 
-Answers one question: *what edge gate should replace the current 9pp NO gate?*
-
-Protocol (the project's expanding ABCD convention, ``date_chunks(md, 4)``):
-
-    A                fit-only  (no earlier chunk to fit a curve from)
-    B  fit on A      -> eval B
-    C  fit on A+B    -> eval C
-    D  fit on A+B+C  -> eval D
-
-For every evaluation window the market-aware logit blend
-``calibrated = sigmoid(b0 + b1*logit(claimed) + b2*logit(no_price))`` is refit
-**per group** (NO_F / NO_C) on *only the data strictly before the window*, then
-scored on the bets it fires *inside that window* — so the fired slice is always
-out of the fit's selection. A degeneracy guard (``blend_degenerate_reason``:
-b1>0, b2>=0, price_weight<=0.90) rejects a window's fit; on rejection we fall
-back to the last healthy curve for that group and note it. The 1D isotonic
-baseline is refit the same expanding way.
-
-The gate SWEEP varies only the edge band; the fill logic / pre-filters are held
-identical to ``validate_calibrated_gate.py`` so only the gate differs:
-
-    * entry/fill price   = ``no_price``
-    * pre-filters        = n_cum >= 30, avg_volume >= 50, price > 0
-    * strict path        = price in [0.75, 1.0], edge in [min_edge, strict_cap]
-    * ceiling extension  = bracket_kind == 'high', signal 1-p_B_50, price in
-                           [0.50, 1.0], edge in [min_edge, ceil_cap]; only when
-                           strict missed (mirrors the live gate exactly).
-    * edge               = calibrated - price - fee,  fee = 0.05*p*(1-p)
-    * min_edge  in {0.01, 0.015, 0.02, 0.025, 0.03, 0.04, 0.05}  (blend)
-    * cap       in {on (strict 0.15 / ceil 0.35), off (inf/inf)}
-    * units     in {F-only, C-only, both}
-    * stake     = $10 flat
-
-Baselines scored under the SAME walk-forward protocol:
-    * raw 9pp gate (transform=identity, edge in [0.090, 0.15]) — F-only & both
-    * 1D isotonic gate (refit per window)     — F-only & both
-
-Honest metrics per variant come from ``backtest/lib/honest_report.py``
-(read-only): n (+bets/day), win rate +/-SE, claimed-vs-realized (rel-gap),
-ROS, PnL@$10, maxDD proxy, per-window B/C/D breakdown, reliability table.
-
-Usage:
-    python backtest/scripts/sweep_calibrated_gate.py \
-        --parquet backtest/data/decision_table_may11plus_l2.parquet
+For each of B, C, D the per-unit logit blend is refit on earlier chunks only
+(falling back to the last healthy curve if the degeneracy guard rejects it),
+then each gate variant is scored on the bets it fires in that window. Fills
+and pre-filters match validate_calibrated_gate.py.
 """
 
 from __future__ import annotations
@@ -208,11 +168,7 @@ def fire_mask(*, transform: str, min_edge: float, strict_cap: float, ceil_cap: f
               units: str, base_ok: np.ndarray, price: np.ndarray, fee: np.ndarray,
               grp: np.ndarray, bracket_high: np.ndarray, pb50_ok: np.ndarray,
               claimed_strict: np.ndarray, claimed_ceil: np.ndarray):
-    """Return (fired, claimed_used) boolean/float arrays for one gate variant.
-
-    claimed_* are already the transformed (calibrated) claims for the strict
-    (1-p_E) and ceiling (1-p_B_50) signals under ``transform``.
-    """
+    """Return (fired, claimed_used) boolean/float arrays for one gate variant."""
     unit_ok = np.ones_like(base_ok)
     if units == "F":
         unit_ok = grp == "NO_F"

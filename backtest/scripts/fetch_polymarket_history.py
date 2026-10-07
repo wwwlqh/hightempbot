@@ -1,26 +1,8 @@
-"""Download 90 days of Polymarket history for WU-source stations into backtest/.
+"""Download Polymarket market metadata (Gamma) and 5-minute prices/metrics
+(polymarketdata.co) into ``backtest/data/polymarket_history.db``.
 
-Sources:
-  - Gamma API (public)            : event-slug -> 11 bracket market slugs
-  - polymarketdata.co API (paid)  : 5-min YES price + metrics history per market
-
-Output:
-  backtest/polymarket_history.db   (SQLite — markets, prices_5min, metrics_5min, fetch_log)
-  backtest/manifest.csv            (one row per market for quick inspection)
-
-Usage:
-    # Verify API key + slug + response shape on a single market first:
-    python backtest/fetch_polymarket_history.py --probe
-
-    # Full 90-day pull for all 46 WU stations:
-    python backtest/fetch_polymarket_history.py
-
-    # Custom window:
-    python backtest/fetch_polymarket_history.py --days 30
-    python backtest/fetch_polymarket_history.py --start 2026-02-01 --end 2026-04-30
-
-    # Resume after interruption — skips (market_slug, endpoint) already in fetch_log:
-    python backtest/fetch_polymarket_history.py --resume
+    python backtest/scripts/fetch_polymarket_history.py --probe       # check key on one market
+    python backtest/scripts/fetch_polymarket_history.py [--days 30 | --start D --end D] [--resume]
 """
 
 from __future__ import annotations
@@ -201,13 +183,7 @@ def init_db() -> sqlite3.Connection:
 # --------------------------------------------------------------------------- gamma
 
 def gamma_bulk_temperature_events(session: requests.Session, page_size: int = 100) -> list[dict]:
-    """Paginate Gamma /events to get ALL highest-temperature events.
-
-    Uses tag_slug=daily-temperature + closed=true for both archived states.
-    Recently-settled temperature events can be closed but not archived yet, and
-    excluding them makes the backtest miss live markets for those target dates.
-    Replaces ~4000 per-day lookups with paginated calls.
-    """
+    """Paginate Gamma /events to get ALL highest-temperature events."""
     by_slug: dict[str, dict] = {}
     for archived in ("true", "false"):
         offset = 0
@@ -409,12 +385,7 @@ WINDOW_DAYS = 7           # lead days before market_date; overridden by --window
 
 
 def pmd_get_paged(session, api_key, path, params, limiter):
-    """Follow PMD `metadata.next_cursor` pagination. Returns (pages, http_code, err).
-
-    PMD caps a page at 200 rows COUNTING BOTH SIDES for /prices (100 Yes + 100 No),
-    so without this the fetcher silently truncated every market to ~100 rows/side
-    (root cause of the "prices stop early" symptom, not an ingest gap).
-    """
+    """Follow PMD `metadata.next_cursor` pagination."""
     pages, code, err = [], 0, ""
     p = dict(params)
     p["limit"] = PAGE_LIMIT

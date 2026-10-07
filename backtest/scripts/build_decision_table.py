@@ -1,11 +1,7 @@
-"""Phase 1: build the leakage-safe decision table parquet.
+"""Build the leakage-safe decision table (walk-forward EMOS + LUT), asserting
+no leakage before writing ``backtest/data/decision_table_may11plus.parquet``.
 
-Walk-forward EMOS (calibration_params_history, asof_date <= market_date) and LUT
-(pred_bucket_history with local_date < market_date). Hard asserts before write.
-
-Output: backtest/data/decision_table_may11plus.parquet by default.
-
-Run: python backtest/build_decision_table.py
+    python backtest/scripts/build_decision_table.py
 """
 from __future__ import annotations
 
@@ -154,9 +150,7 @@ def main():
         mus.append(mu)
         sigmas.append(sigma)
     df["p_raw"] = p_raws
-    # Persist the Gaussian predictive params (plan 2026-05-29-002 U1 prereq): PIT
-    # = Phi((actual - mu)/sigma) and Gaussian CRPS need mu/sigma, which were
-    # previously computed here and discarded.
+    # Keep mu/sigma for PIT and CRPS.
     df["emos_mu"] = mus
     df["emos_sigma"] = sigmas
     df["p_raw_for_bucket"] = df["p_raw"]  # alias for lut_lookup_for_rows

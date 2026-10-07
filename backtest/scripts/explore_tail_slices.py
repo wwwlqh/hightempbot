@@ -1,25 +1,6 @@
-"""Data-forensics slice hunt on YES-side TAIL bets.
-
-Question: does ANY sub-population of cheap YES tails have real, walk-forward-honest
-positive edge, or is the sleeve EV<=0 everywhere?
-
-Read-only. Reproduces the deployed TAIL vote gate from
-backtest/configs/candidate_l2_depth.json (alpha 4.0, 4-of-4 votes, hour 1 local,
-consensus_skip 0.40, delayed entry to YES ask <= 2c, fee theta 0.05), then widens
-the population for statistical power and slices it every way the orchestrator asked:
-
-  (a) hot vs cold tail (bracket index relative to the model argmax bucket)
-  (b) entry hour + hours-to-resolution
-  (c) PRICE MOMENTUM into entry (1-min PMD series) -- the adverse-selection flip
-  (d) ask-depth at entry (thin vs thick, from the L2 ask ladder)
-  (e) model claim level (2-5% / 5-10% / 10-15% / >15%)
-  (f) vote dispersion across the 4 signals
-  (g) station unit C vs F
-
-Walk-forward honesty: ABCD chronological chunks (repo convention). Slice selection
-is done on A+B and scored on C+D. In-sample-only tables are labelled as such.
-
-Nothing here is committed or written outside stdout / the scratchpad.
+"""Does any slice of cheap YES tail bets have honest positive edge? Reproduces the
+deployed TAIL gate, widens the population, slices it (hot/cold tail, hour,
+momentum, depth, claim level, vote spread, unit), selects on A+B and scores on C+D.
 """
 from __future__ import annotations
 
@@ -56,10 +37,7 @@ def se_prop(k: int, n: int) -> float:
 
 
 def ev_per_dollar(win: np.ndarray, price: np.ndarray) -> np.ndarray:
-    """Net $ per $1 staked buying YES at `price`, matching the live fee model.
-
-    win : (1-p)/p - theta*(1-p)   ;   lose : -1 - theta*(1-p)
-    """
+    """Net $ per $1 staked buying YES at `price`, matching the live fee model."""
     fee_drag = THETA * (1.0 - price)
     winpay = (1.0 - price) / price - fee_drag
     losepay = -1.0 - fee_drag
@@ -169,11 +147,7 @@ def ask_depth_usd(ladder, max_price):
 
 
 def vwap_fill(ladder, budget_usd):
-    """Walk the ask ladder cheap->expensive up to budget_usd.
-
-    Returns (filled_usd, realized_vwap). This is the *executable* price for a
-    real order, in contrast to the 1-min PMD print (a mid / last trade).
-    """
+    """Walk the ask ladder cheap->expensive up to budget_usd."""
     acc_usd = 0.0
     acc_sh = 0.0
     for p, s in parse_ladder(ladder):

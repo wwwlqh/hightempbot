@@ -1,52 +1,7 @@
-"""Score the DEPLOYED champion config end-to-end at REAL FILLS.
-
-The operator's standing rule (2026-07-17) is "everything must be based on real
-depth". The settled champion sweep (``sweep_calibrated_gate.py``) and its live
-headline (+$522.75 / +6.16% ROS, n=849) were computed at the *displayed mid*
-(``no_price`` used as both the gate price AND the fill price). This script keeps
-the EXACT deployed decision gate but replaces the mid-fill with a walk of the
-REAL L2 ask ladder, so the number is what the shipped config would actually earn
-at executable prices.
-
-READ-ONLY on src/ and backtest/lib. This is the single new script the task
-allows. No server, no commits. Writes stdout + a scratchpad/results CSV.
-
-DEPLOYED CONFIG scored here (not a variant)
-  * NO-only. TAIL disabled 2026-07-17.
-  * Calibration with production guard semantics:
-      - NO_C: the SHIPPED static logit_blend curve from insert_no_c_curve.py
-        (file since deleted; see git history — coefficients inlined below)
-        coefs = [b0=+0.266862..., b1=+0.202719..., b2=+0.729295...]
-        (price_weight 0.782 -> passes the <=0.90 degeneracy guard).
-      - NO_F: IDENTITY (raw claim). Its blend is guard-refused OOS in every
-        window, so production runs °F raw. (A walk-forward-refit variant is
-        scored as a sensitivity: it reproduces the settled n=849 gate.)
-  * Gate (mirrors decision/strategies.py + sweep_calibrated_gate.fire_mask):
-      calibrated_edge = calibrated_P(NO) - no_price - fee(0.05*p*(1-p)) >= 0.04
-      strict path : bracket price in [0.75, 1.00], edge in [0.04, 0.15]
-      ceiling path: bracket_kind == 'high', signal 1 - p_B_50, price in
-                    [0.50, 1.00], edge in [0.04, 0.35]; fires only when strict
-                    missed.
-      pre-filters : n_cum >= 30, avg_volume >= 50, price > 0. Units F + C.
-
-WALKER (the real-depth part)
-  * For every gate-fired row we look up the row's real NO ask ladder at the
-    entry snapshot (production-parity ``ask_ladder_for_record``: the hour whose
-    ``entry_ts_h{h}`` == ``entry_ts_unix``) and walk it with the deployed
-    ``execution.walker.walk_book_edge_preserving`` -- consume ladder levels while
-    the realized-VWAP edge stays >= execution_min_edge = 0.05, using the
-    CALIBRATED prob as prob_safe_floor (deployed prob flow). target = $10 (and
-    $50 / $100 for depth sensitivity). max_walk_price = None (NO's config leaves
-    the walk bounded by the VWAP edge floor, not a price leash).
-  * A row with NO ladder is EXCLUDED from the primary metric (coverage reported)
-    and gets a SEPARATE mid + half-spread haircut approximation -- never blended
-    into the real-fill number.
-
-Metrics come from backtest/lib/honest_report.py (read-only).
-
-Usage:
-    python backtest/scripts/score_deployed_realfill.py \
-        --parquet backtest/data/decision_table_may11plus_l2.parquet
+"""Score the deployed NO config at real fills by walking the L2 ask ladder
+instead of filling at the displayed mid. NO_C uses the shipped logit-blend
+curve (coefficients below); NO_F runs raw. Read-only; prints a report and
+writes a CSV.
 """
 from __future__ import annotations
 
@@ -222,9 +177,9 @@ class Frame:
 
 
 def fit_wf_curves(fr: Frame, evalw):
-    """Expanding walk-forward blend fits per window (mirrors sweep exactly:
-    fit strictly before the window, degeneracy guard -> fall back to last
-    healthy curve; no prior healthy -> IDENTITY)."""
+    """Expanding walk-forward blend fits per window (mirrors sweep exactly: fit strictly
+    before the window, degeneracy guard -> fall back to last healthy curve; no prior
+    healthy -> IDENTITY)."""
     last_healthy = {"NO_F": [], "NO_C": []}
     fits = {}
     notes = []
@@ -255,11 +210,7 @@ def fit_wf_curves(fr: Frame, evalw):
 
 
 def gate_fire(fr: Frame, evalw, cal_mode: str, wf_fits=None):
-    """Return (fired_mask, calibrated_used) over the full frame (B+C+D only).
-
-    cal_mode: 'static' (shipped curve) or 'wf' (per-window refit). Mirrors
-    sweep_calibrated_gate.fire_mask with units='both', cap on.
-    """
+    """Return (fired_mask, calibrated_used) over the full frame (B+C+D only)."""
     fired = np.zeros(len(fr.md), dtype=bool)
     cal_used = np.full(len(fr.md), np.nan)
     for lab, s, e in evalw:

@@ -1,19 +1,8 @@
-"""LIVE-BOT-MATCHING evaluator with 4-strategy support.
+"""Candidate generator and execution model matching the live bot.
 
-Execution model mirrors src/hightempbot/execution/strategy_constants.py as closely as the
-historical market data allows:
-- Sizing: target_usd = capital × per-strategy size_frac; halve if DD ≥ MAX_DD
-- Fee: POLY_FEE_THETA × p × (1-p) — NOT flat percentage
-- DD halving at configured threshold; min bet $1; optional per-bankroll stake caps
-
-Four strategies that can be enabled independently:
-1. NO: p_E strict gate, p_B_50 ceiling-bracket extension
-2. YMID: p_Shrink_n50 alpha gate with optional TP/SL in measure_tp_sl.py
-3. TAIL: 4-vote cheap-tail consensus
-4. YHIGH: p_B_50 high-bracket favorite sniper
-
-Walk-forward integrity: all signals computed in build_decision_table.py
-with strict asof_date<=market_date (EMOS) and local_date<market_date (LUT).
+Strategies NO, YMID, TAIL and YHIGH can be enabled independently. Sizing is
+``capital × size_frac``, fees are ``θ·p·(1−p)``, and fills walk the real L2 ask
+ladder when one is available. Inputs come from the leakage-safe decision table.
 """
 from __future__ import annotations
 
@@ -59,9 +48,7 @@ class LiveConfig:
     yes_min_fill_price: float = 0.35
     yes_min_edge: float = -0.10
     yes_max_edge: float = -0.03
-    # Exposure caps (not enforced in this sim — assume always within limits)
-    # max_daily_notional_frac: float = 1.00
-    # max_pending_exposure_pct: float = 0.70
+    # Exposure caps are not simulated.
     # Signal source
     signal_col: str = "p_E"
     no_execution_min_edge: float | None = None
@@ -234,19 +221,7 @@ def simulate_walk_book(target_usd: float, displayed_price: float, liquidity: flo
                         min_bet_usd: float = 1.0,
                         entry_spread: float = 0.0,
                         ask_ladder=None) -> tuple[float, float, float] | None:
-    """Approximate live bot's walk_book_edge_preserving with a linear-impact model.
-
-    We don't have full order-book ladders historically — only a per-snapshot liquidity
-    scalar plus a snapshot bid-ask spread. Model:
-    1. The recorded yes_price/no_price is the MIDPRICE. Taker pays mid + half_spread.
-    2. From there, walking deeper into the book linearly increases VWAP.
-
-    Returns (filled_usd, vwap, realized_edge) or None if even min_bet_usd can't preserve edge.
-
-    signal_p semantics:
-      For NO bets: signal_p = (1 - p_model), displayed_price = no_price (mid)
-      For YES bets: signal_p = p_model, displayed_price = yes_price (mid)
-    """
+    """Approximate live bot's walk_book_edge_preserving with a linear-impact model."""
     if _parse_ladder(ask_ladder):
         return _walk_real_ask_ladder(
             target_usd, ask_ladder, signal_p, theta, min_edge, min_bet_usd
@@ -301,17 +276,8 @@ def simulate_walk_book(target_usd: float, displayed_price: float, liquidity: flo
 
 
 def candidates_under_live(df, cfg: LiveConfig):
-    """Yield (date, idx, side, p, fill_price, edge) for every row that passes
-    live gates as either a NO or a YES bet.
-
-    Uses entry-time metrics (entry_volume, entry_liquidity, entry_spread) snapshot
-    at bet decision time — NOT lifetime averages.
-
-    If cfg.entry_local_hour is set, uses per-hour price columns
-    (yes_price_h{H}/no_price_h{H}) instead of the default yes_price/no_price.
-    Volume/liquidity/spread metrics are still the default-snapshot values
-    (no per-hour metrics columns in the parquet).
-    """
+    """Yield (date, idx, side, p, fill_price, edge) for every row that passes live gates
+    as either a NO or a YES bet."""
     md = df["market_date"].to_numpy()
     hour = cfg.entry_local_hour
     yp, np_p, vol, _liq, _spr, entry_ts, not_leakage = _entry_arrays(df, hour)
@@ -513,13 +479,7 @@ def execution_min_edge_for_strategy(cfg: LiveConfig, strat: str) -> float:
 
 
 def _entry_arrays(df: pd.DataFrame, hour: int | None):
-    """Return price/metric arrays for one simulated entry hour.
-
-    For per-hour entries, use the matching per-hour metrics added by
-    build_decision_table.py. These columns are required for live parity:
-    silently falling back to the default entry metrics can reintroduce
-    future/lifetime metric leakage from stale parquets.
-    """
+    """Return price/metric arrays for one simulated entry hour."""
     if hour is None:
         yp_col, np_col, ts_col = "yes_price", "no_price", "entry_ts_unix"
         vol_col, liq_col, spr_col = "entry_volume", "entry_liquidity", "entry_spread"
@@ -543,12 +503,7 @@ def _entry_arrays(df: pd.DataFrame, hour: int | None):
     if hour is None:
         not_leakage = ~np.isnan(entry_ts)
     else:
-        # Cast to seconds explicitly. The previous `astype("int64") // 10**9` relied on
-        # the default datetime64 unit being nanoseconds (pandas <=2.x). pandas 3 made
-        # the default microseconds, which silently broke this gate — `entry_ts >= md_unix`
-        # would then compare seconds against a value ~1000x too small, letting most
-        # candidates through and inflating the bet stream / PnL. Forcing datetime64[s]
-        # makes the result a true Unix-seconds integer regardless of pandas version.
+        # Cast to datetime64[s]: pandas 3 defaults to microseconds, which broke `// 10**9`.
         md_unix = pd.to_datetime(df["market_date"]).astype("datetime64[s]").astype("int64").to_numpy()
         not_leakage = ~np.isnan(entry_ts) & (entry_ts >= md_unix)
 
@@ -592,11 +547,7 @@ def apply_no_tail_conflict_policy(
     policy: str = "allow_both",
     scope: str = "same_bracket",
 ) -> tuple[list[tuple], dict[str, int | str]]:
-    """Resolve generated NO/TAIL conflicts in a narrow, opt-in layer.
-
-    A conflict is any configured scope that contains at least one NO candidate
-    and at least one TAIL candidate. Existing behavior is policy="allow_both".
-    """
+    """Resolve generated NO/TAIL conflicts in a narrow, opt-in layer."""
     if policy not in NO_TAIL_CONFLICT_POLICIES:
         raise ValueError(
             f"unknown NO/TAIL conflict policy: {policy}; "
@@ -662,13 +613,8 @@ def apply_no_tail_conflict_policy(
 
 
 def _consensus_block_mask(df: pd.DataFrame, hour: int, threshold: float) -> np.ndarray:
-    """Per-row mask: True when any bracket in the same (station, market_date)
-    at the given entry hour shows yes_price >= threshold.
-
-    "The market knows the answer" gate. NaN yes prices are ignored when
-    computing the per-group max (a bracket with no recorded snapshot at this
-    hour doesn't count as consensus evidence).
-    """
+    """Per-row mask: True when any bracket in the same (station, market_date) at the
+    given entry hour shows yes_price >= threshold."""
     yp_col = f"yes_price_h{hour}"
     if yp_col not in df.columns:
         raise ValueError(f"missing {yp_col}; rebuild the base backtest decision table")
@@ -697,26 +643,7 @@ def candidates_3strats(df, cfg: LiveConfig, *, enable_no=True, enable_yes_mid=Fa
                        tail_consensus_skip_threshold: float | None = None,
                        ymid_consensus_skip_threshold: float | None = None,
                        yhigh_consensus_skip_threshold: float | None = None):
-    """Generate candidates from up to 4 strategies.
-
-    Return tuples are:
-    (date, row_idx, side, displayed_price, signal_p, liquidity, spread,
-     will_win, strategy_name, entry_ts_unix).
-
-    Multi-hour strategies emit the earliest qualifying row per strategy/bracket,
-    mirroring live idempotency for repeated scans.
-
-    consensus_skip_threshold: when set, drop every candidate where any bracket
-    in the same (station, market_date) shows yes_price >= threshold at the
-    candidate's entry hour. Models the "market knows the answer" gate — if a
-    single favorite has already crossed T, the rest of the brackets are noise.
-
-    The per-strategy {no,tail,ymid,yhigh}_consensus_skip_threshold parameters
-    override the global threshold for that strategy when set. None means
-    "use the global value"; pass a float to make that strategy use a different
-    threshold than the others. Setting both global and per-strategy is allowed —
-    the per-strategy value wins for that strategy.
-    """
+    """Generate candidates from up to 4 strategies."""
     md = df["market_date"].to_numpy()
     won = df["won_yes"].to_numpy()
     n_ok = df["n_cum"].fillna(0).to_numpy(dtype=float) >= float(min_lut_n)

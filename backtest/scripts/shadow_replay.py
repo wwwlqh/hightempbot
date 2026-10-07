@@ -1,38 +1,9 @@
-"""Shadow-replay parity: live ledger bets vs backtest per-bet expectation.
+"""Compare resolved live bets with the backtest's saved per-bet stream: match
+counts, fill-price deltas, outcome agreement, PnL and reliability for both.
+Reports what it can when one side has no data. See RUNBOOK_parity.md.
 
-Phase 2 (2026-07-16). Joins resolved LIVE bets (from a ledger sqlite) against
-the backtest's persisted per-bet stream (produced by
-`champion_honest_report.py` / `measure_tp_sl.py` via honest_report.persist_bets)
-on (station, target_date, bracket bounds, side), and reports:
-
-  - matched / live-only / backtest-only counts
-  - fill-price deltas (live executed vs backtest VWAP)
-  - outcome agreement (did both call the same win/loss?)
-  - PnL comparison
-  - claimed-vs-realized reliability for BOTH streams
-
-It degrades gracefully: if either side has no data for the window (today's
-state, because the PMD price ingest stopped 2026-05-20 and no fresh backtest
-per-bet parquet can be built past then), it says so and reports whatever it can
-instead of crashing.
-
---------------------------------------------------------------------------------
-INTENDED NIGHTLY USAGE
---------------------------------------------------------------------------------
-Once the PMD ingest + decision-table rebuild are current again (see
-backtest/RUNBOOK_parity.md), run nightly after the rebuild:
-
-    # 1. refresh the backtest per-bet expectation over the recent window
-    python backtest/scripts/champion_honest_report.py
-
-    # 2. compare the last 30d of resolved live bets to that expectation
-    python backtest/scripts/shadow_replay.py \
-        --ledger ~/hightempbot/data/hightempbot.db \
-        --bets   backtest/results/bets/ \
-        --start  2026-05-01 --end 2026-05-31
-
-Alert if: |mean fill delta| grows, outcome-agreement drops, or the live
-overconfidence gap diverges from the backtest's (calibration drift).
+    python backtest/scripts/shadow_replay.py --ledger <ledger.db> --bets backtest/results/bets/ \
+        --start <date> --end <date> [--json]
 """
 from __future__ import annotations
 
@@ -91,10 +62,7 @@ def join_key(station, target_date, side, lo_c, hi_c, tol) -> tuple:
 # --------------------------------------------------------------------------- loaders
 
 def load_live_bets(ledger_path: Path, start: str | None, end: str | None) -> pd.DataFrame:
-    """Resolved, non-dry-run live bets from the ledger, one row per ledger entry.
-
-    Excludes event_type='dry_run' and outcome='CANCELLED' per the parity spec.
-    """
+    """Resolved, non-dry-run live bets from the ledger, one row per ledger entry."""
     conn = sqlite3.connect(f"file:{ledger_path}?mode=ro", uri=True)
     try:
         cols = {r[1] for r in conn.execute("PRAGMA table_info(ledger)")}
