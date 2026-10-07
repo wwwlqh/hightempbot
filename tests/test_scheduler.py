@@ -424,9 +424,6 @@ class TestScheduler:
             job = scheduler.get_job(f"tpsl_{icao}")
             assert job is not None, f"Missing tpsl job for {icao}"
             assert job.max_instances == 1
-            # Bumped to 600s when the TP/SL monitor moved to 10-min cadence
-            # so a slow tick doesn't silently drop the next slot (ce-review
-            # reliability rel-001).
             assert job.misfire_grace_time == 600
 
     def test_live_mode_registers_ten_minute_wallet_and_auto_redeem_jobs(self, db, tmp_path):

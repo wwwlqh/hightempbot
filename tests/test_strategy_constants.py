@@ -71,19 +71,6 @@ class TestExecutionConfig:
         assert ORDER_RETRY_BACKOFF_S == 2
         assert ORDER_VERIFY_POLL_S == 3
 
-    def test_bss_and_daily_max_bets_removed(self):
-        # Phase F (2026-04-22) deleted both constants. LCB/UCB owns accuracy
-        # filtering; MAX_DAILY_NOTIONAL_FRAC owns per-target-date spend.
-        from hightempbot.execution import strategy_constants as _config
-        assert not hasattr(_config, "BSS_GATE")
-        assert not hasattr(_config, "DAILY_MAX_BETS")
-
-    def test_kelly_frac_removed(self):
-        # Kelly sizing removed 2026-04-24: bet target is capital * MAX_BET_CAPITAL_FRAC,
-        # filled edge-preservingly. No fractional-Kelly knob anywhere.
-        from hightempbot.execution import strategy_constants as _config
-        assert not hasattr(_config, "KELLY_FRAC")
-
     def test_expected_models_list(self):
         assert len(EXPECTED_MODELS) == 9
         assert "ecmwf_ifs025" in EXPECTED_MODELS

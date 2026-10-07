@@ -197,19 +197,6 @@ def _migrate_db(conn: sqlite3.Connection) -> None:
             if col in lut_cols:
                 conn.execute(f"ALTER TABLE lut_bucket_stats DROP COLUMN {col}")
 
-    # --- Rebuild bss_scores if it still has the legacy `month` column ---
-    cols = {r[1] for r in conn.execute("PRAGMA table_info(bss_scores)").fetchall()}
-    if "month" in cols:
-        conn.execute("DROP TABLE bss_scores")
-        conn.execute("""
-            CREATE TABLE bss_scores (
-                station_id  TEXT NOT NULL PRIMARY KEY,
-                bss         REAL,
-                n_pairs     INTEGER NOT NULL DEFAULT 0,
-                updated_at  TEXT NOT NULL DEFAULT (datetime('now'))
-            )
-        """)
-
     # --- Indexes not created by schema.sql ---
     conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_pipeline_health_stage_station_created "

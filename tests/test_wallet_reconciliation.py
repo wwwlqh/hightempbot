@@ -55,7 +55,7 @@ def test_records_wallet_snapshot_and_marks_it_fresh(tmp_path):
         assert latest["clobBalanceUsd"] == 100.0
         assert latest["records"][0]["match_status"] == "orphan_wallet_trade"
 
-        # ce-code-review P2 #44: an orphan_wallet_trade is a warning that must
+        # An orphan_wallet_trade is a warning that must
         # propagate into the wallet payload as actionsEnabled=False. Without
         # this assertion an upstream regression could let the dashboard light
         # up the "Submit Transfer" / "Start Processing" buttons over a

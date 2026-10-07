@@ -182,7 +182,7 @@ def test_transfer_lock_blocks_processing(tmp_path):
 
 
 def test_clear_transfer_lock_resumes_processing(tmp_path):
-    # ce-code-review P2 #40: clear_transfer_lock was untested. Mirror the
+    # Clear_transfer_lock was untested. Mirror the
     # enter_transfer_lock test by establishing the lock and then releasing it.
     conn = init_db(tmp_path / "test.db")
     try:
@@ -214,7 +214,7 @@ def test_clear_transfer_lock_cannot_override_dry_run_boot(tmp_path):
 
 
 def test_concurrent_update_raises_optimistic_conflict(tmp_path):
-    """ce-code-review P3 #71: monotonic version on operator_control_state."""
+    """Monotonic version on operator_control_state."""
     from hightempbot.execution.operator_control import set_operator_state, LIVE
 
     conn = init_db(tmp_path / "test.db")

@@ -43,9 +43,6 @@ research = [
     "scikit-learn>=1.4",
 ]
 
-# ce-code-review P2 #63: expose the 5 operator CLIs as installed entry points
-# so they can be invoked as bare commands (e.g. `htb-live-go-no-go`) instead
-# of `python -m hightempbot.cli.live_go_no_go`. Names use the `htb-` prefix.
 [project.scripts]
 htb-derive-poly-creds = "hightempbot.cli.derive_poly_creds:main"
 htb-env-parity = "hightempbot.cli.env_parity:main"

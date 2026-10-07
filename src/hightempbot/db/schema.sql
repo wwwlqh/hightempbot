@@ -42,10 +42,8 @@ CREATE TABLE IF NOT EXISTS calibration_params (
 CREATE INDEX IF NOT EXISTS idx_cal_station_horizon
     ON calibration_params(station_id, horizon);
 
--- Per-station, per-date EMOS prediction / outcome triples. Feeds rebuild_lut
--- which aggregates these rows into lut_bucket_stats. Required by
--- calibration/lut.py (DELETE/SELECT/INSERT), monthly_retrain, enrollment
--- seeding, and the dashboard Stations tab.
+-- One (prediction bucket, hit) triple per station, date and bracket; rebuild_lut
+-- aggregates these into lut_bucket_stats.
 CREATE TABLE IF NOT EXISTS pred_bucket_history (
     id                INTEGER PRIMARY KEY AUTOINCREMENT,
     station_id        TEXT NOT NULL,
@@ -123,12 +121,12 @@ CREATE TABLE IF NOT EXISTS ledger (
     event_type      TEXT DEFAULT 'bet',      -- "bet", "kelly_adjust", "degrade_flag"
     event_detail    TEXT,                    -- JSON for adjustment events
     realized_edge   REAL,                    -- post-fill edge at VWAP; NULL on dry_run / pre-fill
-    -- LUT-calibration forensic fields (populated from BetSignal at placement time).
+    -- Decision-time forensics
     prob_safe_floor   REAL,                  -- side-aware LUT-calibrated probability used in edge calc
     pred_bucket_low   REAL,                  -- matches lut_bucket_stats.pred_bucket_low
     pred_bucket_high  REAL,
     n_bucket          INTEGER,               -- sample count behind the bucket calibration
-    -- 2-step verification forensics (order.execute_or_log + reconciliation.verify_order_matched).
+    -- Order verification
     transaction_hash         TEXT,           -- on-chain proof; "DRY_RUN_<uuid>" on dry-run
     verify_attempts          INTEGER DEFAULT 0,   -- 1..MAX_ORDER_RETRIES
     verification_downgraded  INTEGER DEFAULT 0,   -- 1 when MATCHED without tx_hash across all attempts
@@ -137,26 +135,13 @@ CREATE TABLE IF NOT EXISTS ledger (
 CREATE INDEX IF NOT EXISTS idx_ledger_station ON ledger(station_id, bet_ts);
 CREATE INDEX IF NOT EXISTS idx_ledger_outcome ON ledger(outcome);
 CREATE INDEX IF NOT EXISTS idx_ledger_target_date ON ledger(target_date, outcome);
--- Partial unique index: prevents duplicate orphan-recovery rows for the same
--- Polymarket fill on retry. NULL order_ids (dry-run, pre-fill) bypass the
--- constraint via the WHERE clause. See
--- migrations/2026_05_13_ledger_order_id_unique.sql for the operator note.
+-- One row per Polymarket order (NULL order_ids exempt). init_db refuses to start
+-- on duplicates; see scripts/check_ledger_order_id_duplicates.py.
 CREATE UNIQUE INDEX IF NOT EXISTS idx_ledger_order_id
     ON ledger(order_id) WHERE order_id IS NOT NULL;
--- Window-scan index for build_htb_data: every dashboard render issues 12+
--- aggregates over (event_type IN (...), outcome filter, bet_ts >= cutoff).
--- Without this index those queries fall back to scanning the full ledger.
--- See migrations/2026_05_14_ledger_window_scan_index.sql.
+-- For the dashboard's windowed aggregates.
 CREATE INDEX IF NOT EXISTS idx_ledger_event_outcome_bet_ts
     ON ledger(event_type, outcome, bet_ts);
-
--- All-time BSS per station (single row)
-CREATE TABLE IF NOT EXISTS bss_scores (
-    station_id      TEXT NOT NULL PRIMARY KEY,
-    bss             REAL,                      -- Brier Skill Score (all-time, walk-forward)
-    n_pairs         INTEGER NOT NULL DEFAULT 0,
-    updated_at      TEXT NOT NULL DEFAULT (datetime('now'))
-);
 
 -- Signal log: one row per (station, target_date, bracket, side) evaluated per tick
 CREATE TABLE IF NOT EXISTS signals (
@@ -246,12 +231,7 @@ CREATE TABLE IF NOT EXISTS market_tokens (
     PRIMARY KEY (station_id, market_date, bracket_idx)
 );
 
--- Per-snapshot wallet balance readings for the LIVE peak high-water mark.
--- Populated by execution.capital.get_capital_snapshot every time the live
--- bot reads OrderClient.check_balance() successfully. The dashboard reads
--- MAX(wallet_balance) from this table for the drawdown denominator in
--- live mode instead of computing peak from the ledger's PnL window.
--- ce-code-review wallet-derived capital refactor (2026-05-20).
+-- Wallet balance readings (audit history), one per successful live read.
 CREATE TABLE IF NOT EXISTS bankroll_peak (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
     sampled_at      TEXT NOT NULL DEFAULT (datetime('now')),
@@ -278,15 +258,8 @@ CREATE TABLE IF NOT EXISTS live_readiness_reports (
 CREATE INDEX IF NOT EXISTS idx_live_readiness_created
     ON live_readiness_reports(created_at DESC);
 
--- Durable operator state for dashboard controls. DRY_RUN is still a boot-time
--- hard fuse; Start only clears STOPPED_PROCESSING on an already-live process.
---
--- ce-code-review P3 #70: fresh-DB default is STOPPED_PROCESSING (not LIVE) so
--- the bot starts in a safe halt state on a brand-new install. An operator
--- must explicitly press Start Processing to enable live trading. Existing
--- production DBs are unaffected — INSERT OR IGNORE is a no-op when the
--- singleton row already exists. Tests that need LIVE state can call
--- ``tests.conftest.seed_operator_live(conn)`` after init_db.
+-- Operator state (single row). A new DB starts STOPPED_PROCESSING; Start
+-- can't override DRY_RUN.
 CREATE TABLE IF NOT EXISTS operator_control_state (
     id              INTEGER PRIMARY KEY CHECK (id = 1),
     state           TEXT NOT NULL DEFAULT 'STOPPED_PROCESSING',
@@ -294,10 +267,7 @@ CREATE TABLE IF NOT EXISTS operator_control_state (
     reason          TEXT,
     updated_by      TEXT,
     updated_at      TEXT NOT NULL DEFAULT (datetime('now')),
-    -- ce-code-review P3 #71: monotonic version for optimistic concurrency
-    -- control. Every state mutation reads current version and writes
-    -- new = current + 1 with WHERE version = ?. A 0-rowcount UPDATE means
-    -- a concurrent mutation overtook us — caller must retry.
+    -- Optimistic concurrency: UPDATE ... WHERE version = ?, then version + 1.
     version         INTEGER NOT NULL DEFAULT 0
 );
 INSERT OR IGNORE INTO operator_control_state
@@ -349,9 +319,6 @@ CREATE TABLE IF NOT EXISTS wallet_reconciliation_records (
     matched_ledger_id INTEGER,
     match_status    TEXT NOT NULL DEFAULT 'unmatched',
     record_json     TEXT NOT NULL DEFAULT '{}',
-    -- ce-code-review P2 #51: ON DELETE CASCADE so audit-table pruning of
-    -- wallet_reconciliation_runs (operator_control.prune_audit_tables) also
-    -- removes the matching records, instead of leaving orphan rows.
     FOREIGN KEY(run_id) REFERENCES wallet_reconciliation_runs(id) ON DELETE CASCADE
 );
 CREATE INDEX IF NOT EXISTS idx_wallet_records_run
@@ -376,8 +343,7 @@ CREATE TABLE IF NOT EXISTS transfer_requests (
 );
 CREATE INDEX IF NOT EXISTS idx_transfer_requests_created
     ON transfer_requests(created_at DESC);
--- ce-code-review P1 #11: idempotency. Only one SUBMITTING row per
--- from_wallet at a time; second concurrent submit raises IntegrityError.
+-- At most one in-flight transfer per wallet.
 CREATE UNIQUE INDEX IF NOT EXISTS transfer_requests_single_submit
     ON transfer_requests(from_wallet) WHERE status='SUBMITTING';
 
@@ -411,11 +377,8 @@ CREATE UNIQUE INDEX IF NOT EXISTS redemption_requests_active_unique
     ON redemption_requests(wallet_address, condition_id, token_id)
     WHERE status IN ('SUBMITTING','SUBMITTED','CONFIRMED');
 
--- Reliability-calibration curves for the NO gate (2026-07-16 over-confidence
--- fix). One row per fit; the loader takes the latest is_active=1 row per
--- group_key. group_key is 'NO_C' / 'NO_F' (per bracket-unit group). curve_json
--- is the serialized isotonic curve (breakpoints + values). See
--- calibration/reliability.py.
+-- NO-gate reliability curves (calibration/reliability.py); the latest active
+-- row per group_key ('NO_C'/'NO_F') is used.
 CREATE TABLE IF NOT EXISTS reliability_curves (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
     group_key   TEXT NOT NULL,
@@ -427,17 +390,8 @@ CREATE TABLE IF NOT EXISTS reliability_curves (
 CREATE INDEX IF NOT EXISTS idx_reliability_group_active
     ON reliability_curves(group_key, is_active, id DESC);
 
--- Per-tick top-of-book snapshots: one row per bracket per betting tick.
--- The bot acts on these CLOB prices but historically never persisted them
--- (polymarket_prices/price_history were written by a removed external cron;
--- market_tokens is a short-lived cache that stores prices as 0.0). This is the
--- durable record of the book state each tick acted on — needed for calibration
--- refits and live/backtest parity. Written best-effort by scheduler.betting_tick
--- right after CLOB enrichment. Retention is LONG (default 180 days, pruned by
--- persistence.ledger.prune_book_snapshots); the whole point is history — do NOT
--- tie it to the 3-7 day market_tokens / pipeline_health prune windows.
--- snapped_at is UTC in SQLite canonical form ("YYYY-MM-DD HH:MM:SS") so the
--- prune's datetime('now', '-N days') comparison sorts lexicographically.
+-- Top of book per bracket per betting tick, kept 180 days for refits and
+-- live/backtest parity. snapped_at is SQLite UTC text.
 CREATE TABLE IF NOT EXISTS book_snapshots (
     id                 INTEGER PRIMARY KEY AUTOINCREMENT,
     snapped_at         TEXT NOT NULL,        -- UTC tick timestamp

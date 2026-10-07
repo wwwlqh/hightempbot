@@ -176,7 +176,7 @@ def test_live_readiness_redacts_rpc_url_secrets_before_public_and_persisted():
         assert "apiKey=" not in text
 
 
-# ce-code-review P0 #6: read_erc20_balance unit coverage.
+# Read_erc20_balance unit coverage.
 def test_read_erc20_balance_rejects_bad_addresses():
     import pytest
 
@@ -266,7 +266,7 @@ def test_read_erc20_balance_surfaces_rpc_error(monkeypatch):
         )
 
 
-# --- ce-code-review P1 #29: cover untested live_readiness branches ----------
+# --- Cover untested live_readiness branches ----------
 
 
 def test_live_readiness_fails_when_clob_credentials_missing():
@@ -338,7 +338,7 @@ def test_live_readiness_fails_when_relayer_owner_mismatches_signer():
     assert relayer.status == "ERROR"
 
 
-# --- ce-code-review P2 #42: compare_env_maps missing-key branches ----------
+# --- Compare_env_maps missing-key branches ----------
 
 
 def test_compare_env_maps_reports_missing_local_only():
@@ -368,7 +368,7 @@ def test_compare_env_maps_reports_missing_server_only():
     assert report.mismatches == []
 
 
-# --- ce-code-review P2 #43: readiness_report_is_fresh fallback path -------
+# --- Readiness_report_is_fresh fallback path -------
 
 
 def test_readiness_report_is_fresh_uses_generated_at_ttl_when_no_expires_at():

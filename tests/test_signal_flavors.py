@@ -76,7 +76,7 @@ def test_l_strict_nan_below_threshold() -> None:
 def test_l_loose_falls_back_to_E_below_threshold() -> None:
     flavors = _compute_signal_flavors(0.3, 25, 8, lut_min_n=30)
     assert flavors["p_L_loose"] == 0.3
-    # F-005 consequence: p_B_50 collapses to E too at small n.
+    # p_B_50 collapses to E too at small n.
     assert flavors["p_B_50"] == 0.3
 
 

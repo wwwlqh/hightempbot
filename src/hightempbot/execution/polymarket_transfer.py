@@ -119,7 +119,7 @@ def _live_local_pending_notional(conn: sqlite3.Connection) -> float:
 SUBMIT_FRESHNESS_TTL_S = 30
 """Tight freshness window for the snapshot read inside submit_return_transfer.
 
-ce-code-review #38/#39: preview reads can tolerate the operator's configured
+Preview reads can tolerate the operator's configured
 WALLET_SNAPSHOT_FRESHNESS_TTL_S (default 900s) because the preview is an
 advisory readout. Submit cannot — between the operator's preview click and the
 submit click, the wallet could have absorbed a fill or another transfer.

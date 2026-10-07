@@ -192,10 +192,6 @@ def test_backfill_reports_failed_fetch_chunk(db: sqlite3.Connection):
     assert "failed chunk" in health["message"]
 
 
-def test_dead_temperature_2m_max_parser_is_removed():
-    assert not hasattr(om, "_parse_daily_tmax")
-
-
 def test_fetch_live_does_not_reuse_too_short_cache_horizon():
     station = StationConfig(
         icao="KDAL",

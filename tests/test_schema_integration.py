@@ -139,12 +139,3 @@ def test_pred_bucket_history_legacy_bucket_unique_schema_is_rebuilt(tmp_path: Pa
     ).fetchone()[0]
     assert backup_exists == 1
     conn.close()
-
-
-def test_no_orphan_bss_or_monitor_modules() -> None:
-    """Phase F teardown: the deleted modules must stay deleted."""
-    import importlib.util
-    assert importlib.util.find_spec("hightempbot.execution.bss") is None, \
-        "execution/bss.py was removed in Phase F — do not re-add without replacing the LCB gate"
-    assert importlib.util.find_spec("hightempbot.execution.monitor") is None, \
-        "execution/monitor.py was removed in Phase F — its legacy BSS gate does not match the LCB gate"

@@ -133,7 +133,7 @@ def db(tmp_path: Path) -> str:
             n_bucket INTEGER
         )"""
     )
-    # ce-code-review P1 #25: operator_control_state is now schema-managed; the
+    # Operator_control_state is now schema-managed; the
     # monitor reads it via processing_block_reason. Seed the LIVE singleton row
     # so the operator-control gate doesn't trip in tests that don't care about
     # operator state. pipeline_health stays an inline create here for the same
@@ -331,7 +331,7 @@ def test_monitor_operator_stop_blocks_before_book_fetch(db: str) -> None:
     assert src.close_calls == []
 
 
-# F-007: empty book / None book → skip, no flag set
+# Empty book / None book → skip, no flag set
 def test_monitor_skip_on_empty_book(db: str) -> None:
     bet_id = _insert_pending_ymid(db)
     src = FakePriceSource(books={"TOK_YES": None}, bids={"TOK_YES": None})
@@ -358,7 +358,7 @@ def test_monitor_skip_on_none_best_bid(db: str) -> None:
     assert counters["skipped"] == 1
 
 
-# F-001 (a): stale flag age-out — older than TP_SL_FLAG_STALE_SECONDS gets cleared and reattempted.
+# Stale flag age-out — older than TP_SL_FLAG_STALE_SECONDS gets cleared and reattempted.
 def test_monitor_clears_stale_flag_and_reattempts(db: str) -> None:
     stale_ts = (datetime.now(timezone.utc) - timedelta(seconds=TP_SL_FLAG_STALE_SECONDS + 60))
     bet_id = _insert_pending_ymid(
@@ -375,7 +375,7 @@ def test_monitor_clears_stale_flag_and_reattempts(db: str) -> None:
     assert counters["stale_cleared"] == 1
 
 
-# F-001 (a): fresh flag is respected — concurrent tick skips.
+# Fresh flag is respected — concurrent tick skips.
 def test_monitor_skips_when_flag_fresh(db: str) -> None:
     fresh_ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
     bet_id = _insert_pending_ymid(
@@ -463,7 +463,7 @@ def test_monitor_unknown_strategy_is_noop(db: str) -> None:
 
 
 # ---------------------------------------------------------------- live-path tests
-# ce-review testing finding #15: every previous test ran in dry_run=True. The
+# Every previous test ran in dry_run=True. The
 # live close_position branch + record_position_close success/failure paths +
 # orphan-close fallback were entirely uncovered.
 
@@ -504,7 +504,7 @@ def test_monitor_live_tp_records_close(db: str) -> None:
     assert row["outcome"] == "CLOSED"
     detail = json.loads(row["event_detail"])
     assert detail.get("close_reason") == "ymid_tp"
-    # close_in_flight must be cleared on success (ce-review #22).
+    # close_in_flight must be cleared on success.
     assert "close_in_flight" not in detail
 
 

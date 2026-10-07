@@ -387,7 +387,7 @@ def _recover_orphan_with_fill(
         "target_date": "RECOVERED",    # sentinel; manual review re-links
         "horizon": 1,
         "threshold": 0.0,
-        "side": inferred_side,         # derived from CLOB trades (#10)
+        "side": inferred_side,         # derived from CLOB trades
         "p_model": 0.0,
         "p_market": fill_price,        # fill price is the only price we know
         "edge": 0.0,

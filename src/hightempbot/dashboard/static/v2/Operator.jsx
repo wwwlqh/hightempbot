@@ -62,7 +62,7 @@ function OperatorPage({ d, setData }) {
         setMessage(detail);
       } else {
         setMessage("OK");
-        // ce-code-review P1 #8: mark a recent mutation so the App-level
+        // Mark a recent mutation so the App-level
         // 30s poll defers its next /api/v2/data read for 5s.
         try { window.__htbMutationAt = Date.now(); } catch (e) {}
         await refresh();

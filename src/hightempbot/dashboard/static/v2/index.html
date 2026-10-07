@@ -62,7 +62,7 @@ function App() {
   useEffect(() => {
     let cancelled = false;
     const refresh = async () => {
-      // ce-code-review P1 #8: pause polling for 5s after an operator mutation.
+      // Pause polling for 5s after an operator mutation.
       // Operator.jsx writes window.__htbMutationAt = Date.now() on every
       // successful POST so the next /api/v2/data poll doesn't read stale
       // state and overwrite the just-applied change.

@@ -225,7 +225,7 @@ def test_ymid_ratio_gate_fails(conn: sqlite3.Connection) -> None:
 # --------------------------------------------------------------- TAIL strategy
 
 def test_tail_emits_skip_signal_when_n_below_min(conn: sqlite3.Connection) -> None:
-    """F-005: at small n, p_L_loose=p_E and p_B_50=p_E; vote degenerates."""
+    """At small n, p_L_loose=p_E and p_B_50=p_E; vote degenerates."""
     flavors = _compute_signal_flavors(0.10, 5, 1)  # n=5 < vote_min_n=30
     sig = _eval(
         STRATEGY_CONFIGS["TAIL"], "TAIL",
@@ -273,7 +273,7 @@ def test_tail_4_of_4_vote_passes(conn: sqlite3.Connection) -> None:
     assert sig.strategy == "TAIL"
     assert sig.signal_used == "tail_vote_avg"
     assert sig.passed_all_gates
-    # F-009: tail components stashed on gate_results for ledger persistence.
+    # Tail components stashed on gate_results for ledger persistence.
     assert "_tail_votes" in sig.gate_results
     assert set(sig.gate_results["_tail_votes"].keys()) == {"p_E", "p_B_50", "p_L_loose", "p_Shrink_n10"}
 
@@ -408,11 +408,10 @@ def test_no_strategy_ignores_consensus_threshold(conn: sqlite3.Connection) -> No
     assert sig.strategy == "NO"
 
 
-# ------------------------------------------------------- F-003 idempotency COALESCE
+# ------------------------------------------------- idempotency COALESCE
 
 def test_slot_filled_usd_legacy_no_row_with_null_strategy_counts_as_no(conn: sqlite3.Connection) -> None:
     # Legacy ledger row with no `strategy` key: must match as 'NO' via COALESCE.
-    # Identical F-003 regression — semantics now exposed via SUM(bet_size).
     conn.execute(
         """INSERT INTO ledger (bet_ts, station_id, target_date, threshold, side,
             bet_size, event_type, event_detail, outcome) VALUES (?,?,?,?,?,?,?,?,?)""",
@@ -608,7 +607,7 @@ def test_yhigh_cold_start_emits_skip_signal(conn: sqlite3.Connection) -> None:
     assert sig.gate_results["edge_gate"] is False
 
 
-# ------------------------ P2 #7: NO post-walk relaxed-vs-strict ceiling -----
+# ------------------------ NO post-walk relaxed-vs-strict ceiling -----
 
 def test_no_post_walk_strict_ceiling_at_0_15(conn: sqlite3.Connection) -> None:
     # Strict path on a ceiling bracket (edge 0.10): bracket_extension stays

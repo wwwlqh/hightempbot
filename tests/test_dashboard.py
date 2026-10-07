@@ -181,7 +181,7 @@ class TestRoot:
         assert resp.status_code == 200
 
     def test_health_unauth_strips_metrics(self, client):
-        """ce-code-review P2 #35: unauth /health must not leak pipeline metrics."""
+        """Unauth /health must not leak pipeline metrics."""
         resp = client.get("/health")
         assert resp.status_code == 200
         body = resp.json()
@@ -225,7 +225,7 @@ class TestRoot:
 
 
 class TestLoginRateLimit:
-    """ce-code-review P1 #28: /login is rate-limited after 5 failures in 60s."""
+    """/login is rate-limited after 5 failures in 60s."""
 
     def test_failed_attempts_lock_after_threshold(self):
         from hightempbot.dashboard.app import (
@@ -830,7 +830,7 @@ class TestV2DataEndpoint:
             set_config(None)
 
     def test_transfer_submit_endpoint_auth_and_safety(self, tmp_path, monkeypatch):
-        """ce-code-review P2 #45: e2e coverage for POST /transfer/submit."""
+        """E2e coverage for POST /transfer/submit."""
         from datetime import datetime, timedelta, timezone
 
         from hightempbot.db.connection import utc_now_sql
@@ -2194,7 +2194,7 @@ class TestCapitalRangeDecoupled:
 
 class TestAdminResolvePending:
     """POST /api/v2/admin/resolve-pending — HTTP parity for the WU-fallback operator
-    workflow (finding #24)."""
+    workflow."""
 
     @staticmethod
     def _seed(db_path: str, *, station_id: str, target_date: str,
@@ -2470,7 +2470,7 @@ class TestAdminResolvePending:
         assert row["outcome"] == "WIN"
 
     def test_actuals_source_filter_rejects_non_wu(self, db, client):
-        """Defense-in-depth (finding #25): a non-WU actuals row must NOT unblock the
+        """Defense-in-depth: a non-WU actuals row must NOT unblock the
         fallback even though the row exists for the (station, date)."""
         from datetime import date, timedelta
         target = (date.today() - timedelta(days=2)).isoformat()

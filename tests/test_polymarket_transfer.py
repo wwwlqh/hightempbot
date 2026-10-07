@@ -257,7 +257,7 @@ def test_submit_does_not_rewrite_dry_run_boot_fuse(tmp_path):
 
 
 def test_preview_blocks_same_wallet_destination(tmp_path):
-    """ce-code-review P1 #12: refuse when POLY_RETURN_WALLET == POLY_FUNDER."""
+    """Refuse when POLY_RETURN_WALLET == POLY_FUNDER."""
     class _SameCfg(_Cfg):
         poly_return_wallet = _Cfg.poly_funder  # destination == source
 
@@ -277,7 +277,7 @@ def test_preview_blocks_same_wallet_destination(tmp_path):
 
 
 def test_preview_blocks_amount_above_available(tmp_path):
-    """ce-code-review P1 #13: refuse when amount > available pUSD."""
+    """Refuse when amount > available pUSD."""
     conn = init_db(tmp_path / "test.db")
     try:
         _fresh_wallet(conn)  # 100.0 pUSD available
@@ -303,7 +303,7 @@ def test_preview_blocks_amount_above_available(tmp_path):
     ],
 )
 def test_preview_surfaces_invalid_amount(tmp_path, amount, expected_token):
-    # ce-code-review P2 #41: preview branch for amount parsing errors was not
+    # Preview branch for amount parsing errors was not
     # exercised. preview_return_transfer must catch TransferSafetyError from
     # pusd_amount_to_base_units and surface it as a preview error (not raise).
     conn = init_db(tmp_path / "test.db")
@@ -327,7 +327,7 @@ def test_preview_surfaces_invalid_amount(tmp_path, amount, expected_token):
 
 
 def test_submit_records_failed_status_on_relayer_exception(tmp_path):
-    """ce-code-review P1 #14: relayer failure flips the row to FAILED with the error."""
+    """Relayer failure flips the row to FAILED with the error."""
     conn = init_db(tmp_path / "test.db")
     try:
         _fresh_wallet(conn)
@@ -358,7 +358,7 @@ def test_submit_records_failed_status_on_relayer_exception(tmp_path):
 
 
 def test_pusd_amount_to_base_units_catches_systemexit():
-    """ce-code-review P1 #15: invalid amount raises TransferSafetyError, not SystemExit."""
+    """Invalid amount raises TransferSafetyError, not SystemExit."""
     from hightempbot.execution.polymarket_transfer import (
         pusd_amount_to_base_units,
         TransferSafetyError,
@@ -372,7 +372,7 @@ def test_pusd_amount_to_base_units_catches_systemexit():
 
 
 def test_preview_pins_destination_to_return_wallet(tmp_path):
-    """ce-code-review P0 #1: operator-supplied to_wallet must equal POLY_RETURN_WALLET."""
+    """Operator-supplied to_wallet must equal POLY_RETURN_WALLET."""
     conn = init_db(tmp_path / "test.db")
     try:
         _fresh_wallet(conn)
@@ -389,7 +389,7 @@ def test_preview_pins_destination_to_return_wallet(tmp_path):
 
 
 def test_preview_blocks_zero_and_burn_destinations(tmp_path, monkeypatch):
-    """ce-code-review P3 #68: explicit reject of 0x000…/0x000…dead."""
+    """Explicit reject of 0x000…/0x000…dead."""
     conn = init_db(tmp_path / "test.db")
     try:
         _fresh_wallet(conn)
@@ -408,7 +408,7 @@ def test_preview_blocks_zero_and_burn_destinations(tmp_path, monkeypatch):
 
 
 def test_preview_confirmation_uses_lowercased_destination(tmp_path):
-    """ce-code-review P3 #67: confirmation string anchors to lowercase address."""
+    """Confirmation string anchors to lowercase address."""
     conn = init_db(tmp_path / "test.db")
     try:
         _fresh_wallet(conn)
@@ -424,7 +424,7 @@ def test_preview_confirmation_uses_lowercased_destination(tmp_path):
 
 
 def test_submit_rejects_duplicate_in_flight(tmp_path):
-    """ce-code-review P1 #11: unique partial index blocks a second SUBMITTING row."""
+    """Unique partial index blocks a second SUBMITTING row."""
     conn = init_db(tmp_path / "test.db")
     try:
         _fresh_wallet(conn)
@@ -532,7 +532,7 @@ def test_submit_calls_relayer_submitter_after_confirmation(tmp_path):
 
 
 def test_submit_invokes_snapshot_refresher_for_agent_callers(tmp_path):
-    """ce-code-review #38/#39: non-dashboard callers can inject a refresher
+    """Non-dashboard callers can inject a refresher
     so the snapshot is refreshed before the submit-time freshness gate runs."""
     conn = init_db(tmp_path / "test.db")
     try:
@@ -565,7 +565,7 @@ def test_submit_invokes_snapshot_refresher_for_agent_callers(tmp_path):
 
 
 def test_submit_tolerates_snapshot_refresher_failure(tmp_path):
-    """ce-code-review #38/#39: refresher failure is non-fatal — the existing freshness
+    """Refresher failure is non-fatal — the existing freshness
     gate inside preview is the real gatekeeper."""
     conn = init_db(tmp_path / "test.db")
     try:

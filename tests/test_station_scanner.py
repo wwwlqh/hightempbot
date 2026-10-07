@@ -589,7 +589,7 @@ class TestBettingTick:
     ):
         """PUSH is an accounting downgrade (NULL fill_price), not a market- wide
         resolution — the gate must NOT skip when one bracket carries a PUSH outcome
-        (finding #1)."""
+       ."""
         import json
         station = MockStation("KDAL")
         mock_dt.now.return_value = datetime(2026, 4, 7, 0, 0)
@@ -766,7 +766,7 @@ class TestBettingTick:
         db_path,
     ):
         """The gate is mode-aware: a stale ``dry_run`` row from yesterday's staging test
-        must not block today's LIVE bets, and vice-versa (#11)."""
+        must not block today's LIVE bets, and vice-versa."""
         import json
         station = MockStation("KDAL")
         mock_dt.now.return_value = datetime(2026, 4, 7, 0, 0)
@@ -2574,7 +2574,7 @@ class TestResolutionWuFallback:
 
     def test_resolves_celsius_station_via_wu_actuals(self, db_path):
         """°C station WU fallback — the ``unit.upper() == 'F'`` else-branch was
-        previously untested (finding #6)."""
+        previously untested."""
         import json
         from datetime import date, timedelta
 
@@ -2602,7 +2602,7 @@ class TestResolutionWuFallback:
 
     def test_null_fill_price_downgrades_to_push(self, db_path):
         """NULL fill_price in the WU fallback must downgrade to PUSH (the sixth
-        `_apply_null_fill_push` call site was previously uncovered; finding #6)."""
+        `_apply_null_fill_push` call site was previously uncovered)."""
         import json
         from datetime import date, timedelta
 
@@ -2721,7 +2721,7 @@ class TestResolutionWuFallback:
 
     def test_per_bet_exception_does_not_block_peers(self, db_path):
         """One corrupted bet must not abort resolution for remaining bets in the same
-        (station, target_date) group (finding #9)."""
+        (station, target_date) group."""
         from datetime import date, timedelta
 
         conn = get_connection(db_path)

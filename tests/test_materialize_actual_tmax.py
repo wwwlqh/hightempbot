@@ -125,8 +125,7 @@ class TestMaterializeActualTmax:
             conn.close()
 
     def test_refuses_unsupported_source(self, db):
-        """source='ncei' is outside SUPPORTED_LIVE_SOURCES — mirrors the
-        read-side defense in settler.py finding #25."""
+        """source='ncei' is outside SUPPORTED_LIVE_SOURCES."""
         bet_id = _insert_row(
             db, station_id="KDAL", target_date="2026-05-15",
             outcome="CLOSED", actual_tmax=None,

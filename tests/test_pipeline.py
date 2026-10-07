@@ -35,7 +35,7 @@ def db(tmp_path: Path) -> sqlite3.Connection:
     db_path = tmp_path / "test.db"
     init_db(str(db_path))
     conn = get_connection(str(db_path))
-    # ce-code-review P3 #70: schema.sql now seeds STOPPED_PROCESSING (safe halt
+    # Schema.sql now seeds STOPPED_PROCESSING (safe halt
     # on fresh installs). Tests that exercise the betting pipeline need LIVE.
     from tests.conftest import seed_operator_live
     seed_operator_live(conn)
@@ -292,7 +292,7 @@ class TestRunBettingCycle:
 
     def test_drawdown_hard_stop_skipped_in_dry_run(self, db):
         """Dry-run mode bypasses the MAX_DD halt so operators can flip to dry_run to
-        investigate behavior after a live drawdown (finding #16)."""
+        investigate behavior after a live drawdown."""
         station = MockStation("KDAL")
         # Same 60% drawdown as the live-mode test.
         db.execute(
@@ -374,7 +374,7 @@ class TestRunBettingCycle:
 
     def test_drawdown_recovers_resumes_betting(self, db):
         """Recovery transition: after a WIN brings realized capital back above the (1 -
-        MAX_DD) × peak threshold, the next tick must NOT halt (finding #18)."""
+        MAX_DD) × peak threshold, the next tick must NOT halt."""
         station = MockStation("KDAL")
         # Step 1: realized LOSS = -600 → 60% drawdown → halt would fire.
         # Step 2: realized WIN = +400 → net realized = -200 → 20% drawdown
@@ -508,7 +508,7 @@ class TestRunBettingCycle:
         assert "Stop Processing" in row["message"]
 
     def test_live_halt_when_wallet_unavailable(self, db):
-        """ce-code-review P1 #22: live cycle halts when wallet read fails."""
+        """Live cycle halts when wallet read fails."""
         station = MockStation("KDAL")
         # check_balance returns None → wallet_available=False
         mock_client = MagicMock()
@@ -537,7 +537,7 @@ class TestRunBettingCycle:
         assert "wallet unavailable" in row["message"].lower()
 
     def test_live_halt_when_wallet_balance_below_floor(self, db):
-        """ce-code-review P1 #23: live cycle halts when wallet < $5.00."""
+        """Live cycle halts when wallet < $5.00."""
         station = MockStation("KDAL")
         mock_client = MagicMock()
         mock_client.check_balance.return_value = 4.5  # below $5 floor
