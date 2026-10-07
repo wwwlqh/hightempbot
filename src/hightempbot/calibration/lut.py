@@ -1,18 +1,9 @@
-"""Per-station empirical hit-rate lookup table.
+"""Per-station hit rate of each EMOS probability bucket (the LUT).
 
-For each (station, predicted-probability-bucket) cell we cache the empirical
-``hits / n`` rate over the historical window. The decision gate compares the
-fee-adjusted edge against this point-estimate calibration.
-
-Two windows operate at different cadences:
-  * EMOS retrain — rolling 30 days of (pred, actual) pairs. Matches notebook.
-  * LUT           — expanding window since `REF_START_DATE = 2024-03-01`.
-
-Bucket grid is the notebook Cell F 8-bucket layout (locked).
-
-Walk-forward semantics: each historical triple is labeled with the bucket
-assigned by that day's EMOS params (not today's). Historical EMOS params are
-memoized in `calibration_params_history` via `calibration.store.save_emos_at`.
+Each resolved day adds one (bucket, hit) triple per bracket to
+``pred_bucket_history``, bucketed with that day's walk-forward EMOS params
+(memoized in ``calibration_params_history``). EMOS refits use a rolling 30
+days; the LUT is an expanding window from REF_START_DATE.
 """
 
 from __future__ import annotations
@@ -64,7 +55,7 @@ def clear_station_lut(conn: sqlite3.Connection, station_id: str) -> tuple[int, i
     return hist_deleted, lut_deleted
 
 
-# Notebook Cell F bucket grid (8 buckets, right-exclusive except final).
+# 8 buckets, right-exclusive except the last.
 BUCKETS: tuple[tuple[float, float], ...] = (
     (0.00, 0.02),
     (0.02, 0.05),
@@ -76,27 +67,15 @@ BUCKETS: tuple[tuple[float, float], ...] = (
     (0.60, 1.00),
 )
 
-# Rolling window size for per-day walk-forward EMOS refit (matches notebook N=30).
 WALK_FORWARD_WINDOW_DAYS = 30
 
-# Minimum (pred, actual) pairs required for a walk-forward EMOS fit.
-# Intentionally more permissive than execution/strategy_constants.py::MIN_PAIRS=30:
-# the asymmetry is deliberate — LUT seed fits
-# at >=20 pairs (best-effort cold-start) while live betting requires >=30
-# pairs via CalibrationModel.is_ready().
+# Seeding fits with ≥20 pairs; live betting still needs MIN_PAIRS (30).
 MIN_PAIRS_FOR_FIT = 20
 
 
 @dataclass(frozen=True)
 class CumulativeStats:
-    """Walk-forward cumulative (n, hits) for a (station, bucket) at an asof date.
-
-    Built from `pred_bucket_history` with strict `local_date < asof_local_date`
-    semantics — byte-identical to backtest/sweep_lib.py::load_walk_forward_lut +
-    lut_lookup_for_rows (`merge_asof(direction='backward', allow_exact_matches=False)`).
-    Used by the per-strategy router to compute Bayesian shrinkage signals
-    (`p_Shrink_n10`, `p_Shrink_n50`) without leaking same-day resolutions.
-    """
+    """Cumulative (n, hits, mean_pred) for a bucket from days strictly before asof."""
 
     station_id: str
     pred_bucket_low: float
@@ -111,25 +90,8 @@ def lookup_with_cumulative(
     bucket: tuple[float, float],
     asof_local_date: str,
 ) -> CumulativeStats:
-    """Compute walk-forward cumulative (n, hits, mean_pred) for a bucket.
-
-    Strict `local_date < asof_local_date` — same-day resolutions are NEVER
-    included, preserving the backtest's leakage semantics. Returns a
-    CumulativeStats with `n_cum=0, hits_cum=0, mean_pred=None` when no prior
-    history exists for the (station, bucket) pair (cold-start case — the
-    caller's signal-flavor logic handles it via NaN propagation).
-
-    Args:
-        conn: DB connection (per-thread).
-        station_id: ICAO of the station.
-        bucket: (pred_bucket_low, pred_bucket_high) — only `low` is queried
-            since pred_bucket_history stores the canonical `pred_bucket_low`.
-        asof_local_date: ISO date string. The lookup excludes any row with
-            `local_date >= asof_local_date`.
-
-    Returns:
-        Always a CumulativeStats; never None. Cold-start = (0, 0, None).
-    """
+    """Bucket stats from rows with ``local_date < asof_local_date`` (no same-day
+    leakage; matches the backtest's merge_asof). Cold start is (0, 0, None)."""
     row = conn.execute(
         "SELECT COUNT(*) AS n, "
         "       COALESCE(SUM(hit), 0) AS hits, "
@@ -153,11 +115,7 @@ def lookup_with_cumulative(
 
 
 def bucket_of(p: float) -> tuple[float, float]:
-    """Map a probability ``p ∈ [0, 1]`` to its notebook Cell F bucket.
-
-    Right-exclusive on internal boundaries; right-inclusive on the final
-    bucket so that ``p = 1.0`` lands in ``(0.60, 1.00]``.
-    """
+    """Bucket for ``p`` in [0, 1]; p = 1.0 falls in the last bucket."""
     if not (0.0 <= p <= 1.0):
         raise ValueError(f"probability out of range: {p}")
 
@@ -168,7 +126,6 @@ def bucket_of(p: float) -> tuple[float, float]:
         else:
             if lo <= p < hi:
                 return (lo, hi)
-    # Unreachable due to range check above.
     raise ValueError(f"probability {p} did not map to any bucket")
 
 
@@ -185,24 +142,12 @@ def rebuild_lut(
     *,
     commit: bool = True,
 ) -> int:
-    """Recompute ``lut_bucket_stats`` rows for one station from its triples.
-
-    Reads every row in ``pred_bucket_history`` for ``station_id``, groups by
-    ``pred_bucket_low``, and writes one row per bucket back into
-    ``lut_bucket_stats`` with a fresh ``refreshed_at`` timestamp. Returns the
-    number of bucket rows written.
-
-    Idempotent: buckets with no history disappear from lut_bucket_stats.
-    """
+    """Rebuild a station's ``lut_bucket_stats`` from its history. Returns rows written."""
     if not _supports_station_lut(conn, station_id):
         clear_station_lut(conn, station_id)
         logger.info("rebuild_lut: skipped unsupported source for %s", station_id)
         return 0
 
-    # Aggregate in SQL: Wilson CI was retired so the only remaining work is
-    # COUNT/SUM/AVG, which SQLite handles natively. Materialising the entire
-    # history into Python and aggregating row-by-row was ~3x slower at 600+
-    # rows per station per retrain.
     agg_rows = conn.execute(
         """
         SELECT pred_bucket_low,
@@ -217,8 +162,6 @@ def rebuild_lut(
         (station_id,),
     ).fetchall()
 
-    # Remove any lut rows for buckets that no longer have history, so a
-    # cleared history really does clear the table.
     conn.execute(
         "DELETE FROM lut_bucket_stats WHERE station_id = ?",
         (station_id,),
@@ -259,12 +202,7 @@ def rebuild_lut(
 
 
 def stamp_refreshed(conn: sqlite3.Connection, station_id: str) -> None:
-    """Touch ``refreshed_at`` on every lut row for ``station_id``.
-
-    Called by the nightly retrain job even when no new data has arrived so
-    that the 36h stale halt doesn't fire on a station whose data is correct
-    but idle (weekends, holidays, WU rate-limit delays).
-    """
+    """Touch ``refreshed_at`` so an idle but healthy station doesn't look stale."""
     now_sql = utc_now_sql()
     conn.execute(
         "UPDATE lut_bucket_stats SET refreshed_at = ? WHERE station_id = ?",
@@ -280,23 +218,16 @@ def _pairs_for_fit(
     end_date: str,
     window_days: int,
 ) -> tuple[np.ndarray, np.ndarray] | None:
-    """Load (ensemble_matrix, actuals) for the ``window_days`` before ``end_date``.
-
-    Returns ``None`` if fewer than ``MIN_PAIRS_FOR_FIT`` aligned pairs exist.
-    ``end_date`` is inclusive — the returned window is ``[end_date - window, end_date]``.
-    """
+    """(ensemble_matrix, actuals) for ``[end_date - window_days, end_date]``;
+    None with fewer than MIN_PAIRS_FOR_FIT pairs."""
     from hightempbot.execution.strategy_constants import EXPECTED_MODELS, REQUIRED_MEMBERS
 
     d_end = date.fromisoformat(end_date)
     d_start = d_end - timedelta(days=window_days)
 
-    # One row per (station, target_date, horizon, centre, member) — aggregate
-    # into a matrix with one column per centre.
     placeholders = ",".join("?" for _ in EXPECTED_MODELS)
     actuals_clause, actuals_params = actual_source_clause("a")
-    # ORDER BY ingested_at DESC so the first row seen per (date, centre) is the
-    # most recent ingestion. Same-centre rows from older backfills (different
-    # member numbers, identical tmax) are skipped rather than poisoning the date.
+    # Newest ingestion first; keep only the first row per (date, centre).
     rows = conn.execute(
         f"SELECT f.target_date AS target_date, f.centre AS centre, "
         f"f.tmax_celsius AS pred, a.tmax_celsius AS actual "
@@ -318,8 +249,6 @@ def _pairs_for_fit(
     if not rows:
         return None
 
-    # Build per-date member list. Keep the first row per (date, centre) — the
-    # latest ingestion thanks to ORDER BY ingested_at DESC.
     by_date: dict[str, dict[str, float]] = {}
     actuals_by_date: dict[str, float] = {}
     for row in rows:
@@ -356,11 +285,7 @@ def _walk_forward_params(
     *,
     commit: bool = True,
 ) -> EMOSParams | None:
-    """Memoized walk-forward EMOS params valid AS OF ``asof_date``.
-
-    First checks ``calibration_params_history`` (cached). On miss, fits EMOS
-    on the 30-day window ending at ``asof_date - 1`` and stores the result.
-    """
+    """EMOS params as of ``asof_date`` (fit on the 30 days before it), memoized."""
     cached = load_emos_at(conn, station_id, horizon, asof_date)
     if cached is not None:
         return cached
@@ -388,12 +313,7 @@ def _brackets_for_station(
     station_id: str,
     market_date: str | None = None,
 ) -> list[tuple[float | None, float | None]]:
-    """Return the 11 bracket bounds used by market_tokens for this station.
-
-    Each entry is ``(bracket_low, bracket_high)`` in °C. The LUT is fed by
-    walking these brackets against each day's EMOS to produce ``emos_p`` per
-    bracket per day.
-    """
+    """The station's market bracket bounds, in °C."""
     from hightempbot.stations import fahrenheit_to_celsius
 
     if market_date is None:
@@ -453,19 +373,8 @@ def append_triples_for_date(
     *,
     commit: bool = True,
 ) -> int:
-    """Append ``(station, local_date, bucket, hit)`` triples for one resolved day.
-
-    One triple per bracket that was active for the station — ``emos_p`` is the
-    EMOS-predicted probability that actual tmax fell in the bracket under
-    the walk-forward EMOS params valid AS OF ``local_date``. ``hit`` is 1
-    iff the resolved ``actuals.tmax_celsius`` lies in the bracket.
-
-    When ``commit=False`` the caller is responsible for committing — the
-    seed loop uses this to batch hundreds of per-day inserts into one WAL
-    sync instead of one commit per day.
-
-    Returns the number of triples written (zero if prerequisites missing).
-    """
+    """Add one (bucket, hit) triple per bracket for a resolved day, using that
+    day's walk-forward EMOS. Returns triples written (0 if data is missing)."""
     if not _supports_station_lut(conn, station_id):
         return 0
 
@@ -474,7 +383,6 @@ def append_triples_for_date(
     if not brackets:
         return 0
 
-    # Get the resolved actual for this station-date (must exist).
     actuals_clause, actuals_params = actual_source_clause()
     row = conn.execute(
         "SELECT tmax_celsius FROM actuals "
@@ -485,12 +393,10 @@ def append_triples_for_date(
         return 0
     actual_tmax = float(row["tmax_celsius"])
 
-    # Fetch ensemble members for this day at the requested horizon.
     from hightempbot.execution.strategy_constants import EXPECTED_MODELS, REQUIRED_MEMBERS
 
     placeholders = ",".join("?" for _ in EXPECTED_MODELS)
-    # Dedupe by latest ingestion so re-backfilled rows (different member nums,
-    # identical tmax) don't push the row count past REQUIRED_MEMBERS.
+    # Dedupe re-backfilled rows by latest ingestion.
     member_rows = conn.execute(
         f"SELECT centre, tmax_celsius FROM forecast_archive "
         f"WHERE station_id = ? AND target_date = ? AND horizon = ? "
@@ -527,15 +433,12 @@ def append_triples_for_date(
             emos_p = emos_probability(params, ensemble, lo_c)
         else:
             assert lo_c is not None and hi_c is not None
-            # Bracket hit: threshold is continuous low-inclusive, high-exclusive.
             hit = 1 if (lo_c <= actual_tmax < hi_c) else 0
 
-            # P(bracket) = P(tmax > lo_c) - P(tmax >= hi_c) = P(>lo_c) - P(>hi_c).
             p_above_lo = emos_probability(params, ensemble, lo_c)
             p_above_hi = emos_probability(params, ensemble, hi_c)
             emos_p = max(0.0, p_above_lo - p_above_hi)
 
-        # Clamp to handle numerical precision at the boundaries.
         emos_p = min(1.0, max(0.0, emos_p))
         lo_b, hi_b = bucket_of(emos_p)
 
@@ -570,17 +473,8 @@ def seed_lut_from_history(
     start_date: str | None = None,
     brackets: Sequence[tuple[float | None, float | None]] | None = None,
 ) -> tuple[int, int]:
-    """Seed ``pred_bucket_history`` from all resolved history for ``station_id``.
-
-    Walks every (station, local_date) in ``actuals`` from ``start_date`` (or
-    the earliest available date) through today, refitting EMOS per day via
-    ``_walk_forward_params`` and appending one triple per bracket per day.
-
-    Finishes by calling ``rebuild_lut`` so the Wilson bounds in
-    ``lut_bucket_stats`` reflect the seeded history.
-
-    Returns ``(days_processed, triples_written)``.
-    """
+    """Rebuild a station's LUT history from all resolved days since ``start_date``.
+    Returns ``(days_processed, triples_written)``."""
     if not _supports_station_lut(conn, station_id):
         clear_station_lut(conn, station_id)
         logger.info(
@@ -589,7 +483,6 @@ def seed_lut_from_history(
         )
         return (0, 0)
 
-    # Pull the dates we can resolve.
     if start_date is None:
         actuals_clause, actuals_params = actual_source_clause()
         row = conn.execute(
@@ -625,8 +518,7 @@ def seed_lut_from_history(
         )
         return (0, 0)
 
-    # Full seed is authoritative for the selected market grid. Clear first so
-    # old shifted grids do not keep contributing stale bracket-day triples.
+    # Clear first so triples from an old bracket grid don't linger.
     clear_station_lut(conn, station_id)
 
     days = 0
@@ -634,10 +526,7 @@ def seed_lut_from_history(
     conn.execute("SAVEPOINT seed_lut_from_history")
     try:
         for d in resolved_dates:
-            # Defer the per-day commit and issue one atomic release at the end.
-            # With 600+ resolved dates per station this turns 600 WAL syncs
-            # into one and avoids committing partial pred_bucket_history if a
-            # later day fails before lut_bucket_stats is rebuilt.
+            # One commit at the end.
             written = append_triples_for_date(
                 conn, station_id, horizon, d, brackets=brackets, commit=False,
             )

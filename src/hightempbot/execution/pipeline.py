@@ -1,8 +1,4 @@
-"""Pipeline orchestrator — wires forecast → decision → execution → ledger.
-
-This module contains `run_betting_cycle()` which is called by the per-station
-scanner (Unit 9) for each 15-min tick within the betting window.
-"""
+"""``run_betting_cycle``: safety checks, then evaluate, rank, record and place bets."""
 
 from __future__ import annotations
 
@@ -29,11 +25,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-# --- Halt-alert dedupe (ce-code-review P3 #66) ---
-# Wallet-unavailable and low-balance halts run per-station, so a 30-station
-# fleet would page Telegram ~30× per tick when wallet reads fail. Dedupe by
-# halt kind via monotonic wall-clock timestamps; halt behavior itself (the
-# `return result`) is unchanged — this only suppresses the redundant alerts.
+# Halt alerts fire per station; send each kind at most once per window.
 _HALT_ALERT_DEDUPE_SECONDS = 300.0
 _last_halt_alert_ts: dict[str, float] = {}
 
@@ -85,22 +77,13 @@ def run_betting_cycle(
     local_now_hour: int | None = None,
     local_now_minute: int | None = None,
 ) -> CycleResult:
-    """Run a single betting cycle for one station.
+    """Run one betting cycle for a station.
 
-    Args:
-        conn: DB connection (per-thread, WAL mode).
-        station: Station config.
-        ensemble_data: {model_name: tmax_celsius} from fetch_live().
-        market_data: {bracket_idx: {best_ask, best_bid, volume24hr, ...}}.
-        order_client: CLOB client (None in dry-run).
-        initial_bankroll: Starting capital from config.
-        dry_run: If True, log signals but don't place orders.
-        target_date: ISO date for the bet target. The scanner passes the UTC
-            readiness-cycle N+1 market date after ensemble readiness.
-        horizon: Days ahead (1, 2, or 3).
-
-    Returns:
-        CycleResult with counts.
+    ``ensemble_data`` is {model: tmax_c}; ``market_data`` is {bracket_idx:
+    {best_ask, best_bid, volume24hr, ...}}; ``order_client`` is None in dry-run.
+    Order: operator → coverage → capital → wallet → drawdown → exposure →
+    ensemble → calibration, then per bracket a locked re-check, PENDING
+    insert and execution.
     """
     station_id = station.icao
     tick_ts = utc_now_sql()
@@ -124,9 +107,7 @@ def run_betting_cycle(
         log_pipeline_health(conn, station_id, "operator", "SKIP", block_reason[:500])
         return result
 
-    # --- Data coverage gate ---
-    # Coverage measured against a fixed reference window (matching notebook methodology).
-    # Stations that started late or have large gaps are excluded.
+    # --- Data coverage gate (actuals since REF_START_DATE) ---
     from hightempbot.execution.strategy_constants import MIN_COVERAGE_PCT, REF_START_DATE
     actuals_clause, actuals_params = actual_source_clause()
     cov_row = conn.execute(
@@ -154,10 +135,7 @@ def run_betting_cycle(
         logger.error("Failed to compute capital for %s", station_id, exc_info=True)
         return result
 
-    # --- Wallet halt (live only) -- ce-code-review P1 #10 ---
-    # In live mode the wallet IS the source of truth. If we can't read it,
-    # we must NOT silently fall back to ledger capital (operator could have
-    # withdrawn collateral, account could be paused, etc.). Halt and alert.
+    # --- Wallet halt (live): no wallet reading, no betting ---
     if not dry_run:
         if not capital_state.wallet_available:
             msg = (
@@ -216,12 +194,7 @@ def run_betting_cycle(
     realized_capital = capital_state.realized_capital
     drawdown = (peak_capital - realized_capital) / peak_capital if peak_capital > 0 else 0.0
     if drawdown >= MAX_DD and not dry_run:
-        # Halt new entries when realized capital has fallen MAX_DD off peak.
-        # Live-only — dry_run mode skips the halt so operators can flip to
-        # dry_run to investigate behavior after a live drawdown without the
-        # halt silencing signal flow. In live mode peak comes from the
-        # bankroll_peak high-water table (wallet readings) so the halt fires
-        # on real-money drawdown, not ledger PnL accounting.
+        # Drawdown halt (live only, so dry-run can still be used to investigate).
         msg = (
             f"Halted: drawdown {drawdown * 100:.1f}% >= MAX_DD "
             f"({MAX_DD * 100:.0f}%); realized=${realized_capital:.2f} "
@@ -241,10 +214,7 @@ def run_betting_cycle(
                      station_id, total_pending, MAX_PENDING_EXPOSURE_PCT * 100, exposure_cap)
         return result
 
-    # Sizing basis: live wallet cash already excludes CLOB-filled open
-    # positions, but those positions are unrealized and should not shrink the
-    # strategy's target stake. Use cash + open cost basis for target sizing;
-    # keep deployable_capital for the final cash-affordability check.
+    # Size from cash + open cost; check affordability against deployable cash.
     effective_capital = stake_basis_capital
 
     # --- Build ensemble array ---
@@ -310,24 +280,13 @@ def run_betting_cycle(
 
     result.n_evaluated = len(signals)
 
-    # --- Rank passing signals (before logging, so dashboard reflects final state) ---
-    # Target-date notional is scoped to stake basis. Passing deployable cash
-    # would subtract existing same-date open cost twice (`wallet_balance` first,
-    # then `used` inside rank_signals) and shrink the book as positions remain
-    # unrealized.
+    # --- Rank (against stake basis; deployable cash would double-count open cost) ---
     budget_capital = stake_basis_capital
     passing = rank_signals(conn, signals, budget_capital, dry_run=dry_run)
     result.n_passed_gates = len(passing)
 
-    # --- Log non-passing signals immediately; passing signals are logged
-    # only after execution so BET/WOULD_BET reflects the final outcome. ---
-    # `bracket_extension` is seeded False on every strategy (decision.py
-    # initialises gate_results so analytics queries see a stable key) and is
-    # only flipped True on NO when the ceiling-extension path fires. It is
-    # NOT a real per-strategy gate, so excluding it from the "first False"
-    # walk is required — otherwise every non-extension skip across NO and
-    # all of TAIL/YMID/YHIGH gets mislabeled `SKIP:bracket_extension`,
-    # masking the actual failing gate.
+    # Log failing signals now and passing ones after execution. The SKIP
+    # reason is the first False gate, ignoring bracket_extension (not a gate).
     _NON_GATE_KEYS = frozenset({"bracket_extension"})
 
     passing_ids = {id(sig) for sig in passing}
@@ -347,24 +306,13 @@ def run_betting_cycle(
         except Exception:
             logger.error("Failed to log signal for %s", sig.bracket_label, exc_info=True)
 
-    # In-tick cash tracker (ce-code-review P0 #3 / ADV-004 race fix).
-    # MAX_PENDING_EXPOSURE_PCT was checked once at the top of the tick against
-    # the snapshot's pending_exposure. As record_bet commits happen inside
-    # this loop, concurrent station ticks read STALE pending values and could
-    # collectively over-deploy. The DB-backed exposure check uses a fresh SUM
-    # under BEGIN IMMEDIATE, so it already includes this tick's committed
-    # PENDING rows. Track only cash reserved by successful/uncertain live
-    # submissions so the stale wallet snapshot cannot be overspent.
+    # Cash reserved by this tick's live orders, so the start-of-tick wallet
+    # snapshot can't be overspent.
     in_tick_cash_reserved = 0.0
     placed_live_order = False
 
     def _skip_signal(sig: BetSignal, key: str) -> None:
-        """Mark a bracket skipped for ``key`` and log the SKIP signal.
-
-        Shared tail of the three copy-paste skip blocks (lock_contention,
-        exposure_cap_race, deployable_cash). Callers own their preceding
-        ``conn.rollback()`` and log line; this only records the SKIP.
-        """
+        """Record a bracket as skipped for ``key``."""
         sig.passed_all_gates = False
         sig.gate_results[key] = False
         try:
@@ -373,9 +321,7 @@ def run_betting_cycle(
             logger.error("Failed to log %s signal", key, exc_info=True)
 
     for sig in passing:
-        # re-check operator-control gate per bracket.
-        # Stop Processing or TRANSFER_LOCK pressed mid-tick must halt the
-        # remaining brackets in the loop, not just the next tick.
+        # Re-check operator control so Stop takes effect mid-tick.
         try:
             from hightempbot.execution.operator_control import processing_block_reason as _block
 
@@ -391,19 +337,9 @@ def run_betting_cycle(
         row_id = None
         outcome_label = "SKIP:execution"
         try:
-            # Per-bracket BEGIN IMMEDIATE around record_bet + transactional
-            # cap re-check. APScheduler max_instances=1 serializes ticks
-            # PER STATION, but cross-station ticks fire concurrently. Without
-            # a fresh exposure SUM under the write-lock, sibling stations
-            # all read the same stale `total_pending` from the tick-start
-            # snapshot and collectively over-deploy past the cap.
-            # bounded retry instead of silent fallthrough.
-            # If we can't acquire the write-lock, the exposure-cap re-check
-            # below sees stale data and the race fix is silently disabled.
-            # Retry with 50/100/200ms backoff (≤ 350ms total). If still busy,
-            # SKIP this bracket as `lock_contention` so we never proceed
-            # against the cap without holding the lock. A sibling station's
-            # bracket gets the next attempt; nothing is silently dropped.
+            # Other stations tick concurrently, so re-check exposure under a
+            # write lock. If the lock can't be had after short retries, skip
+            # the bracket rather than check against stale data.
             in_tx = False
             _last_lock_err: sqlite3.OperationalError | None = None
             for _attempt, _delay in enumerate((0.0, 0.05, 0.10, 0.20)):
@@ -430,11 +366,7 @@ def run_betting_cycle(
                 _skip_signal(sig, "lock_contention")
                 continue
 
-            # --- Transactional exposure cap re-check (P0 #3) ---
-            # Re-SELECT live pending now that we hold BEGIN IMMEDIATE -- this
-            # sees any commits from this tick and sibling stations that landed
-            # after the tick-start snapshot. Add only this bet's notional; this
-            # tick's previous PENDING rows are already in fresh_pending.
+            # --- Exposure cap re-check with fresh PENDING totals ---
             try:
                 fresh_pending = live_pending_notional(conn)
             except Exception:
@@ -473,9 +405,7 @@ def run_betting_cycle(
                 _skip_signal(sig, "deployable_cash")
                 continue
 
-            # Insert the PENDING ledger row first so the bot always has a
-            # record even if it crashes mid-verify; execute_or_log then
-            # owns the PENDING → FILLED / CANCELLED transition.
+            # PENDING row first, so a crash mid-order still leaves a record.
             row_id = record_bet(conn, sig, None, dry_run=dry_run)
             in_tx = False  # record_bet committed; lock released
             order_result = execute_or_log(
@@ -488,8 +418,6 @@ def run_betting_cycle(
             )
 
             if dry_run:
-                # Dry-run: execute_or_log stamps DRY_RUN_<uuid> on the row
-                # and returns None. Count it as placed for dashboard metrics.
                 result.n_placed += 1
                 result.total_exposure_usd += sig.bet_size_usd
                 if sig.slot_filled_pre > 0:
@@ -509,8 +437,6 @@ def run_betting_cycle(
                     in_tick_cash_reserved += float(order_result.bet_size_usd or sig.bet_size_usd)
                 logger.warning("Order did not fill for %s: %s", sig.bracket_label, order_result.error)
                 sig.passed_all_gates = False
-                # Surface the richer reason (e.g., "insufficient_depth") when the
-                # order path knows why it failed; fall back to generic "execution".
                 reason_key = (order_result.error or "").strip().split(":", 1)[0]
                 if reason_key and reason_key.replace("_", "").isalnum():
                     sig.gate_results[reason_key] = False
@@ -524,10 +450,7 @@ def run_betting_cycle(
                 outcome_label = "SKIP:execution"
 
         except Exception:
-            # Release the BEGIN IMMEDIATE lock if it's still held — the
-            # exception fired before record_bet's conn.commit() ran, so
-            # the transaction is open and would otherwise stall the next
-            # bracket's BEGIN IMMEDIATE on a busy lock.
+            # Release the write lock if the error came before the commit.
             if in_tx:
                 try:
                     conn.rollback()
@@ -556,10 +479,7 @@ def run_betting_cycle(
         except Exception:
             logger.error("Failed to log post-exec signal for %s", sig.bracket_label, exc_info=True)
 
-    # Single post-loop wallet refresh. The refreshed snapshot is only consumed
-    # by the NEXT tick's get_capital_snapshot, never within this loop, so one
-    # refresh after all orders is equivalent to the prior per-order refresh
-    # (last write wins) with fewer CLOB round-trips.
+    # Refresh the wallet once for the next tick.
     if placed_live_order:
         _refresh_wallet_after_live_order(
             conn,
