@@ -1,22 +1,7 @@
-"""Per-station resolution tick + helpers — extracted from station_scanner.py (U10),
-moved into the resolution/ package in U14.
+"""Per-station resolution tick: settle PENDING bets from Polymarket's close state.
 
-Settles open positions from finalized Polymarket Gamma close-state. Runs
-every 10 min (`SCAN_INTERVAL_MINUTES` cron slots), 24/7, for
-market-day-or-older pending positions; gated against
-`RESOLUTION_SCAN_START_HOUR` for same-local-day positions so resolution
-waits until the bracket can plausibly call.
-
-Imports (post-U11/U14):
-- Shared helpers `_notify`, `_log_pipeline_health`, `_station_actual_display`,
-  `_actual_matches_bracket` from `scheduler/station_scanner.py`.
-- `_fetch_market_data` from `scheduler/market_data.py`.
-- Gamma helpers `fetch_gamma_resolution_markets`, `parse_bracket_bounds`,
-  `winning_bracket_from_gamma` from `resolution/gamma.py`.
-
-station_scanner does NOT back-import from here — external callers (jobs.py,
-tests) reach `run_resolution_tick` / `_resolve_station_date` directly via
-this module.
+Runs every scan interval, 24/7. Same-local-day dates wait until
+RESOLUTION_SCAN_START_HOUR.
 """
 
 from __future__ import annotations
@@ -60,19 +45,10 @@ def run_resolution_tick(
     station: StationConfig,
     db_path: str,
 ) -> None:
-    """Check if any open positions for this station have resolved.
+    """Settle this station's PENDING bets whose Polymarket event has closed.
 
-    Polymarket is the single source of truth for WIN/LOSS. In production the
-    tick's only automatic settlement path is Gamma close-state: a market
-    settles once Polymarket reports every bracket ``closed`` with final
-    ``outcomePrices`` (``resolution_source='polymarket_gamma_closed'``, see
-    ``_resolve_via_gamma_close``). The legacy CLOB threshold scan (best bid
-    >= 0.995 win / best ask <= 0.005 loss) sits behind
-    ``EARLY_RESOLUTION_ENABLED``, hardcoded False since 2026-05-22 — a
-    deliberate flag-not-delete decision so tests can patch it back on to
-    exercise the early-settlement paths. Rows with no Gamma close yet stay
-    PENDING; the WU-actuals fallback is operator-initiated only
-    (CLI/dashboard) and is never called from this tick.
+    Only Gamma close-state settles automatically; the CLOB threshold scan is
+    behind EARLY_RESOLUTION_ENABLED (off) and the WU fallback is manual only.
     """
     station_id = station.icao
     tz = pytz.timezone(station.timezone)
@@ -80,14 +56,12 @@ def run_resolution_tick(
 
     conn = get_connection(db_path)
     try:
-        # Log every scan so dashboard Last Scan stays fresh
         from hightempbot.db.connection import log_pipeline_health
         log_pipeline_health(
             conn, station_id, "scan", "OK",
             f"resolution tick {local_now.strftime('%H:%M')} local",
         )
 
-        # Find open positions for this station (both live and dry-run)
         pending = conn.execute(
             """SELECT id, station_id, target_date, threshold, side, token_id, bet_size,
                       fill_price, fill_size, limit_price, event_type, event_detail
@@ -98,7 +72,6 @@ def run_resolution_tick(
         ).fetchall()
 
         if pending:
-            # Group by target_date — fetch market data once per event, not per bet
             from collections import defaultdict
             by_date: dict[str, list] = defaultdict(list)
             for row in pending:
@@ -144,13 +117,7 @@ def _is_intish(val: float | None) -> bool:
 
 
 def _is_legacy_integer_bracket(lo: float | None, hi: float | None) -> bool:
-    """Return True for the legacy integer-label bracket heuristic.
-
-    Legacy rows wrote raw integer labels: a 1°C bracket as ``lo == hi`` and a
-    2°F bracket as ``hi - lo == 1``; both bounds must be integer-ish. Shared by
-    ``_bet_matches_winner`` and ``_continuous_bracket_bounds`` so the two stay
-    in lockstep — preserves the exact epsilon and None handling.
-    """
+    """Old rows stored integer labels: ``lo == hi`` (1°C) or ``hi - lo == 1`` (2°F)."""
     return (
         _is_intish(lo)
         and _is_intish(hi)
@@ -167,13 +134,7 @@ def _bet_matches_winner(
     station_id: str = "",
     bet_id: int | None = None,
 ) -> bool:
-    """Match a bet's stored bracket bounds against the winning bracket.
-
-    Handles post-fix bets (exact equality on continuous [lo, hi)) and legacy
-    rows written under the old integer-label semantics (lo == hi for 1°C
-    brackets, or hi - lo == 1 for 2°F brackets). Legacy compat is removed
-    once `legacy-format compat` stops firing in production logs.
-    """
+    """Match a bet's stored bounds to the winning bracket, including legacy integer bounds."""
     if bet_low == winning_low and bet_high == winning_high:
         return True
 
@@ -226,14 +187,10 @@ def _bet_matches_market(
     bet_id: int | None = None,
     bet_label: str | None = None,
 ) -> bool:
-    """Return whether a ledger bet belongs to a Polymarket bracket row.
+    """Whether a ledger bet belongs to a market's bracket.
 
-    When ``bet_low``/``bet_high`` are both NULL (legacy rows) we first try
-    to recover the bounds by parsing ``bet_label``. Only when no bounds can
-    be recovered do we fall through to ``bet_token``-equality matching, and
-    we warn about it because Polymarket relisting (new conditionId) yields a
-    different token for the same bracket label and a token-only match would
-    silently strand or mis-resolve the row.
+    Missing bounds are recovered from the label; token matching is the last
+    resort (and warns, since a relist changes the token).
     """
     market_low = market.get("bracket_low")
     market_high = market.get("bracket_high")
@@ -248,8 +205,7 @@ def _bet_matches_market(
         )
 
     if bet_label:
-        # Lazy import: resolution.gamma imports stations, so bare-import
-        # at module top would create an import cycle.
+        # Imported here to avoid an import cycle.
         from hightempbot.resolution.gamma import parse_bracket_bounds
         parsed = parse_bracket_bounds(bet_label)
         if parsed is not None:
@@ -278,11 +234,7 @@ def _resolve_bet_from_terminal_yes_price(
     side: str,
     yes_price: float,
 ) -> bool:
-    """Return whether the bet won from a terminal YES-token price.
-
-    A bracket YES token at 0.995 means the bracket won; at 0.005 means the
-    bracket lost. NO bets are the opposite side of the same bracket.
-    """
+    """Win/loss from a terminal YES price (≥0.995 won, ≤0.005 lost); NO is the inverse."""
     side_up = side.upper()
     if side_up == "YES":
         return yes_price >= 0.5
@@ -308,23 +260,8 @@ def _resolved_bracket_detail(market: dict) -> dict:
     return _bracket_detail(market, prefix="resolution")
 
 
-def _closed_bracket_detail(market: dict) -> dict:
-    return _bracket_detail(market, prefix="closed")
-
-
 def _effective_fill_price(bet_row) -> float:
-    """``fill_price`` with limit_price fallback and NULL/zero coercion to 0.0.
-
-    Centralises the `bet_row["fill_price"] or bet_row["limit_price"] or 0.0`
-    expression so the 5 resolution sites (winning bracket, terminal yes,
-    terminal token, gamma close event-level, gamma close per-bracket) cannot
-    drift. Treats any non-positive / non-finite value as 0.0 — the caller
-    routes that through `_apply_null_fill_push`.
-
-    Python truthiness skips 0.0 (falsy) but NOT NaN (truthy), so the naive
-    `a or b or 0.0` pattern would let a NaN fill_price through silently.
-    Coerce explicitly via math.isfinite + > 0 to honor the docstring.
-    """
+    """fill_price, else limit_price, else 0.0 (non-finite or ≤0 counts as missing)."""
     for key in ("fill_price", "limit_price"):
         try:
             raw = bet_row[key]
@@ -349,22 +286,11 @@ def _apply_null_fill_push(
     *,
     won: bool,
 ) -> tuple[str, float, dict]:
-    """Return ``(outcome, pnl, extra_detail_addition)`` for a NULL/zero ``fill_price`` bet.
+    """Book a bet with no fill price as PUSH (pnl 0), recording the real result.
 
-    The bet is always booked as PUSH with pnl=0 — without ``fill_price`` we cannot
-    quantify either a win payout or a loss — but the bracket's actual resolution
-    (``won``) is recorded in ``event_detail`` so dashboards / audit scripts can
-    surface "PUSHed for accounting, but the bracket truly resolved LOSS" rows.
-
-    Side-effects: emits CRITICAL log and writes a ``pipeline_health`` ERROR row
-    (stage = ``resolution_<context_label>``) so operators can SQL-query for the
-    condition. The returned dict carries:
-
-    - ``null_fill_price_push = True``: marks the downgrade in ``event_detail``.
-    - ``bracket_resolution``: "WIN" or "LOSS" — the bracket's real outcome.
-    - ``unrecorded_loss = True``: set when ``won is False`` so an operator can
-      `WHERE event_detail LIKE '%"unrecorded_loss": true%'` to enumerate
-      capital that was lost without entry-price audit trail.
+    Returns ``(outcome, pnl, extra_detail)`` where extra_detail carries
+    ``null_fill_price_push``, ``bracket_resolution`` and, for losses,
+    ``unrecorded_loss``. Logs CRITICAL and writes a pipeline_health error.
     """
     bracket_resolution = "WIN" if won else "LOSS"
     logger.critical(
@@ -411,8 +337,7 @@ def _terminal_token_result(
     bid = reader.best_bid(book)
     if bid and bid[0] >= win_threshold:
         return True, float(bid[0])
-    # Loss requires an executable ask at the floor — a missing ask with a
-    # low bid is an information void, not proof the token is dead.
+    # A loss needs an executable ask at the floor; a missing ask proves nothing.
     ask = reader.best_ask(book)
     if ask is not None and ask[0] <= loss_threshold:
         return False, float(ask[0])
@@ -427,21 +352,9 @@ def _resolve_station_date(
 ) -> None:
     """Resolve one (station, target_date) group of PENDING bets.
 
-    Production path: ``_resolve_via_gamma_close`` — settle only when
-    Polymarket's Gamma API reports the whole event closed with final
-    ``outcomePrices`` (``resolution_source='polymarket_gamma_closed'``). When
-    Gamma has no close-state yet, the group stays PENDING and a WARNING is
-    logged; nothing else fires automatically from this function.
-
-    The CLOB threshold blocks above the Gamma call (winning bracket at bid
-    >= 0.995, per-bracket terminal YES price, terminal bet-token price — the
-    ``polymarket_winner`` / ``polymarket_terminal_yes`` /
-    ``polymarket_terminal_token`` sources) run only when
-    ``EARLY_RESOLUTION_ENABLED`` is True. That flag has been hardcoded False
-    since 2026-05-22 (deliberate flag-not-delete: tests patch it to exercise
-    the legacy early-settlement scan). ``_resolve_via_wu_actual_fallback`` is
-    NOT called from here — WU settlement is operator-initiated only
-    (CLI/dashboard).
+    With EARLY_RESOLUTION_ENABLED, CLOB terminal prices are tried first.
+    Otherwise only ``_resolve_via_gamma_close`` settles; if Gamma isn't
+    closed yet the bets stay PENDING.
     """
     from hightempbot.execution.strategy_constants import (
         EARLY_RESOLUTION_ENABLED,
@@ -453,12 +366,7 @@ def _resolve_station_date(
     station_cfg = get_all_stations(conn).get(station_id)
     target_day = date.fromisoformat(target_date)
 
-    # Defense-in-depth: the writer-side gate (stations.SUPPORTED_LIVE_SOURCES)
-    # already restricts which sources can land in `actuals` for live-betting
-    # stations, but the resolution path mints `wu_actual_fallback` rows that
-    # claim WU provenance — refuse any actuals row whose source isn't in the
-    # supported set so a future ingestion change can't silently corrupt the
-    # fallback's audit trail (finding #25).
+    # Only read actuals from supported sources.
     actuals_clause, actuals_params = actual_source_clause()
     actual_row = conn.execute(
         f"SELECT tmax_celsius FROM actuals "
@@ -501,8 +409,6 @@ def _resolve_station_date(
                     winning_bracket = mkt
                     break
                 ask = reader.best_ask(book)
-                # Loss confirmation needs an executable ask at the floor; a low
-                # bid alone with no asks is a quote void, not a dead bracket.
                 if ask is not None and ask[0] <= RESOLUTION_LOSS_PRICE_THRESHOLD:
                     mkt["_resolved_price"] = float(ask[0])
                     mkt["_terminal_yes_price"] = float(ask[0])
@@ -541,8 +447,7 @@ def _resolve_station_date(
                     station_id=station_id, bet_id=bet_row["id"],
                 )
             elif bet_label:
-                # Recover bounds from the stored label so a Polymarket relist
-                # (new conditionId, same label) still resolves correctly.
+                # Recover bounds from the label so a relisted market still matches.
                 from hightempbot.resolution.gamma import parse_bracket_bounds
                 parsed = parse_bracket_bounds(bet_label)
                 if parsed is not None:
@@ -675,8 +580,6 @@ def _resolve_station_date(
                 ),
             }
             if not (fill_price > 0):
-                # No price ever recorded (NULL/zero/NaN); treat as PUSH so the
-                # row doesn't silently book as a -bet_size loss on a winning bet.
                 outcome, pnl, push_extra = _apply_null_fill_push(
                     conn, bet_row["id"], station_id,
                     context_label="terminal_yes",
@@ -826,12 +729,7 @@ def _resolve_station_date(
             )
             return
 
-    # --- Gamma close-state fallback ---
-    # CLOB threshold detection misses bets when a market closes with an empty
-    # order book. Polymarket's Gamma API exposes the authoritative resolution
-    # via `closed: True` + `outcomePrices` once the market is finalized; settle
-    # on that when every bracket in the event is closed and exactly one shows
-    # a definitive YES price (>= 0.99).
+    # --- Gamma close state: every bracket closed and exactly one winner ---
     gamma_resolved = _resolve_via_gamma_close(
         conn, station_id, target_date, bets, actual_tmax,
     )
@@ -842,16 +740,9 @@ def _resolve_station_date(
         )
         return
 
-    # Per-bracket Gamma close-state is intentionally not used for production
-    # settlement. A single bracket can show closed=True/outcomePrices while
-    # the wallet position is still open and the full event is not final, so
-    # those rows must remain PENDING until the event-level all-closed path
-    # above can pin the final Polymarket result.
+    # Not per bracket: one bracket can close before the event is final.
+    # The WU fallback is manual only.
 
-    # Automatic WU fallback is intentionally disabled in production. Operators
-    # want ledger rows to remain PENDING until Polymarket finalizes the event.
-    # The WU helper remains available only through explicit CLI/dashboard
-    # manual workflows for archived events.
     msg = (
         f"No Polymarket terminal price at >= {RESOLUTION_PRICE_THRESHOLD:.3f} "
         f"or <= {RESOLUTION_LOSS_PRICE_THRESHOLD:.3f} for {target_date}"
@@ -867,11 +758,7 @@ def _resolve_via_gamma_close(
     bets: list[sqlite3.Row],
     actual_tmax: float | None,
 ) -> int:
-    """Settle bets using Polymarket's authoritative ``closed`` + ``outcomePrices``.
-
-    Delegates the gating (all closed, single winner, parseable bounds) to
-    ``winning_bracket_from_gamma``. Returns the count of bets settled.
-    """
+    """Settle bets once ``winning_bracket_from_gamma`` finds the final winner. Returns count."""
     from hightempbot.persistence.ledger import record_resolution
 
     winning = winning_bracket_from_gamma(
@@ -912,16 +799,8 @@ def _resolve_via_gamma_close(
 
         outcome = _outcome_from_resolved_bracket(side, bet_is_winner)
         won = outcome == "WIN"
-        # NULL/zero fill_price means we never recorded what the bet filled
-        # at — applying `-bet_size` would book a fabricated loss even when
-        # `won is True`. Mirror the per-bracket variant: downgrade to PUSH
-        # so dashboard/capital accounting stays honest, and log CRITICAL so
-        # the row gets manual attention.
         extra_detail = _resolved_bracket_detail(winning)
-        # Default to the winning bracket label, but null it out for the PUSH
-        # downgrade so the dashboard doesn't show "won at X" for a row whose
-        # outcome is actually PUSH (event_detail.bracket_resolution still
-        # carries the canonical "what would have happened").
+        # A PUSH row shouldn't display the winning label.
         push_resolution_label: str | None = winning_label
         if not (fill_price > 0):
             outcome, pnl, push_extra = _apply_null_fill_push(
@@ -951,129 +830,6 @@ def _resolve_via_gamma_close(
     return resolved_count
 
 
-def _resolve_via_gamma_close_per_bracket(
-    conn: sqlite3.Connection,
-    station_id: str,
-    target_date: str,
-    bets: list[sqlite3.Row],
-    actual_tmax: float | None,
-) -> int:
-    """Legacy helper: settle each bet against its own bracket's Gamma close-state.
-
-    Status: zero in-repo callers (not wired into ``_resolve_station_date``,
-    any CLI, or any test). Retained deliberately as the reference
-    implementation for the historical
-    ``resolution_source='polymarket_gamma_closed_bracket'`` ledger rows it
-    once wrote, so their settlement semantics stay auditable. Production
-    rejected this path: a single bracket can show ``closed``/``outcomePrices``
-    while the event is not final, so per-bracket settlement could book results
-    before the winning bracket is pinned (see the comment in
-    ``_resolve_station_date``).
-
-    What it does: ``_resolve_via_gamma_close`` requires every bracket in the
-    event to be closed before firing, so it cannot settle individually closed
-    losing brackets while the precise winning bracket is still being pinned
-    (the typical pattern when intraday actuals shoot past several lower
-    brackets hours before the daily high lands). This per-bracket variant
-    settles each bet against its own bracket's authoritative ``closed`` +
-    ``outcomePrices`` regardless of what other brackets are doing.
-
-    Skips bets whose bracket is still open or whose outcomePrices haven't
-    landed at a corner.
-    """
-    from hightempbot.execution.strategy_constants import RESOLUTION_PRICE_THRESHOLD
-    from hightempbot.persistence.ledger import record_resolution
-
-    markets = fetch_gamma_resolution_markets(
-        station_id, date.fromisoformat(target_date), conn=conn
-    )
-    if not markets:
-        return 0
-
-    resolved_count = 0
-    for bet_row in bets:
-        side = bet_row["side"]
-        fill_price = _effective_fill_price(bet_row)
-        bet_size = bet_row["bet_size"]
-        bet_token = bet_row["token_id"]
-
-        detail = decode_event_detail(bet_row["event_detail"])
-        bet_low = detail.get("bracket_low")
-        bet_high = detail.get("bracket_high")
-        bet_label = bet_row["bracket_label"] if "bracket_label" in bet_row.keys() else detail.get("bracket_label")
-
-        bet_market = next(
-            (
-                m for m in markets.values()
-                if _bet_matches_market(
-                    bet_low, bet_high, m, bet_token,
-                    station_id=station_id, bet_id=bet_row["id"],
-                    bet_label=bet_label,
-                )
-            ),
-            None,
-        )
-        if bet_market is None or not bet_market.get("closed"):
-            continue
-
-        yes_price = float(bet_market.get("yes_price", 0.0))
-        no_price = float(bet_market.get("no_price", 0.0))
-
-        if yes_price >= RESOLUTION_PRICE_THRESHOLD:
-            bracket_won = True
-            resolved_price = yes_price
-        elif no_price >= RESOLUTION_PRICE_THRESHOLD:
-            bracket_won = False
-            resolved_price = no_price
-        else:
-            # Closed but outcomePrices haven't landed at a corner yet.
-            continue
-
-        outcome = _outcome_from_resolved_bracket(side, bracket_won)
-        won = outcome == "WIN"
-        bracket_label = bet_market.get("bracket_label") or (
-            f"[{bet_market.get('bracket_low')},{bet_market.get('bracket_high')}]"
-        )
-        extra_detail = {
-            "closed_bracket_label": bracket_label,
-            **_closed_bracket_detail(bet_market),
-        }
-        resolution_label = bracket_label if bracket_won else None
-        if bracket_won:
-            extra_detail.update(_resolved_bracket_detail(bet_market))
-
-        if not (fill_price > 0):
-            outcome, pnl, push_extra = _apply_null_fill_push(
-                conn, bet_row["id"], station_id,
-                context_label="gamma_close_per_bracket",
-                won=won,
-            )
-            extra_detail = {**extra_detail, **push_extra}
-            # PUSH downgrade — null out the winning-bracket label so the
-            # dashboard doesn't show "won at X" for a PUSH row.
-            resolution_label = None
-        else:
-            pnl = _bet_pnl(fill_price, bet_size, won)
-
-        if not record_resolution(
-            conn, bet_row["id"], actual_tmax, outcome, pnl,
-            resolution_label=resolution_label,
-            resolution_source="polymarket_gamma_closed_bracket",
-            resolution_price=resolved_price,
-            extra_detail=extra_detail,
-        ):
-            continue
-        resolved_count += 1
-        logger.info(
-            "Resolved %s bet_id=%d via Gamma per-bracket close: "
-            "%s bracket=%s yes=%.3f no=%.3f pnl=$%.2f",
-            station_id, bet_row["id"], outcome, bracket_label,
-            yes_price, no_price, pnl,
-        )
-
-    return resolved_count
-
-
 def _resolve_via_wu_actual_fallback(
     conn: sqlite3.Connection,
     station_id: str,
@@ -1084,38 +840,11 @@ def _resolve_via_wu_actual_fallback(
     *,
     days_past: int,
 ) -> int:
-    """Settle bets using local WU actuals when Polymarket never will.
+    """Settle bets from WU actuals once Polymarket has archived the event.
 
-    NOT called by the automatic resolution tick: ``_resolve_station_date``
-    deliberately leaves rows PENDING until Polymarket finalizes the event.
-    The only callers are the operator surfaces — the
-    ``hightempbot.cli.resolve_pending_via_wu`` CLI and the dashboard's
-    ``POST /api/v2/admin/resolve-pending`` endpoint — both of which enforce
-    the ``POLYMARKET_FALLBACK_DAYS`` floor (``--force`` to override).
-    Purpose: Polymarket Gamma archives daily-temperature events some time
-    after close — the slug + conditionId lookups both go empty (confirmed
-    2026-05-20 against 5/17 + 5/18 events) — and without this manual escape
-    hatch the affected PENDINGs would linger indefinitely.
-
-    Safety constraints (any failure skips the row, never guesses):
-
-    - Bet MUST carry explicit ``bracket_low`` or ``bracket_high`` in
-      event_detail. Token-only matching is refused: Polymarket relisting can
-      rebind a token to a different bracket, and falling back without bounds
-      would risk silently resolving against the wrong slice.
-    - ``station_cfg.unit`` must be set (`"F"` or `"C"`). The display-unit
-      conversion is the only thing keeping a US-Fahrenheit station from being
-      compared against °C bracket bounds; an unknown unit is treated as
-      unresolvable. (`bracket_unit` empty-string semantics — see AGENTS.md
-      "Things that have burned us".)
-    - `actual_tmax` is in °C (the WU convention). Rounded to the station's
-      display unit so the bracket compare matches Polymarket's resolution
-      semantics (`[lo, hi)` round-rule).
-
-    Records `resolution_source='wu_actual_fallback'` with
-    `event_detail.fallback_reason='polymarket_unavailable_<days>d'` so the row
-    is auditably distinct from the 5 polymarket_* sources and
-    `backfill_polymarket_resolution_labels` leaves it alone.
+    Manual only (CLI and dashboard admin endpoint). Skips any bet without
+    stored bounds or whose station unit is unknown. Writes
+    ``resolution_source='wu_actual_fallback'``.
     """
     from hightempbot.decision.brackets import actual_in_bracket
     from hightempbot.persistence.ledger import record_resolution
@@ -1127,13 +856,8 @@ def _resolve_via_wu_actual_fallback(
         )
         return 0
 
-    # Compare the raw display value against the bracket — do NOT round to the
-    # nearest integer first. Python's banker's rounding (`round(68.5) == 68`)
-    # combined with continuous half-open bracket bounds (`[67.5, 68.5)` for
-    # "be 68°F", `[68.5, 69.5)` for "be 69°F") would silently flip the .5
-    # boundary case. Polymarket resolves against the raw NWS observation; the
-    # bracket parser already encodes the round-rule into the bounds (label X
-    # ↔ actual in `[X-0.5, X+0.5)`). See `resolution/gamma.py::parse_bracket_bounds`.
+    # Don't round: the bounds already encode Polymarket's rounding, and
+    # banker's rounding would flip .5 cases.
     actual_display = (
         celsius_to_fahrenheit(actual_tmax) if station_cfg.unit.upper() == "F" else actual_tmax
     )
@@ -1148,10 +872,7 @@ def _resolve_via_wu_actual_fallback(
             ):
                 resolved_count += 1
         except Exception:
-            # Per-bet failure must not abort remaining bets in the group: a
-            # corrupted event_detail or transient DB error on one row should
-            # not strand every later bet on the same (station, target_date).
-            # Next tick will retry the unresolved row.
+            # One bad row must not block the rest.
             logger.exception(
                 "WU fallback: bet_id=%s (%s, %s) raised; skipping (other bets continue)",
                 bet_row["id"], station_id, target_date,
@@ -1175,18 +896,8 @@ def preview_wu_fallback_outcome(
     station_cfg: StationConfig,
     days_past: int,
 ) -> dict:
-    """Predict what `_resolve_via_wu_actual_fallback` would write for one bet.
-
-    Pure read-only — no DB writes. Shared between the operator script's
-    dry-run preview and the dashboard's mutation endpoint so the two can't
-    drift from production (finding #4 + #24).
-
-    Returns a dict with at minimum:
-      ``bet_id``, ``side``, ``bracket_low``, ``bracket_high``,
-      ``actual_display``, ``actual_unit``, ``outcome``
-      (``WIN``/``LOSS``/``PUSH``/``SKIP``), ``pnl_gross``, ``reason``,
-      ``days_past``.
-    """
+    """Read-only preview of what the WU fallback would write for one bet
+    (outcome WIN/LOSS/PUSH/SKIP, pnl_gross, reason, ...)."""
     from hightempbot.decision.brackets import actual_in_bracket
 
     if not station_cfg.unit:
@@ -1246,19 +957,7 @@ def preview_wu_fallback_outcome(
 def _continuous_bracket_bounds(
     bet_low: float | None, bet_high: float | None,
 ) -> tuple[float | None, float | None]:
-    """Convert legacy integer bracket bounds to the continuous half-open form.
-
-    Post-fix brackets are stored as continuous bounds (label X ↔ `[X-0.5, X+0.5)`).
-    Legacy rows wrote raw integer labels:
-    - 1°C bracket label `70` → ``lo == hi == 70`` → continuous ``[69.5, 70.5)``
-    - 2°F bracket label `70-71` → ``lo=70, hi=71`` → continuous ``[69.5, 71.5)``
-    Detected by integer-ish bounds with ``lo == hi`` or ``hi - lo == 1``. Returns
-    the bounds unchanged for post-fix continuous rows.
-
-    Mirrors the legacy heuristics in ``_bet_matches_winner`` so the WU fallback
-    matches the rest of the resolver. See feedback memory
-    ``bracket_parser_dominates_parity`` (2026-05-09).
-    """
+    """Convert legacy integer bounds to ``[lo-0.5, hi+0.5)``; others unchanged."""
     if bet_low is None or bet_high is None:
         return bet_low, bet_high
 
