@@ -1,9 +1,5 @@
-"""Polymarket bracket price scraper.
+"""Scrape current (and optionally hourly) bracket prices into polymarket_prices.
 
-Scrapes current bracket prices + price history for all active temperature markets.
-Stores in the polymarket_prices table.
-
-Usage:
     python -m hightempbot.ingestion.polymarket_prices          # scrape today
     python -m hightempbot.ingestion.polymarket_prices --history # scrape with hourly history
 """
@@ -25,8 +21,7 @@ logger = logging.getLogger(__name__)
 GAMMA_API = "https://gamma-api.polymarket.com"
 CLOB_API = "https://clob.polymarket.com"
 
-# Reverse mapping: normalized city name → ICAO (for discovery matching)
-# Populated dynamically by register_enrolled_station() at startup
+# Normalized city name → ICAO, filled by register_enrolled_station().
 _CITY_TO_ICAO: dict[str, str] = {}
 
 

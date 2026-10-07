@@ -1,8 +1,4 @@
-"""Aggregate live operator GO/NO-GO evidence.
-
-This command does not place orders or move funds. By default it uses the
-current .env and read-only CLOB/RPC checks when DRY_RUN=False.
-"""
+"""Read-only live GO/NO-GO report (never places orders or moves funds)."""
 
 from __future__ import annotations
 

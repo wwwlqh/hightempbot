@@ -1,13 +1,4 @@
-"""ICAO -> country code -> flag emoji helpers.
-
-Single source of truth for the dashboard. Both ``app.py`` and ``v2_data.py``
-import from here so the prefix table can't drift between modules. Merged
-from the previously-divergent tables in those two files.
-
-Two-character prefixes take precedence over single-character ones; UK is
-normalized to GB inside ``_country_to_flag`` so callers don't need to care
-which form a given station produces.
-"""
+"""ICAO → country code → flag emoji, for the dashboard."""
 
 from __future__ import annotations
 
@@ -49,10 +40,7 @@ _ICAO_PREFIX_COUNTRY: dict[str, str] = {
 
 
 def _icao_to_country(icao: str) -> str:
-    """Derive ISO country code from ICAO identifier.
-
-    Tries exact match, then 2-char prefix, then 1-char prefix.
-    """
+    """Country code by exact ICAO, then 2-char, then 1-char prefix."""
     if not icao:
         return ""
     if icao in _ICAO_PREFIX_COUNTRY:

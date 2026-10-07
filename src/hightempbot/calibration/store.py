@@ -65,13 +65,7 @@ def save_emos_at(
     *,
     commit: bool = True,
 ) -> None:
-    """Persist historical walk-forward EMOS params for (station, horizon, asof_date).
-
-    Used by the LUT seeder to memoize the cost of per-day EMOS refits across
-    ~2 years of history. `asof_date` is an ISO YYYY-MM-DD string representing
-    the day these params were valid for (fit on the 30-day window ending at
-    asof_date - 1).
-    """
+    """Save walk-forward EMOS params valid on ``asof_date`` (memo for the LUT seeder)."""
     blob = json.dumps({
         "a": params.a,
         "b": params.b,
@@ -95,11 +89,7 @@ def load_emos_at(
     horizon: int,
     asof_date: str,
 ) -> EMOSParams | None:
-    """Load memoized walk-forward EMOS params for (station, horizon, asof_date).
-
-    Returns None if no row exists — callers are expected to fit-on-demand
-    and persist via `save_emos_at` when that happens.
-    """
+    """Saved walk-forward EMOS params for ``asof_date``, or None."""
     row = conn.execute(
         "SELECT params_blob FROM calibration_params_history "
         "WHERE station_id = ? AND horizon = ? AND asof_date = ?",

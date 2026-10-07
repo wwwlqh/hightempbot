@@ -88,9 +88,7 @@ def main(argv: list[str] | None = None) -> int:
     else:
         raise SystemExit("Provide --server-env-file or --ssh-target/--ssh-key.")
 
-    # --all-keys overrides the live-critical allowlist
-    # by taking the full union of local + server keys. --key (repeatable)
-    # still takes precedence if the operator explicitly named keys.
+    # Precedence: --key, then --all-keys, then the live-critical list.
     if args.keys:
         compare_keys = args.keys
     elif args.all_keys:

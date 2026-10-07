@@ -1,9 +1,5 @@
-"""Parse Polymarket event data to extract resolution source, station id, and unit.
-
-Tier 1: WU URL in the explicit resolution source field.
-Tier 2: Known description-only sources, currently HKO for Hong Kong.
-Tier 3: Unknown sources return ``None``.
-"""
+"""Resolution source, station id and unit from a Polymarket event: a WU URL,
+else HKO for Hong Kong, else None."""
 
 from __future__ import annotations
 

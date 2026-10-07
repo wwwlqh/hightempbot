@@ -1,10 +1,5 @@
-"""Diagnose Polymarket proxy/safe/deposit-wallet readiness.
+"""Check that the Polymarket wallet setup (proxy/Safe/deposit wallet) can trade.
 
-This is an operator GO/NO-GO tool for live trading. It keeps wallet topology
-checks outside the betting loop so the bot can fail closed when Polymarket's
-CLOB/relayer account state is not compatible with order placement.
-
-Usage:
     python -m hightempbot.cli.poly_wallet_diagnostics
     python -m hightempbot.cli.poly_wallet_diagnostics --check-relayer
     python -m hightempbot.cli.poly_wallet_diagnostics --probe-clob
@@ -43,13 +38,7 @@ from hightempbot.polymarket import primitives as _polymarket_primitives
 
 
 def _to_systemexit(fn):
-    """Adapt a primitive that raises ValueError/RuntimeError into SystemExit.
-
-    The CLI's existing error model expects a single SystemExit per failure.
-    Primitives moved to hightempbot.polymarket.primitives raise ValueError /
-    RuntimeError so they're safe to call from production code; this adapter
-    keeps the CLI's pre-existing surface unchanged.
-    """
+    """Call ``fn``, turning ValueError/RuntimeError into SystemExit."""
     @functools.wraps(fn)
     def _wrapped(*args, **kwargs):
         try:
@@ -75,13 +64,7 @@ _request_json = _to_systemexit(_polymarket_primitives.request_json)
 
 
 def _pusd_amount_to_base_units(amount: str) -> int:
-    """CLI wrapper around the canonical execution-layer converter.
-
-    ce-code-review P2 #46: delegates to execution.polymarket_transfer
-    .pusd_amount_to_base_units so there's a single rounding / minimum-unit
-    contract, with the boundary converting TransferSafetyError into the
-    CLI's SystemExit shape.
-    """
+    """``polymarket_transfer.pusd_amount_to_base_units`` with SystemExit on error."""
     # Lazy import to avoid the cli ↔ execution circular import at module load.
     from hightempbot.execution.polymarket_transfer import (
         TransferSafetyError,
@@ -206,8 +189,6 @@ def _deploy_deposit_wallet(
 
     owner = _validate_address(owner, name="owner")
     headers = _relayer_headers(api_key, api_key_address)
-    # We only need the chain contract config; no private key or builder creds are
-    # required to build a WALLET-CREATE body.
     client = RelayClient(_relayer_url(relayer_url), CHAIN_ID)
     body = build_deposit_wallet_create_request(
         owner,

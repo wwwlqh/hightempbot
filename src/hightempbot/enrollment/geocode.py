@@ -1,8 +1,4 @@
-"""Geocode city names to lat/lon/timezone via Open-Meteo Geocoding API.
-
-Uses the same Open-Meteo infrastructure the bot already depends on.
-Results are cached in memory (cities don't move).
-"""
+"""City → lat/lon/timezone via the Open-Meteo geocoding API (cached in memory)."""
 
 from __future__ import annotations
 
@@ -31,20 +27,8 @@ class GeoResult:
 
 
 def geocode_city(city_name: str, max_attempts: int = 3) -> GeoResult | None:
-    """Geocode a city name to lat/lon/timezone.
-
-    Uses Open-Meteo Geocoding API with retry + exponential backoff.
-    Caches successful results in memory.  Only caches "no results"
-    after all retries are exhausted (transient empty responses
-    don't poison the cache).
-
-    Args:
-        city_name: City name as it appears on Polymarket (e.g., "Warsaw")
-        max_attempts: Number of retries on network/API failure.
-
-    Returns:
-        GeoResult with lat, lon, timezone, country_code, or None on failure.
-    """
+    """Geocode a Polymarket city name, with retries. None on failure (cached
+    only after all retries fail)."""
     key = city_name.lower().strip()
     if key in _cache:
         return _cache[key]

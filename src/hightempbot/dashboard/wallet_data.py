@@ -36,12 +36,7 @@ def build_operator_wallet_payload(
     return_wallet = (getattr(cfg, "poly_return_wallet", "") or "").strip()
     wallet["returnWallet"] = return_wallet
     wallet["returnWalletConfigured"] = is_address(return_wallet)
-    # drop the raw reconciliation records[] from the
-    # response — UI never reads it, and a populated array inflates the
-    # /api/v2/data envelope by 10-100KB per request.
-    # drop the inner snapshot.walletAddress alias —
-    # the UI addresses wallet.primaryWallet at the top level; carrying both
-    # names was a duplicated-naming foot-gun.
+    # Drop fields the UI doesn't read.
     _snap = wallet.get("snapshot")
     if isinstance(_snap, dict):
         _snap.pop("records", None)

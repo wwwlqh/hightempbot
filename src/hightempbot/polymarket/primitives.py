@@ -1,12 +1,7 @@
-"""Polymarket constants, wallet topology, and ERC-20 / relayer helpers.
+"""Polymarket constants, wallet validation and ERC-20/relayer helpers.
 
-ce-code-review #17/#69: shared between operator CLIs and live trading modules
-(execution.live_readiness, execution.polymarket_relayer,
-execution.polymarket_transfer, persistence.wallet_reconciliation).
-
-Validation failures raise ValueError. Missing optional dependencies and HTTP
-errors raise RuntimeError. The CLI wraps these into SystemExit at its own
-boundary; runtime code lets them propagate or catches narrowly.
+Bad input raises ValueError; missing dependencies and HTTP errors raise
+RuntimeError.
 """
 
 from __future__ import annotations
@@ -184,12 +179,7 @@ def redeem_positions_calldata(
     collateral_token: str = PUSD_ADDRESS,
     parent_collection_id: str = "0x" + "0" * 64,
 ) -> str:
-    """Encode Polymarket adapter redeemPositions calldata.
-
-    Polymarket's pUSD-native redemption path routes through the collateral
-    adapters and burns the caller's full token balance for the condition/index
-    sets. There is intentionally no amount parameter.
-    """
+    """redeemPositions calldata (redeems the full balance; there's no amount)."""
     if not index_sets or any(int(index) <= 0 for index in index_sets):
         raise ValueError("index_sets must contain positive CTF index set integers.")
     return encode_contract_call(

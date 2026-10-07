@@ -7,12 +7,7 @@ from functools import lru_cache
 
 @lru_cache(maxsize=None)
 def actual_source_clause(alias: str | None = None) -> tuple[str, tuple[str, ...]]:
-    """Return a SQL source filter for live-supported actual rows.
-
-    Cached because ``SUPPORTED_LIVE_SOURCES`` is a frozenset that never
-    changes at runtime — the hot-path callers (per-tick betting, resolution)
-    hit this 20+ times per tick.
-    """
+    """SQL filter (and params) limiting actuals to supported sources. Cached."""
     from hightempbot.stations import SUPPORTED_LIVE_SOURCES
 
     sources = tuple(sorted(SUPPORTED_LIVE_SOURCES))

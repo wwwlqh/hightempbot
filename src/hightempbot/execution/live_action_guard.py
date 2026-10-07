@@ -25,13 +25,8 @@ def assert_fresh_live_action_context(
     freshness_ttl_s_override: int | None = None,
     dry_run_message: str = "Process booted DRY_RUN=True; live-money actions are disabled.",
 ) -> None:
-    """Require fresh readiness plus a complete wallet snapshot before mutation.
-
-    This is the execution-layer equivalent of the dashboard's live-action gate.
-    It may refresh external diagnostics and wallet state, but it never submits
-    orders or transfers; callers perform those mutations only after this gate
-    accepts the current snapshot.
-    """
+    """Raise unless readiness is fresh and OK and the wallet snapshot is
+    complete. May refresh both; never moves money itself."""
     if dry_run:
         raise LiveActionSafetyError(dry_run_message)
 

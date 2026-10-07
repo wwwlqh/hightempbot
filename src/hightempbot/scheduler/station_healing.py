@@ -1,10 +1,4 @@
-"""Station healing helpers — extracted from station_scanner.py (U11).
-
-`_heal_station_unit_if_wrong` corrects enrolled_stations.unit when it
-disagrees with Polymarket bracket labels. `_attempt_seed_missing_lut` seeds
-a missing LUT on demand from the readiness-cycle target-date brackets.
-Both fire on the betting tick path.
-"""
+"""Betting-tick self-repair: fix a wrong station unit, seed a missing LUT."""
 
 from __future__ import annotations
 
@@ -25,13 +19,7 @@ def _heal_station_unit_if_wrong(
     current_unit: str,
     market_data: dict,
 ) -> None:
-    """Auto-correct enrolled_stations.unit when it disagrees with Polymarket labels.
-
-    Polymarket bracket labels always carry an explicit °F or °C token. If the
-    inferred unit differs from the stored station.unit, UPDATE the DB so the
-    next tick (which reloads via get_all_stations) picks up the correction.
-    Non-fatal: any failure is logged and the tick continues.
-    """
+    """Update enrolled_stations.unit to match the market labels. Never raises."""
     inferred = None
     label = ""
     for mkt in market_data.values():
