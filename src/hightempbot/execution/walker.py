@@ -1,11 +1,4 @@
-"""CLOB order placement and dry-run logic.
-
-Wraps py-clob-client-v2 for order book queries and FAK limit order placement.
-DRY_RUN mode logs signals without placing orders.
-
-V2 migration (April 22, 2026): V1 orders rejected post-cutover; collateral is
-pUSD (not USDC.e); OrderArgs drops nonce/fee_rate_bps/taker.
-"""
+"""CLOB order placement (py-clob-client-v2, pUSD collateral) and dry-run fills."""
 
 from __future__ import annotations
 
@@ -91,8 +84,7 @@ def _request_clob_json(
         _clob_http_semaphore.release()
 
 
-# Coarse error classification used by execute_or_log to short-circuit
-# non-retryable failures. ce-code-review P1 #13.
+# Error buckets that execute_or_log treats as non-retryable.
 _TERMINAL_ERROR_KINDS = {"auth", "insufficient_funds", "market_closed", "invalid_amounts"}
 _MATCHED_ORDER_STATUSES = {"MATCHED", "FILLED"}
 _TERMINAL_ORDER_STATUSES = {"CANCELED", "CANCELLED", "FAILED", "REJECTED", "EXPIRED"}
@@ -105,19 +97,12 @@ _SIGNATURE_TYPE_LABELS = {
 
 
 def _classify_clob_error(exc_or_msg: object) -> str:
-    """Map a CLOB exception or error string to a coarse retry-policy bucket.
-
-    Returns one of: "auth", "insufficient_funds", "market_closed",
-    "invalid_amounts", "network", "unknown". Matching is substring-based on the lower-cased
-    string repr; py_clob_client_v2 surfaces these as plain RuntimeError
-    instances today so the string match is what we have.
-    """
+    """Map a CLOB error to "auth", "insufficient_funds", "market_closed",
+    "invalid_amounts", "network" or "unknown" by substring match."""
     text = str(exc_or_msg or "").lower()
     if not text:
         return "unknown"
-    # "below the minimum" was too broad — it matched
-    # tick-size and spread errors that are NOT funding problems. Require an
-    # explicit balance/funds adjacency to classify as insufficient_funds.
+    # Require balance/funds wording; "below the minimum" alone also matches tick-size errors.
     if (
         "insufficient" in text
         or "not enough" in text
@@ -206,9 +191,7 @@ def _validate_signed_order_for_wallet(
         return "POLY_1271 signed order maker does not match POLY_FUNDER"
     if signer != expected:
         return "POLY_1271 signed order signer does not match POLY_FUNDER"
-    # A normal 65-byte ECDSA signature is 132 chars including 0x. Deposit
-    # wallet CLOB orders need the ERC-7739/POLY_1271 wrapper built by
-    # py-clob-client-v2>=1.0.1, which is materially longer.
+    # A plain ECDSA signature is 132 chars; POLY_1271 needs the longer ERC-7739 wrapper.
     if len(signature) <= 132:
         return "POLY_1271 signed order signature is not ERC-1271 wrapped"
     return None
@@ -235,15 +218,7 @@ def _validate_market_buy_amount_precision(signed_order: object) -> str | None:
 
 
 def _bounded_client_call(order_client, fn, *args, **kwargs):
-    """Run ``fn(*args, **kwargs)`` under the OrderClient's timeout if available.
-
-    Production paths route through ``order_client._with_timeout`` so a hung
-    CLOB cannot block the scheduler thread indefinitely. Tests pass a stub
-    client that lacks the wrapper; for those we fall back to a direct
-    invocation so test assertions land. Test doubles that DO expose
-    ``_with_timeout`` must provide a real pass-through callable
-    (``lambda fn, *args, **kwargs: fn(*args, **kwargs)``).
-    """
+    """Call ``fn`` through ``order_client._with_timeout`` when the client has one."""
     wrapper = getattr(order_client, "_with_timeout", None)
     if callable(wrapper):
         return wrapper(fn, *args, **kwargs)
@@ -261,13 +236,7 @@ def _level_size(level) -> float:
 
 
 def _sorted_asks(book):
-    """Return ask levels sorted from cheapest to most expensive.
-
-    Polymarket's `/book` responses can arrive in descending order, so callers
-    must not assume the first ask is the best executable buy price. Always
-    returns a list: a dict book missing the ``asks`` key (or a side present but
-    None) coerces to ``[]`` rather than tripping ``sorted(None)``.
-    """
+    """Ask levels, cheapest first (Polymarket may return them descending)."""
     asks = getattr(book, "asks", None)
     if asks is None and isinstance(book, dict):
         asks = book.get("asks")
@@ -275,12 +244,7 @@ def _sorted_asks(book):
 
 
 def _sorted_bids(book):
-    """Return bid levels sorted from cheapest to richest.
-
-    Always returns a list: a dict book missing the ``bids`` key (live /book
-    responses drop an empty side) coerces to ``[]`` rather than tripping
-    ``sorted(None)``.
-    """
+    """Bid levels, cheapest first (best bid last)."""
     bids = getattr(book, "bids", None)
     if bids is None and isinstance(book, dict):
         bids = book.get("bids")
@@ -448,17 +412,7 @@ _HTTPX_TIMEOUT_LOCK = threading.Lock()
 
 
 def _install_clob_http_timeout() -> None:
-    """Replace py_clob_client_v2's module-level httpx.Client with one that
-    sets explicit per-phase timeouts.
-
-    Library default is the httpx default Timeout(5.0) which is tight for
-    CLOB under load; bot's external `_with_timeout` envelope is 30s.
-    Setting (connect=10, read=30, write=30, pool=5) gives socket-level
-    failures plenty of room while still bounding hung calls so workers in
-    `_clob_executor` are released promptly (ce-code-review P1 #7).
-
-    Idempotent: only patches once per process.
-    """
+    """Give py_clob_client_v2's httpx client explicit timeouts (once per process)."""
     global _HTTPX_TIMEOUT_INSTALLED
     if _HTTPX_TIMEOUT_INSTALLED:
         return
@@ -484,23 +438,8 @@ def _install_clob_http_timeout() -> None:
 
 
 def _make_clob_client(*, key=None, creds=None, signature_type: int = 0, funder: str = ""):
-    """Construct a V2 CLOB client with a clear failure mode.
-
-    ``signature_type`` and ``funder`` control which on-chain wallet the
-    client signs orders for and reads balance against:
-
-      * 0 (EOA)              -- signer is the funder; funds at the signer address.
-      * 1 (POLY_PROXY)       -- legacy Polymarket UI; proxy address is
-                                deterministically derived from the signer.
-      * 2 (POLY_GNOSIS_SAFE) -- Safe wallet; ``funder`` may be required if the
-                                Safe is not deterministically derived.
-      * 3 (POLY_1271)        -- deposit wallet flow for new API users;
-                                ``funder`` is required.
-
-    Missing or zero ``signature_type`` means "EOA". An empty ``funder`` lets
-    the library auto-derive (works for EOA and POLY_PROXY; required-explicit
-    for some POLY_GNOSIS_SAFE accounts).
-    """
+    """Build a V2 CLOB client. ``signature_type`` 0=EOA, 1=proxy, 2=Safe,
+    3=POLY_1271 (needs ``funder``); empty ``funder`` lets the library derive it."""
     try:
         from py_clob_client_v2.client import ClobClient
     except ModuleNotFoundError as exc:
@@ -516,8 +455,6 @@ def _make_clob_client(*, key=None, creds=None, signature_type: int = 0, funder: 
         "key": key,
         "creds": creds,
     }
-    # Only pass signature_type / funder when set so the library's None-default
-    # (EOA) path stays the path for operators who haven't configured a proxy.
     if signature_type is not None and int(signature_type) != 0:
         kwargs["signature_type"] = int(signature_type)
     if funder:
@@ -537,47 +474,18 @@ def walk_book_edge_preserving(
     walk_anchor_price: float | None = None,
     return_levels: bool = False,
 ) -> tuple[float, float, float, float, float] | tuple[float, float, float, float, float, list[dict[str, float]]] | None:
-    """Walk ask levels up to ``target_usd`` while preserving a minimum edge.
+    """Take asks cheapest-first up to ``target_usd``, stopping before any level
+    that would push the VWAP edge below ``min_edge`` or whose price exceeds
+    ``walk_anchor_price + max_walk_price``.
 
-    Before taking each level, compute the hypothetical VWAP that would result
-    from consuming that level fully. If the hypothetical edge at the new VWAP
-    would drop below ``min_edge``, stop BEFORE that level — we accept a
-    smaller fill at a tighter realized edge rather than over-paying for depth
-    the signal can't support.
+    ``walk_anchor_price`` defaults to the best ask; retries pass the
+    scanner-time price so the leash doesn't drift with the book.
 
-    When ``max_walk_price`` is set, the walker also stops before any ask level
-    whose price strictly exceeds ``walk_anchor_price + max_walk_price``. The
-    two break conditions are independent — whichever fires first wins. This
-    replaces the legacy flat-USD per-strategy size cap so per-bet exposure
-    scales naturally with bankroll while still refusing to chase the book.
-
-    ``walk_anchor_price`` controls what "above the cap" is measured against:
-      - ``None`` (default) — anchor to the cheapest finite ask in the current
-        book. Right for the scanner-time walk: the cap is "5 cents above
-        whatever the market shows me right now".
-      - explicit value — anchor to a fixed reference price. Retry/dry-run
-        callers pass ``signal.p_market`` so the cap stays sticky to the
-        scanner-time top across book drift between attempts. Without this,
-        attempt 1 walks from top=0.55 (cap 0.60), attempt 2 from top=0.62
-        (cap 0.67), attempt 3 from top=0.58 (cap 0.63) — the cap drifts with
-        the book and the operator's "5-cent leash from where I decided" intent
-        is silently violated.
-
-    Returns ``(filled_usd, filled_shares, filled_vwap, limit_price, realized_edge)``
-    by default, or appends ``fill_levels`` when ``return_levels=True``. Returns
-    ``None`` when:
-      - the book has no asks
-      - no fill that satisfies the edge floor reaches ``min_bet_usd``
-      - ``max_walk_price`` is non-finite or negative
-      - ``max_walk_price`` is set but no finite top-of-book anchor can be
-        derived (book has only non-finite-priced levels at the top)
-
-    All bets produced by this walker are guaranteed to satisfy
-    ``realized_edge >= min_edge`` and ``filled_usd >= min_bet_usd``.
+    Returns ``(filled_usd, filled_shares, filled_vwap, limit_price,
+    realized_edge)`` (plus ``fill_levels`` if ``return_levels``), or None when
+    no fill ≥ ``min_bet_usd`` meets the floor or inputs are invalid.
     """
-    # NaN / non-finite inputs poison comparisons (NaN < x is always False), which
-    # would let the walker eat an arbitrarily bad book while still "passing" the
-    # edge floor. Refuse any non-finite input up front.
+    # Reject non-finite inputs: NaN comparisons are always False.
     if (
         not math.isfinite(prob_safe_floor)
         or not math.isfinite(target_usd)
@@ -605,10 +513,7 @@ def walk_book_edge_preserving(
     if not asks:
         return None
 
-    # Anchor the price-walk cap. Caller-supplied anchor wins (sticky retry
-    # behavior); otherwise scan asks for the first finite-priced level. A book
-    # whose top is NaN/Inf must not silently disable the cap by falling
-    # through to no-cap behavior — fail closed.
+    # A book with no finite top can't anchor the cap: fail closed.
     if max_walk_price is None:
         walk_cap_price = None
     elif walk_anchor_price is not None:
@@ -635,9 +540,6 @@ def walk_book_edge_preserving(
         if not math.isfinite(price) or not math.isfinite(size) or price <= 0 or size <= 0:
             continue
 
-        # Price-walk cap: stop before consuming any level priced strictly
-        # above top_ask + max_walk_price. A level priced exactly at the cap
-        # is still consumable.
         if walk_cap_price is not None and price > walk_cap_price:
             break
 
@@ -673,7 +575,6 @@ def walk_book_edge_preserving(
     realized_fee = poly_fee_per_share(filled_vwap, fee_theta=fee_theta)
     realized_edge = prob_safe_floor - filled_vwap - realized_fee
     if not math.isfinite(realized_edge) or realized_edge < min_edge:
-        # Defensive: numerical drift should never occur, but fail closed.
         return None
     if return_levels:
         return acc_usd, acc_shares, filled_vwap, limit_price, realized_edge, fill_levels
@@ -681,19 +582,8 @@ def walk_book_edge_preserving(
 
 
 def _max_walk_for_signal(signal: BetSignal) -> float | None:
-    """Look up the order-time price leash for ``signal``.
-
-    Three cases:
-      - **Optional slip-bounded top-up** (``signal.slip_anchor_vwap`` was set
-        at decision time, and the sleeve has ``max_vwap_slip_from_anchor``):
-        return that slip cap. NO/TAIL currently set the config field to None,
-        so their top-ups are bounded by the realized VWAP edge floor instead.
-      - **execution_min_edge sleeve, not slip-bounded** (first fill, transition
-        slot, or YMID/YHIGH-style with the floor): ``None`` — the VWAP edge
-        floor is the fill boundary, no 5-cent leash.
-      - **everything else** (legacy ``strategy=""``): the legacy
-        ``max_walk_price`` leash.
-    """
+    """Order-time price leash: the slip cap for slip-bounded top-ups, None when
+    the strategy has a VWAP edge floor, else ``max_walk_price``."""
     cfg = STRATEGY_CONFIGS.get(getattr(signal, "strategy", "") or "")
     if cfg is None:
         return None
@@ -708,12 +598,7 @@ def _max_walk_for_signal(signal: BetSignal) -> float | None:
 
 
 def _walk_anchor_for_signal(signal: BetSignal) -> float | None:
-    """Order-time walk anchor: optional slip anchor, else sticky scanner top.
-
-    A signal with ``slip_anchor_vwap`` and a configured slip cap uses the slot's
-    first-fill VWAP as the cap anchor. Otherwise this falls back to
-    ``entry_top_price`` (the scanner-time top / slot sticky price anchor).
-    """
+    """Order-time walk anchor: slip anchor if capped, else ``entry_top_price``."""
     slip_anchor = getattr(signal, "slip_anchor_vwap", None)
     if slip_anchor is not None:
         return slip_anchor
@@ -721,24 +606,12 @@ def _walk_anchor_for_signal(signal: BetSignal) -> float | None:
 
 
 def _min_edge_for_signal(signal: BetSignal, *, fallback: float) -> float:
-    """Look up the order-time walker edge floor for ``signal``.
-
-    Used by retry/dry-run callers so order-time re-walks match scanner-time.
-    ``execution_min_edge`` overrides the strategy's pre-entry gate: NO keeps
-    its 9pp entry edge gate while allowing the realized VWAP to degrade to
-    3pp; TAIL keeps its vote/alpha gate while using the same 3pp execution
-    floor.
-
-    Returns ``fallback`` when the strategy is unknown; YMID still uses 0.0
-    because its gate is ratio-based rather than additive-edge.
-    """
+    """Order-time walker edge floor, matching the scanner-time walk.
+    ``fallback`` for unknown strategies."""
     cfg = STRATEGY_CONFIGS.get(getattr(signal, "strategy", "") or "")
     if cfg is None or cfg.min_edge is None:
         if cfg is not None and cfg.execution_min_edge is not None:
             return cfg.execution_min_edge
-        # YMID/TAIL: walker floor is 0.0 (their gates verified the ratio/vote
-        # pre-walk; the walker just needs to keep edge non-negative). Legacy
-        # rows with empty strategy: keep the historical fallback.
         if cfg is not None and cfg.min_edge is None:
             return 0.0
         return fallback
@@ -746,13 +619,7 @@ def _min_edge_for_signal(signal: BetSignal, *, fallback: float) -> float:
 
 
 def _walk_bids_for_sell(book, target_shares: float) -> tuple[float, float, float] | None:
-    """Walk bid levels (highest price first) to fill a SELL of ``target_shares``.
-
-    Returns ``(fillable_shares, vwap, worst_price)`` where ``worst_price`` is
-    the deepest bid we'd consume. Used by ``close_position`` so the limit on
-    the close order matches the level the VWAP was computed against, and a wide
-    spread is reflected as a true VWAP rather than rounded to the best bid.
-    """
+    """Walk bids best-first for a SELL; returns ``(shares, vwap, worst_price)``."""
     if not math.isfinite(target_shares) or target_shares <= 0:
         return None
     bids = _sorted_bids(book)
@@ -902,17 +769,11 @@ def _quantize_market_buy_size(
     if price_units <= 0 or price_scale <= 0:
         return None
 
-    # py-clob signs BUY orders on a centi-share grid, then derives maker
-    # collateral from limit_price * size. Make the centi-share count a multiple
-    # that keeps the derived maker amount to whole cents before signing.
+    # Pick a centi-share size whose limit_price × size is whole cents.
     cent_exact_step_units = price_scale // math.gcd(abs(price_units), price_scale)
     size_units = max_size_units - (max_size_units % cent_exact_step_units)
     while size_units > 0:
-        # py-clob-client-v2 applies math.floor(float(size) * 100) / 100.
-        # Values like 80.6 can become 80.59 when represented as a float, which
-        # turns a valid $4.03 maker amount at 5c into rejected $4.0295. Nudge
-        # the chosen cent-share float upward by one representable step so the
-        # client's floor lands on the intended size.
+        # The client floors size*100; nudge up one float step so 80.6 doesn't become 80.59.
         size_float = _market_buy_size_float(size_units)
         client_size = _client_round_down(size_float, 2)
         spend = price * client_size
@@ -1112,18 +973,7 @@ class ClobReader:
         return _best_bid(book)
 
     def fetch_price(self, token_id: str, side: str = "buy") -> float | None:
-        """Fetch executable price from CLOB /price endpoint.
-
-        The /price endpoint returns the real executable price from Polymarket's
-        matching engine, unlike /book which may show market-maker wall stubs.
-
-        Args:
-            token_id: Polymarket CLOB token ID.
-            side: "buy" or "sell".
-
-        Returns:
-            Price as float, or None on error/timeout.
-        """
+        """Executable price from CLOB /price (more reliable than /book). None on error."""
         data = _request_clob_json(
             "/price",
             params={"token_id": token_id, "side": side},
@@ -1157,10 +1007,6 @@ class OrderClient:
             api_passphrase=config.poly_passphrase.get_secret_value(),
         )
 
-        # Polymarket V2 wallet topology -- read from config so operators with
-        # POLY_PROXY (legacy email/MagicLink) or POLY_GNOSIS_SAFE (newer
-        # Smart Wallet) accounts query the correct funder address. Default
-        # (signature_type=0) preserves EOA behavior for direct on-chain users.
         sig_type, funder = _validate_wallet_config(
             getattr(config, "poly_signature_type", 0),
             getattr(config, "poly_funder", ""),
@@ -1193,17 +1039,11 @@ class OrderClient:
         return _fetch_order_book(self._timeout, token_id)
 
     def best_bid(self, book: dict) -> tuple[float, float] | None:
-        """Extract best bid (price, size) from order book.
-
-        Note: py-clob-client sorts bids ascending — best bid is LAST element.
-        """
+        """Best bid (price, size)."""
         return _best_bid(book)
 
     def best_ask(self, book: dict) -> tuple[float, float] | None:
-        """Extract best ask (lowest price = best for buyer) from order book.
-
-        Polymarket `/book` asks are not guaranteed to already be ascending.
-        """
+        """Best (lowest) ask (price, size)."""
         return _best_ask(book)
 
     def check_balance(self) -> float | None:
@@ -1296,26 +1136,17 @@ class OrderClient:
             return str(exc)
 
     def place_order(self, signal: BetSignal) -> OrderResult:
-        """Place a FAK limit order for the given signal.
-
-        Uses limit_price (highest walk-the-book level) to ensure fill across
-        multiple ask levels. Any unfilled remainder is cancelled by CLOB and
-        later scanner ticks may top up the slot from fresh price/edge state.
-        """
+        """Place a FAK BUY at the walked ``limit_price``; the remainder is cancelled."""
         try:
             from py_clob_client_v2.order_builder.constants import BUY
             from py_clob_client_v2.clob_types import OrderArgs, OrderType
             from hightempbot.execution.strategy_constants import MIN_BET_USD
 
-            # Use limit_price (walked) if available, else fill_price (best_ask)
             order_price = signal.limit_price if signal.limit_price > 0 else signal.fill_price
             if not (math.isfinite(order_price) and order_price > 0):
                 return OrderResult(error="order_price <= 0", error_kind="invalid_amounts")
 
-            # Size from the executable limit price so the order cannot spend
-            # more than the capped stake if the cheaper levels disappear. CLOB
-            # market BUYs reject maker collateral with sub-cent precision, so
-            # quantize on the signed-order grid before create_order/post_order.
+            # Size at the limit price so the stake can't be exceeded, on CLOB's precision grid.
             quantized = _quantize_market_buy_size(
                 signal.bet_size_usd,
                 order_price,
@@ -1369,9 +1200,7 @@ class OrderClient:
             return OrderResult(
                 order_id=order_id,
                 limit_price=order_price,
-                # Until verification can read the actual matched fill, record
-                # the conservative limit-price notional. execute_or_log
-                # overwrites this with matched price/size when CLOB exposes it.
+                # Limit-price notional until verification reads the real fill.
                 fill_price=order_price,
                 fill_size=size,
                 fill_ts=fill_ts,
@@ -1390,16 +1219,10 @@ class OrderClient:
         min_acceptable_vwap: float | None = None,
         max_acceptable_vwap: float | None = None,
     ) -> OrderResult:
-        """Sell the full ``target_size`` at the realised bid VWAP.
+        """FOK-sell all of ``target_size`` at the walked bid's worst price.
 
-        Walks the bid book to compute ``(fillable_size, vwap, worst_price)``
-        for the requested size, then submits an all-or-nothing sell at
-        ``worst_price`` so wide spreads aren't rounded up to a single best-bid
-        number and the ledger never records a partial exit as closed. The
-        actual matched price/size is read back from the response when
-        present; otherwise the pre-trade VWAP/target size is recorded. Optional
-        VWAP bounds let TP/SL callers abort if a fresh quote no longer
-        satisfies the trigger that caused the close.
+        Optional VWAP bounds abort if the fresh quote no longer meets the
+        TP/SL trigger.
         """
         try:
             try:
@@ -1505,12 +1328,7 @@ class OrderClient:
 
 
 def _prob_safe_floor(signal: BetSignal) -> float:
-    """Side-aware LUT-calibrated probability, falling back to ``p_model`` when absent.
-
-    YES: bucket observed rate. NO: 1 - bucket observed rate.
-    Decision pipeline pre-computes this on ``BetSignal.prob_safe_floor`` so the
-    walker and verify-loop can read it without recomputing.
-    """
+    """``signal.prob_safe_floor``, falling back to ``p_model``."""
     if signal.prob_safe_floor is not None:
         return signal.prob_safe_floor
     if signal.side == "YES":
@@ -1525,15 +1343,10 @@ def _find_open_matching_order(
     *,
     bot_placed_ids: set[str],
 ) -> str | None:
-    """Return id of an open order this bot placed for ``(token_id, side)``.
+    """Id of an open order for ``(token_id, side)`` that this retry chain placed.
 
-    Used on retry attempts to avoid double-submitting when attempt N-1 landed
-    on CLOB but the verify step failed — place_order is not idempotent.
-
-    ``bot_placed_ids`` scopes adoption to orders this bot itself submitted
-    earlier in the current ``execute_or_log`` retry chain. Without this scope
-    a manual order on the Polymarket account matching (token_id, side) would
-    be silently adopted as the bot's fill (ce-code-review P0 #2 / ADV-002).
+    Lets a retry reuse an order that landed but failed verification. Only
+    ids in ``bot_placed_ids`` qualify, so manual orders are never adopted.
     """
     try:
         orders = _bounded_client_call(order_client, order_client._client.get_open_orders) or []
@@ -1543,9 +1356,7 @@ def _find_open_matching_order(
     except Exception:
         logger.debug("get_open_orders raised during retry idempotency check", exc_info=True)
         return None
-    # CLOB orders are always BUY orders against a side-specific token. The
-    # YES/NO exposure is encoded by ``token_id``, so accept BUY here as well
-    # as legacy/test payloads that store the logical side.
+    # Orders are BUYs of a side-specific token; also accept the logical side.
     side_up = side.upper()
     accepted_sides = {side_up, "BUY", ""}
     for o in orders or []:
@@ -1559,7 +1370,6 @@ def _find_open_matching_order(
         if not candidate_id:
             continue
         if candidate_id not in bot_placed_ids:
-            # Foreign open order on the same token+side — refuse to adopt.
             logger.warning(
                 "Refusing to adopt foreign open order %s on token %s side %s "
                 "(not in bot-placed set; possibly a manual order on the same account)",
@@ -1571,12 +1381,8 @@ def _find_open_matching_order(
 
 
 def _cancel_open_order(order_client: OrderClient, order_id: str) -> bool:
-    """Best-effort cancel for an unverified live order.
-
-    Returns True only when the order is known not to be live anymore. If the
-    order appears matched/filled or the cancel call fails, callers must keep
-    the ledger row PENDING with its order_id so reconciliation can see it.
-    """
+    """Cancel an unverified order. True only if it is known to be no longer live;
+    otherwise the caller keeps the row PENDING for reconciliation."""
     if not order_id:
         return True
 
@@ -1652,12 +1458,7 @@ def _safe_send_alert(
     reason: str,
     stage: str,
 ) -> None:
-    """Fire one operational Telegram alert. Swallows all exceptions.
-
-    Narrow payload: station, bracket, side, attempts, reason category,
-    timestamp. Never includes probabilities, LCB/UCB, VWAP, edge, bet size,
-    order IDs, or credential material.
-    """
+    """Send a Telegram alert with no prices, sizes, order ids or secrets. Never raises."""
     if config is None:
         return
     if stage == "verification_downgraded":
@@ -1685,13 +1486,7 @@ def _safe_send_alert(
 
 
 def _dry_run_result(signal: BetSignal, order_client: OrderClient | None) -> OrderResult:
-    """Build a realistic dry-run OrderResult by walking the live book.
-
-    Stamps ``transaction_hash='DRY_RUN_<uuid>'`` and ``verify_attempts=0`` so
-    dry-run PnL is comparable to backtest per the LCB plan's dry-run realism
-    spec. Falls back to the signal's stored fill_price if the book fetch fails
-    or there are no valid asks.
-    """
+    """Simulate a fill by walking the live book; falls back to the signal's price."""
     from hightempbot.execution.strategy_constants import MIN_BET_USD, MIN_EDGE, POLY_FEE_THETA
 
     fill_price = signal.fill_price
@@ -1728,7 +1523,7 @@ def _dry_run_result(signal: BetSignal, order_client: OrderClient | None) -> Orde
         fill_price=fill_price,
         fill_size=fill_size,
         fill_ts=utc_now_sql(),
-        success=False,  # dry-run never counts as a live fill
+        success=False,
         realized_edge=realized_edge,
         transaction_hash=f"DRY_RUN_{uuid.uuid4().hex[:16]}",
         verify_attempts=0,
@@ -1749,13 +1544,8 @@ def _finalize_verified_match(
     attempt: int,
     conn: sqlite3.Connection | None,
 ) -> OrderResult:
-    """Build the success OrderResult once verify confirmed MATCHED + tx_hash.
-
-    Re-fetches trades for forensic fill levels; falls back to get_order
-    extraction if get_trades is silent. When neither path reports a
-    positive fill, returns a leave_pending OrderResult so reconciliation
-    can keep the row PENDING rather than booking a zero-fill win.
-    """
+    """Success result after MATCHED + tx hash. If no positive fill can be read,
+    leave the row PENDING instead."""
     from hightempbot.execution.strategy_constants import POLY_FEE_THETA
     real_price: float | None = None
     real_size: float | None = None
@@ -1836,12 +1626,7 @@ def _finalize_observable_fill(
     attempt: int,
     conn: sqlite3.Connection | None,
 ) -> OrderResult:
-    """Build the success OrderResult for a partial fill observed in trades but
-    not yet confirmed on-chain.
-
-    Flags ``verification_downgraded`` when no transaction_hash arrived so
-    the dashboard records the weaker proof.
-    """
+    """Success result for a fill seen in trades; downgraded if there's no tx hash."""
     from hightempbot.execution.strategy_constants import POLY_FEE_THETA
     result = submit_result or OrderResult(
         order_id=verify_order_id,
@@ -1883,19 +1668,9 @@ def _resolve_terminal_state(
     conn: sqlite3.Connection | None,
     config: Config | None,
 ) -> OrderResult:
-    """Decide the OrderResult after the retry loop has run to exhaustion.
-
-    Three outcomes:
-      1. ``any_matched_no_tx`` set → MATCHED was seen but on-chain proof
-         never arrived. Returns a verification_downgraded result (either
-         "matched_fill_unknown" leave_pending or a success flagged as
-         degraded), depending on whether a positive fill was recorded.
-      2. ``last_result.leave_pending`` set → keep PENDING for the
-         reconciliation pass to settle.
-      3. Otherwise → CANCELLED. Attempts to cancel any still-open order;
-         if the cancel fails, returns a leave_pending result so the
-         operator alert + reconciliation see the open order_id.
-    """
+    """Result after retries run out: downgraded fill if MATCHED without a tx
+    hash, PENDING if the last attempt said so, else cancel (PENDING if the
+    cancel fails)."""
     attempts = (
         int(last_result.verify_attempts)
         if last_result is not None and last_result.verify_attempts
@@ -1903,7 +1678,6 @@ def _resolve_terminal_state(
     )
 
     def _health(reason: str, status: str = "ERROR") -> None:
-        """Bind the (conn, station, bracket, attempts) tuple shared across the 4 health writes in this resolver."""
         if conn is not None:
             _write_pipeline_health_error(
                 conn, signal.station_id, signal.bracket_label,
@@ -1922,7 +1696,6 @@ def _resolve_terminal_state(
                 verification_downgraded=True,
                 leave_pending=True,
             )
-        # Treat as FILLED but flag: on-chain proof never materialized.
         _health("no_tx_hash", status="WARNING")
         return OrderResult(
             order_id=last_result.order_id,
@@ -1948,7 +1721,6 @@ def _resolve_terminal_state(
         _health(last_reason, status="WARNING")
         return last_result
 
-    # CANCELLED — no successful verified fill.
     open_order_id = last_result.order_id if last_result is not None else None
     if open_order_id:
         cancel_ok = _cancel_open_order(order_client, open_order_id)
@@ -1998,22 +1770,12 @@ def execute_or_log(
     conn: sqlite3.Connection | None = None,
     config: Config | None = None,
 ) -> OrderResult | None:
-    """Execute a bet signal and finalize the pre-inserted pending ledger row.
+    """Place (or simulate) a bet and finalize its pre-inserted PENDING row.
 
-    Full-feature path (row_id + conn provided): posts an edge-preserving FAK
-    buy. If the FAK partially fills, only the actual notional is persisted and
-    later scanner ticks can top up the slot. If a posted order's final state is
-    unclear, retries verify the same order instead of submitting another order
-    inside the tick.
-
-    Dry-run full-feature path: simulate a realistic fill via the same walker,
-    stamp ``DRY_RUN_<uuid>`` on the row, skip the verify loop.
-
-    Legacy path (row_id or conn omitted): dry-run callers still get log-only
-    behavior. Live callers are refused because they must flow through the pipeline's
-    PENDING-first ledger row for reconciliation and operator visibility.
+    Live: FAK buy with up to MAX_ORDER_RETRIES attempts; once an order is
+    posted, retries only re-verify it. Without ``row_id``/``conn`` only
+    dry-run is allowed (log only).
     """
-    # --- Legacy path: preserves the pre-Unit-6 3-arg signature ---
     if row_id is None or conn is None:
         if dry_run:
             logger.info(
@@ -2028,7 +1790,6 @@ def execute_or_log(
             error_kind="unknown",
         )
 
-    # --- Full-feature path: owns the ledger PENDING → FILLED/CANCELLED UPDATE ---
     def _finish(result: OrderResult | None) -> OrderResult | None:
         update_pending_bet_after_execution(
             conn,
@@ -2064,19 +1825,14 @@ def execute_or_log(
     matched_order_id: str | None = None
     pending_order_id: str | None = None
     last_result: OrderResult | None = None
-    # Track order_ids the bot itself submits during this retry chain so
-    # _find_open_matching_order refuses to adopt foreign open orders on the
-    # same token+side (ce-code-review P0 #2 / ADV-002). Reset per call so
-    # cross-signal retries cannot leak state.
+    # Orders submitted in this call; only these may be adopted on retry.
     bot_placed_ids: set[str] = set()
 
     for attempt in range(1, MAX_ORDER_RETRIES + 1):
         submit_result: OrderResult | None = None
 
         if matched_order_id is not None and last_result is not None:
-            # The previous attempt reached MATCHED/FILLED but the tx hash had
-            # not propagated yet. Never submit another order for that signal;
-            # only keep verifying the already-matched order.
+            # Already matched, waiting for the tx hash: verify, never resubmit.
             verify_order_id = matched_order_id
             filled_vwap = last_result.fill_price if last_result.fill_price is not None else signal.fill_price
             filled_shares = last_result.fill_size if last_result.fill_size is not None else 0.0
@@ -2089,9 +1845,7 @@ def execute_or_log(
             )
             realized_edge = last_result.realized_edge if last_result.realized_edge is not None else signal.edge
         elif pending_order_id is not None and last_result is not None:
-            # A FAK order was accepted by CLOB but neither a positive fill nor
-            # a terminal no-fill state was observable yet. Verify that same
-            # order only; do not submit another market attempt in this tick.
+            # Accepted but state unknown: verify the same order, don't resubmit.
             verify_order_id = pending_order_id
             filled_vwap = last_result.fill_price if last_result.fill_price is not None else signal.fill_price
             filled_shares = last_result.fill_size if last_result.fill_size is not None else 0.0
@@ -2104,7 +1858,6 @@ def execute_or_log(
             )
             realized_edge = last_result.realized_edge if last_result.realized_edge is not None else signal.edge
         else:
-            # Re-fetch + re-walk at fresh book for every fresh submission attempt.
             book = order_client.fetch_order_book(signal.token_id)
             if book is None:
                 last_reason = "book_fetch_failed"
@@ -2137,10 +1890,7 @@ def execute_or_log(
 
             filled_usd, filled_shares, filled_vwap, fill_limit, realized_edge, fill_levels = walked
 
-            # Retry idempotency: reuse an open order matching this token before
-            # submitting a fresh one. place_order is not idempotent.
-            # Scoped to bot_placed_ids — manual orders on the same account
-            # cannot be adopted as the bot's fill.
+            # place_order isn't idempotent: reuse our own open order if one exists.
             existing_order_id = None
             if attempt > 1 and bot_placed_ids:
                 existing_order_id = _find_open_matching_order(
@@ -2169,8 +1919,6 @@ def execute_or_log(
                         error=str(e), error_kind=kind, verify_attempts=attempt,
                     )
                     if kind in _TERMINAL_ERROR_KINDS:
-                        # Non-retryable: stop burning the retry budget on a
-                        # condition retries cannot fix (ce-code-review P1 #13).
                         logger.error(
                             "place_order terminal error_kind=%s on attempt %d "
                             "for %s -- aborting retry loop",
@@ -2201,12 +1949,9 @@ def execute_or_log(
                     continue
                 submit_result.fill_levels = fill_levels
                 verify_order_id = submit_result.order_id
-                # Record this bot-placed order_id so subsequent retries can
-                # adopt it but cannot adopt foreign orders on the same token.
                 if verify_order_id:
                     bot_placed_ids.add(str(verify_order_id))
 
-        # Step 2: verify via CLOB poll. Sets tx_hash if chain proof lands.
         verified, tx_hash = verify_order_matched(
             order_client,
             verify_order_id,
@@ -2215,7 +1960,6 @@ def execute_or_log(
         )
 
         if verified and tx_hash:
-            # Success: MATCHED + on-chain proof. Finalize with forensics.
             return _finish(_finalize_verified_match(
                 signal,
                 verify_order_id=verify_order_id,
@@ -2229,8 +1973,7 @@ def execute_or_log(
                 conn=conn,
             ))
 
-        # Not verified. A FAK order may end terminal after a partial fill, so
-        # read actual trade/order fill data before deciding it was a no-fill.
+        # A FAK can end terminal after a partial fill: read trades before calling it a no-fill.
         snapshot = _read_order_execution_snapshot(order_client, verify_order_id)
         recorded_price = snapshot.fill_price
         recorded_shares = snapshot.fill_size
@@ -2299,7 +2042,6 @@ def execute_or_log(
         if attempt < MAX_ORDER_RETRIES:
             time.sleep(ORDER_RETRY_BACKOFF_S)
 
-    # --- Retries exhausted: hand off to terminal-state resolver ---
     return _finish(_resolve_terminal_state(
         signal,
         order_client,
