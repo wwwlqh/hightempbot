@@ -41,9 +41,7 @@ class MockStation:
 def db_path(tmp_path: Path) -> str:
     path = str(tmp_path / "test.db")
     conn = init_db(path)
-    # ce-code-review P3 #70: schema.sql now seeds STOPPED_PROCESSING (safe halt
-    # on fresh installs). Station-scanner tests exercise the betting tick under
-    # an enabled operator state, so seed LIVE here.
+    # schema.sql seeds STOPPED_PROCESSING; these tests need LIVE.
     from tests.conftest import seed_operator_live
     seed_operator_live(conn)
     conn.close()
@@ -322,9 +320,7 @@ class TestBettingTick:
         run_betting_tick(station, db_path, 1000.0, dry_run=True)
         mock_seed_lut.assert_called_once()
 
-    # Note: production has BETTING_LOCAL_CUTOFF_HOUR = 0 (disabled) — the WU
-    # consensus gate provides freshness safety per-bet. This test pins the
-    # cutoff to 14:00 so the cutoff *logic itself* remains exercised.
+    # Production disables the cutoff; set it to 14:00 to test the logic.
     @patch("hightempbot.execution.strategy_constants.BETTING_LOCAL_CUTOFF_HOUR", 14)
     @patch("hightempbot.scheduler.betting_tick.time.sleep", return_value=None)
     @patch("hightempbot.scheduler.betting_tick.random.uniform", return_value=0.0)
@@ -895,10 +891,6 @@ class TestBettingTick:
         finally:
             conn.close()
         assert row["status"] == "SKIP"
-        # Message format updated when the trading-window gate became
-        # bidirectional (was "already past locally", now "Outside trading
-        # window: ... (past)"). Either form is acceptable as long as the
-        # SKIP captures the past-window case.
         assert "Outside trading window" in row["message"]
         assert "(past)" in row["message"]
 

@@ -114,10 +114,7 @@ def test_no_strategy_fires_with_high_p_E(conn: sqlite3.Connection) -> None:
 
 
 def test_high_pred_bucket_does_not_hard_skip_tail(conn: sqlite3.Connection) -> None:
-    # The L2 champion has a station-level TAIL consensus skip, but no separate
-    # live-only pred_bucket >= 0.40 hard skip. A high forecast bucket may still
-    # trade when the strategy's real gates pass and station consensus is below
-    # the TAIL threshold.
+    # A high forecast bucket can still trade; only the station consensus skip applies.
     p_emos = 0.45  # lands in the 0.40-0.60 bucket
     flavors = _compute_signal_flavors(p_emos, 50, 10)
     sig = _eval(
@@ -154,7 +151,7 @@ def test_no_strategy_skips_below_fp_floor(conn: sqlite3.Connection) -> None:
         n_cum=50, capital=10000.0, local_now_hour=0,
         conn=conn, ledger_event_types=("bet",),
     )
-    # Below fp band â†’ returns None (strategy doesn't apply).
+    # Below fp band → returns None (strategy doesn't apply).
     assert sig is None
 
 
@@ -180,9 +177,9 @@ def test_ymid_hour_gate_requires_zero(conn: sqlite3.Connection) -> None:
 
 
 def test_ymid_ratio_gate_passes(conn: sqlite3.Connection) -> None:
-    # p_Shrink_n50 should be â‰¥ 1.3 * yes_price.
-    # n=100, hits=50 â†’ p_L_obs = 0.50; p_Shrink_n50 = (50 + 50*0.40) / (100+50) = 70/150 â‰ˆ 0.467.
-    # yes_price=0.30 â†’ 1.3 * 0.30 = 0.39 â†’ 0.467 â‰¥ 0.39 â†’ passes.
+    # p_Shrink_n50 should be ≥ 1.3 * yes_price.
+    # n=100, hits=50 → p_L_obs = 0.50; p_Shrink_n50 = (50 + 50*0.40) / (100+50) = 70/150 ≈ 0.467.
+    # yes_price=0.30 → 1.3 * 0.30 = 0.39 → 0.467 ≥ 0.39 → passes.
     flavors = _compute_signal_flavors(0.40, 100, 50)
     sig = _eval(
         STRATEGY_CONFIGS["YMID"], "YMID",
@@ -204,7 +201,7 @@ def test_ymid_ratio_gate_passes(conn: sqlite3.Connection) -> None:
 
 
 def test_ymid_ratio_gate_fails(conn: sqlite3.Connection) -> None:
-    # yes_price=0.40, p_Shrink_n50â‰ˆ0.467 â†’ 0.467 < 1.3 * 0.40 = 0.52 â†’ fails ratio.
+    # yes_price=0.40, p_Shrink_n50≈0.467 → 0.467 < 1.3 * 0.40 = 0.52 → fails ratio.
     flavors = _compute_signal_flavors(0.40, 100, 50)
     sig = _eval(
         STRATEGY_CONFIGS["YMID"], "YMID",
@@ -252,7 +249,7 @@ def test_tail_emits_skip_signal_when_n_below_min(conn: sqlite3.Connection) -> No
 
 def test_tail_4_of_4_vote_passes(conn: sqlite3.Connection) -> None:
     # All 4 voting signals must satisfy p_i >= alpha_ratio * yes_price.
-    # L2 champion (2026-05-29): alpha 4.5 -> 4.0; yes_price 0.02 -> threshold 0.08.
+    # alpha 4.0, yes_price 0.02 -> threshold 0.08.
     # With n=50 hits=13: p_E=0.25, p_B_50~=0.255, p_L_loose=0.26,
     # p_Shrink_n10~=0.258 — all comfortably above 0.08.
     flavors = _compute_signal_flavors(0.25, 50, 13)
@@ -415,7 +412,7 @@ def test_no_strategy_ignores_consensus_threshold(conn: sqlite3.Connection) -> No
 
 def test_slot_filled_usd_legacy_no_row_with_null_strategy_counts_as_no(conn: sqlite3.Connection) -> None:
     # Legacy ledger row with no `strategy` key: must match as 'NO' via COALESCE.
-    # Identical F-003 regression â€” semantics now exposed via SUM(bet_size).
+    # Identical F-003 regression — semantics now exposed via SUM(bet_size).
     conn.execute(
         """INSERT INTO ledger (bet_ts, station_id, target_date, threshold, side,
             bet_size, event_type, event_detail, outcome) VALUES (?,?,?,?,?,?,?,?,?)""",
@@ -435,14 +432,7 @@ def test_slot_filled_usd_legacy_no_row_with_null_strategy_counts_as_no(conn: sql
 
 
 def test_slot_filled_usd_legacy_null_strategy_treated_as_no(conn: sqlite3.Connection) -> None:
-    # Updated semantics 2026-05-11: legacy NULL-strategy rows are treated as
-    # 'NO' via COALESCE only — they no longer over-match every same-side
-    # strategy key. By the time the top-up rollout ships, the deploy boundary
-    # the original 2026-05-07 cross-deploy guard protected (NULL-strategy
-    # rows blocking all same-side strategies) is long past — those rows
-    # have all resolved out, and scoping NULL → 'NO' lets a YES strategy
-    # (YMID/TAIL/YHIGH) fire fresh against the slot without colliding
-    # with stale legacy NULL exposure.
+    # Rows with no strategy count as NO only, so a YES strategy isn't blocked by them.
     conn.execute(
         """INSERT INTO ledger (bet_ts, station_id, target_date, threshold, side,
             bet_size, event_type, event_detail, outcome) VALUES (?,?,?,?,?,?,?,?,?)""",
@@ -506,7 +496,7 @@ def test_slot_filled_usd_excludes_cancelled(conn: sqlite3.Connection) -> None:
     )
     conn.commit()
 
-    # Cancelled rows do not contribute to exposure â€” slot can fire fresh bets.
+    # Cancelled rows do not contribute to exposure — slot can fire fresh bets.
     assert slot_filled_usd(
         conn,
         station_id="KJFK", target_date="2026-05-10",
@@ -519,7 +509,7 @@ def test_slot_filled_usd_excludes_cancelled(conn: sqlite3.Connection) -> None:
 # ------------------------------------------------------------- YHIGH strategy
 
 def _ceiling_market(*, best_ask: float, best_bid: float, volume: float = 1000.0) -> dict:
-    """Ceiling-bracket market data ('X-or-higher' â€” bracket_high is None)."""
+    """Ceiling-bracket market data ('X-or-higher', bracket_high is None)."""
     mkt = _bracket_market(best_ask=best_ask, best_bid=best_bid, volume=volume)
     mkt["bracket_high"] = None  # ceiling = no upper bound
     mkt["bracket_label"] = "â‰¥30Â°C"
@@ -529,10 +519,10 @@ def _ceiling_market(*, best_ask: float, best_bid: float, volume: float = 1000.0)
 def test_yhigh_fires_on_ceiling_with_p_b_50(conn: sqlite3.Connection) -> None:
     # YHIGH gates: side=YES, ceiling-only, signal=p_B_50, fp [0.50, 1.00],
     # additive edge in [0.02, 0.30].
-    # n=100, hits=70 â†’ p_L_obs=0.70, p_B_50 = 0.5*p_E + 0.5*p_L_loose.
-    # With p_E=0.70 and p_L_loose=0.70 â†’ p_B_50=0.70.
-    # yes_price=0.62 â†’ edge = 0.70 - 0.62 - fee(0.62) = 0.70-0.62-0.05*0.62*0.38
-    # â‰ˆ 0.70 - 0.62 - 0.0118 â‰ˆ 0.068 â†’ in band.
+    # n=100, hits=70 → p_L_obs=0.70, p_B_50 = 0.5*p_E + 0.5*p_L_loose.
+    # With p_E=0.70 and p_L_loose=0.70 → p_B_50=0.70.
+    # yes_price=0.62 → edge = 0.70 - 0.62 - fee(0.62) = 0.70-0.62-0.05*0.62*0.38
+    # ≈ 0.70 - 0.62 - 0.0118 ≈ 0.068 → in band.
     flavors = _compute_signal_flavors(0.70, 100, 70)
     assert flavors["p_B_50"] == pytest.approx(0.70, abs=1e-6)
     sig = _eval(
@@ -574,7 +564,7 @@ def test_yhigh_skips_on_interior_bracket(conn: sqlite3.Connection) -> None:
 
 
 def test_yhigh_skips_below_fp_floor(conn: sqlite3.Connection) -> None:
-    # YHIGH requires yes_price â‰¥ 0.50.
+    # YHIGH requires yes_price ≥ 0.50.
     flavors = _compute_signal_flavors(0.70, 100, 70)
     sig = _eval(
         STRATEGY_CONFIGS["YHIGH"], "YHIGH",
@@ -589,14 +579,13 @@ def test_yhigh_skips_below_fp_floor(conn: sqlite3.Connection) -> None:
         local_now_hour=0,
         conn=conn, ledger_event_types=("bet",),
     )
-    # Below fp band â†’ None (strategy doesn't apply).
+    # Below fp band → None (strategy doesn't apply).
     assert sig is None
 
 
 def test_yhigh_cold_start_emits_skip_signal(conn: sqlite3.Connection) -> None:
-    # n_cum=5 < LUT_MIN_N_FOR_SHRINKAGE=30 â†’ cold-start branch fires:
-    # emits a SKIP BetSignal with lut_min_n=False, edge_gate=False so the
-    # dashboard records the rejection (parallel to the NO/YMID/TAIL pattern).
+    # n_cum=5 < LUT_MIN_N_FOR_SHRINKAGE=30 → cold-start branch fires:
+    # emits a SKIP with lut_min_n=False, edge_gate=False.
     flavors = _compute_signal_flavors(0.70, 5, 4)
     sig = _eval(
         STRATEGY_CONFIGS["YHIGH"], "YHIGH",
@@ -622,15 +611,8 @@ def test_yhigh_cold_start_emits_skip_signal(conn: sqlite3.Connection) -> None:
 # ------------------------ P2 #7: NO post-walk relaxed-vs-strict ceiling -----
 
 def test_no_post_walk_strict_ceiling_at_0_15(conn: sqlite3.Connection) -> None:
-    # NO strict path on a ceiling bracket: walked_edge must respect
-    # cfg.max_edge=0.15, NOT max_edge_for_ceiling=0.35. We construct a
-    # scenario where the strict path passes pre-walk (edge=0.10) and the
-    # walker doesn't push it any higher â€” passes. A symmetric scenario at
-    # edge>0.15 is unreachable at runtime because the pre-walk edge_pass
-    # already excludes edge>0.15 on the strict path; this test pins the
-    # strict-vs-extension distinction by asserting bracket_extension stays False
-    # so the post-walk check would correctly use 0.15 if walker drift ever
-    # reintroduced an edge above the strict ceiling.
+    # Strict path on a ceiling bracket (edge 0.10): bracket_extension stays
+    # False, so the post-walk ceiling is max_edge (0.15), not 0.35.
     flavors = _compute_signal_flavors(0.11, 100, 50)
     sig = _eval(
         STRATEGY_CONFIGS["NO"], "NO",
@@ -656,9 +638,6 @@ def test_no_post_walk_relaxed_ceiling_at_0_35_when_extension_fired(conn: sqlite3
     # because the post-walk ceiling reads max_edge_for_ceiling=0.35 when
     # bracket_extension is True. Edge of ~0.258 (above 0.15, below 0.35) is
     # constructed by p_B_50=0.85, no_price=0.60.
-    # n=100, hits=80 â†’ p_L_obs=0.80. p_emos=0.90 â†’ p_B_50=0.5*0.90+0.5*0.80=0.85.
-    # 1-p_B_50 = 0.15. edge_ext = 0.15 - 0.60 - fee... that's negative.
-    # Re-derive: we want 1-p_B_50 high enough that extension fires.
     # p_emos=0.12 with n=100, hits=24 gives p_L_obs=0.24 and p_B_50=0.18.
     # 1-p_B_50=0.82. no_price=0.55: edge_ext = 0.82 - 0.55 - 0.05*0.55*0.45
     #   ~= 0.258, in (0.15, 0.35]. Strict fails because no_price<0.75.
@@ -688,9 +667,7 @@ def test_no_post_walk_relaxed_ceiling_at_0_35_when_extension_fired(conn: sqlite3
 
 def test_no_ceiling_extension_both_gates_fail(conn: sqlite3.Connection) -> None:
     # Strict fails (no_price=0.55<0.70) AND extension fails (edge_ext below the
-    # min_edge=0.090 floor). The original scenario used p_emos=0.50 to inflate
-    # p_B_50; that is now intercepted by the LUT-bucket filter (>= 0.40), so
-    # we reconstruct the both-gates-fail case at p_emos=0.35 instead.
+    # min_edge floor).
     # n=100, hits=50 -> p_L_obs=0.50 -> p_B_50=0.5*0.35+0.5*0.50=0.425.
     # 1-p_B_50=0.575. no_price=0.55 -> edge_ext = 0.575 - 0.55 - fee(0.55)
     # ~= 0.013, below the 0.090 floor -> extension fails.
@@ -718,7 +695,7 @@ def test_no_ceiling_extension_both_gates_fail(conn: sqlite3.Connection) -> None:
 
 def test_no_strict_path_still_fires_on_ceiling(conn: sqlite3.Connection) -> None:
     # When the strict NO gate (np>=0.75, edge in [0.090, 0.15]) passes on a
-    # ceiling bracket, the extension path must NOT fire â€” bracket_extension
+    # ceiling bracket, the extension path must NOT fire — bracket_extension
     # gate_result records False.
     flavors = _compute_signal_flavors(0.11, 100, 50)
     sig = _eval(
@@ -744,9 +721,9 @@ def test_no_ceiling_extension_fires_when_strict_misses(conn: sqlite3.Connection)
     # Strict gate fails (np_p=0.55 below the 0.75 floor) but ceiling
     # extension allows np_p>=0.50 with p_B_50 + edge in [0.090, 0.35].
     # Choose p_emos so p_B_50 lands in the extension band.
-    # n=100, hits=30 â†’ p_L_obs=0.30; p_B_50 = 0.5*p_E + 0.5*0.30.
-    # With p_E=0.20 â†’ p_B_50=0.25 â†’ 1-p_B_50=0.75.
-    # no_price=0.55 gives edge_ext â‰ˆ 0.1876, inside the optimized band.
+    # n=100, hits=30 → p_L_obs=0.30; p_B_50 = 0.5*p_E + 0.5*0.30.
+    # With p_E=0.20 → p_B_50=0.25 → 1-p_B_50=0.75.
+    # no_price=0.55 gives edge_ext ≈ 0.1876, inside the optimized band.
     flavors = _compute_signal_flavors(0.20, 100, 30)
     assert flavors["p_B_50"] == pytest.approx(0.25, abs=1e-6)
     sig = _eval(
@@ -770,7 +747,7 @@ def test_no_ceiling_extension_fires_when_strict_misses(conn: sqlite3.Connection)
 
 def test_no_ceiling_extension_does_not_fire_on_interior(conn: sqlite3.Connection) -> None:
     # Same numerics that pass extension on a ceiling bracket should NOT
-    # produce a passing signal on an interior bracket â€” the relaxed fp
+    # produce a passing signal on an interior bracket — the relaxed fp
     # floor (0.50) is only opened on ceiling brackets, so the strict
     # 0.75 floor still applies on interiors and the strategy returns
     # None at the fp_band gate.
@@ -787,17 +764,12 @@ def test_no_ceiling_extension_does_not_fire_on_interior(conn: sqlite3.Connection
         n_cum=100, capital=10000.0, local_now_hour=0,
         conn=conn, ledger_event_types=("bet",),
     )
-    # Below-fp-floor on interior â†’ strategy doesn't apply, returns None.
+    # Below-fp-floor on interior → strategy doesn't apply, returns None.
     assert sig is None
 
 
-# ---------------------------------------------- Hourly-first-tick gate (2026-05-16)
-#
-# Restricts OPENING a new slot to the first scheduler tick of each
-# station's local hour. ``tick_index_for(icao, minute)`` uses an
-# offset-aware computation: a tick scheduled at minute :09 that executes
-# at :10 (1-min misfire) is still tick 0, so a worker queue backlog
-# doesn't silently halt a station for the whole hour.
+# --------------------------------------------------- Hourly-first-tick gate
+# New slots open only on the hour's first tick; a 1-minute misfire is still tick 0.
 
 _GATE_STATION = "KJFK"
 _GATE_OFFSET = icao_tick_offset(_GATE_STATION)
@@ -950,14 +922,8 @@ def test_tail_skipped_at_disallowed_hour_zero(conn: sqlite3.Connection) -> None:
     assert sig is None
 
 
-# --------------- FLIP mirrors the NO gate (operator invariant, 2026-08-09)
-#
-# The operator's hard invariant for the FLIP sleeve: FLIP fires on exactly
-# the brackets where the champion NO gate would fire (given FLIP's one extra
-# precondition — a sane mirrored NO book price). Both branches now route
-# through the shared ``_evaluate_no_gate``; these tests pin the invariant at
-# the branch level so any future edit that re-forks the gate logic (or skews
-# the shared numbers) fails loudly.
+# -------------------------------------------------- FLIP mirrors the NO gate
+# FLIP must fire on exactly the brackets where NO would.
 
 
 def _reliability_variants() -> list[tuple[str, ReliabilityProvider | None]]:

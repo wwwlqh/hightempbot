@@ -1122,9 +1122,7 @@ class TestV2DataEndpoint:
         bot's pipeline halt gate (execution.pipeline: ``drawdown >= MAX_DD``)."""
         d = client.get("/api/v2/data").json()
         assert d["ddHaltThreshold"] == 40  # MAX_DD = 0.40 -> 40%
-        # reducedSizeThreshold lingers in v2_data for back-compat with the
-        # bundled JS that still reads the field. Halt-on-DD has no reduced
-        # band — value of 100 means the legacy "reduced" band never fires.
+        # reducedSizeThreshold is a legacy UI key; 100 means "never".
         assert d["reducedSizeThreshold"] == 100
 
     def test_strategy_config_payload_reflects_execution_policy(self, client):
@@ -1134,9 +1132,7 @@ class TestV2DataEndpoint:
         assert cfg["NO"]["capital_frac"] == STRATEGY_CONFIGS["NO"].capital_frac
         assert cfg["NO"]["execution_min_edge"] == STRATEGY_CONFIGS["NO"].execution_min_edge
         assert cfg["NO"]["max_vwap_slip_from_anchor"] is None
-        # TAIL disabled 2026-07-17 (EV<=0 slice forensics): disabled strategies
-        # are excluded from the per-strategy payload. Operator 2026-08-09:
-        # they are no longer listed either — the tab shows only live sleeves.
+        # Disabled strategies are not listed.
         assert cfg["__disabled"]["value"] == []
         assert "TAIL" not in {k for k in cfg if not k.startswith("__")}
         assert cfg["NO"]["consensus_skip_threshold"] is None
@@ -1938,13 +1934,8 @@ class TestOpenPositionApiValues:
         assert "Waiting for Polymarket Data API" in row["apiReminder"]
 
 
-# ------------------------ Per-station WIN/LOSS SQL (2026-05-16 ce-review)
-#
-# After commit 88aadb7 (and the 2026-05-16 review pass), the per-station
-# perf SQL counts CLOSED+positive-pnl as a WIN and CLOSED+non-positive
-# (including NULL via COALESCE) as a LOSS. Pin the boundaries so the SQL
-# can't regress silently — the v2_data per-station query is the source of
-# truth for the Stations table on the dashboard.
+# ----------------------------------------------------- Per-station WIN/LOSS
+# CLOSED with positive PnL is a win; CLOSED with zero/negative/NULL is a loss.
 
 class TestPerStationWinLossSql:
     def _station_perf(self, client, icao: str) -> dict | None:
@@ -2011,13 +2002,8 @@ class TestPerStationWinLossSql:
         assert row["losses"] == 0
 
 
-# --------------------------- Per-station EMOS μ/σ (2026-05-16 ce-review)
-#
-# build_htb_data emits emos_mu / emos_sigma per station in
-# performanceByStation. The compute is wrapped in a try/except that
-# silently degrades to None on failure; that error path is exactly the
-# kind that masked the row-shadowing bug fixed in df45573. Pin the happy
-# path so a regression that silently empties the EMOS panel surfaces.
+# ------------------------------------------------------- Per-station EMOS μ/σ
+# The computation swallows errors, so pin the happy path.
 
 class TestPerStationEmos:
     def _seed_horizon_1_ensemble(
@@ -2181,9 +2167,7 @@ class TestCapitalRangeDecoupled:
         assert abs(d_all["realizedPnl"] - 8.0) < 0.01
         assert abs(d_7d["realizedPnl"] - (-2.0)) < 0.01
 
-        # Capital is the SAME in both views — current account balance, not
-        # windowed. The previous behavior anchored it at $100 in the 7d view
-        # which hid the older WIN.
+        # Capital is not windowed.
         assert abs(d_7d["capital"] - d_all["capital"]) < 0.01
         assert abs(d_all["capital"] - (1000.0 + 8.0)) < 0.01
 

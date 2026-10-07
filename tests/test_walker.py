@@ -644,13 +644,7 @@ class TestWalkBookEdgePreserving:
         assert filled_usd == pytest.approx(5.0)
 
     def test_walker_stops_at_price_walk_cap(self):
-        # 2026-05-07 cap: walker must stop before consuming any ask priced
-        # strictly above top_ask + max_walk_price (0.05 here). The 0.26
-        # level is at top + 0.06 → must NOT be consumed, even though edge
-        # at 0.26 would still be > 0 with a generous prob_safe_floor.
-        # Top=0.20, second=0.24 (under cap), third=0.26 (above cap).
-        # Edge floor disabled (min_edge very low) so the cap is the only
-        # break condition this test exercises.
+        # Cap = top 0.20 + 0.05: 0.24 is taken, 0.26 is not. Edge floor disabled.
         book = {"asks": [
             {"price": "0.20", "size": "2000"},   # $400 fillable @ 0.20
             {"price": "0.24", "size": "5000"},   # $1200 fillable @ 0.24 (cap=0.25)
@@ -687,9 +681,7 @@ class TestWalkBookEdgePreserving:
         assert limit_price == pytest.approx(0.25)
 
     def test_walker_max_walk_price_none_is_byte_compatible(self):
-        # Regression guard: when max_walk_price is omitted (the back-compat
-        # default), behavior is identical to the legacy walker — no cap,
-        # only the edge floor governs.
+        # No max_walk_price: only the edge floor applies.
         book = {"asks": [
             {"price": "0.20", "size": "100000"},
         ]}
@@ -724,9 +716,7 @@ class TestWalkBookEdgePreserving:
         assert limit_price == pytest.approx(0.20)
 
     def test_walker_negative_max_walk_price_returns_none(self):
-        # Negative cap is a config typo; walker rejects rather than walking
-        # uncapped. Logs a warning (not asserted here, but covered by the
-        # log capture in production telemetry).
+        # A negative cap is rejected rather than ignored.
         book = {"asks": [{"price": "0.20", "size": "10000"}]}
         result = walk_book_edge_preserving(
             book, 10.0,
@@ -747,12 +737,7 @@ class TestWalkBookEdgePreserving:
             ) is None
 
     def test_walker_skips_non_finite_top_to_anchor_cap(self):
-        # P2 #4: if asks[0] (after sort) has a non-finite price, the cap
-        # must NOT silently disable. Walker should scan for the first finite
-        # ask and anchor the cap there. Below: a poisoned NaN level would
-        # sort to position 0 in some Python versions; even so, the second
-        # level (finite) should be chosen as the cap anchor and the loop
-        # respects that cap.
+        # A NaN top level must not disable the cap; anchor on the first finite ask.
         book = {"asks": [
             {"price": "nan", "size": "10000"},  # poisoned — must be skipped
             {"price": "0.20", "size": "50"},     # first finite → anchor at 0.20
@@ -770,12 +755,7 @@ class TestWalkBookEdgePreserving:
         assert limit_price == pytest.approx(0.20)
 
     def test_walker_walk_anchor_price_sticks_across_book_drift(self):
-        # P1 #2: retry callers pass walk_anchor_price=signal.entry_top_price
-        # so the cap is sticky to the scanner-time top. Simulate book drift:
-        # original top was 0.55 (cap=0.60), now top has moved to 0.62. With
-        # walk_anchor_price=0.55, the cap is 0.60 — second-level 0.61 is
-        # blocked. Without the anchor, fresh-top 0.62 would set cap=0.67
-        # and let 0.61 fill.
+        # Book drifted from top 0.55 to 0.61; anchored at 0.55 the cap stays 0.60.
         book = {"asks": [
             {"price": "0.62", "size": "100"},  # fresh top
             {"price": "0.61", "size": "100"},  # within fresh-top cap (0.67) but above anchored cap (0.60)
