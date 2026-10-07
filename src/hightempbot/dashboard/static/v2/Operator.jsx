@@ -37,9 +37,7 @@ function OperatorPage({ d, setData }) {
   const [preview, setPreview] = React.useState(null);
   const [message, setMessage] = React.useState("");
   const [redemptionPage, setRedemptionPage] = React.useState(0);
-  // Snapshot the previewed amount + generated confirmation. Submit reads from
-  // this ref so an operator who edits the amount after Preview cannot ship a
-  // different transfer than the one safety checks approved.
+  // Submit uses the previewed amount, not whatever is in the box now.
   const previewedRef = React.useRef(null);
 
   const refresh = async () => {
@@ -62,8 +60,7 @@ function OperatorPage({ d, setData }) {
         setMessage(detail);
       } else {
         setMessage("OK");
-        // Mark a recent mutation so the App-level
-        // 30s poll defers its next /api/v2/data read for 5s.
+        // Delay the next poll so it doesn't overwrite this change.
         try { window.__htbMutationAt = Date.now(); } catch (e) {}
         await refresh();
       }

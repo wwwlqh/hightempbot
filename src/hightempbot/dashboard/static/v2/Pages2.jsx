@@ -154,8 +154,7 @@ function ModelsPage({ d }) {
   const [station, setStation] = React.useState(stations[0]);
   const stationMeta = d.performanceByStation.find(s => s.key === station);
   const ensemble = (d.ensembleByStation && d.ensembleByStation[station]) || d.ensembleByStation?.[stations[0]] || [];
-  // Per-model values may be null (no forecast yet, or no per-model accuracy data).
-  // Filter to numeric values for median / spread; render "—" elsewhere.
+  // Values may be null; median/spread use numeric ones only.
   const validTmax = ensemble.map(m => m.tmax).filter(v => v != null && !isNaN(v));
   const ensembleMedian = validTmax.length
     ? [...validTmax].sort((a,b)=>a-b)[Math.floor(validTmax.length/2)]

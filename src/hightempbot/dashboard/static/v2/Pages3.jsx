@@ -143,12 +143,7 @@ function ResolvedTradeRow({ p, expanded, onToggle }) {
 }
 
 function TradesPage({ d, range, setRange }) {
-  // Window-scoped realized KPIs come from backend-computed aggregates. The
-  // Net P&L card intentionally excludes unrealized Data API open marks.
-  // The resolvedPositionsList below is
-  // LIMIT-50 truncated for table-paint performance; computing KPIs from it
-  // silently drops the oldest tail of the window and produces wrong totals
-  // (see fix(dashboard) for the +$30 vs +$38 incident).
+  // KPIs come from backend aggregates (realized only), not from the table rows.
   const open = d.openPositionsList || [];
   const resolved = d.resolvedPositionsList || [];
   const [expandedKey, setExpandedKey] = React.useState(null);
@@ -166,8 +161,7 @@ function TradesPage({ d, range, setRange }) {
   const settledW = (d.wins || 0) + (d.losses || 0);
   const winRateW = d.winRate || 0;
   const netPnlW = Number(d.realizedPnl ?? d.totalPnl ?? 0);
-  // avgEdge can be 0 (valid: no edge across resolved bets) or absent (old
-  // server payload pre-this-merge). Don't conflate them with `|| 0`.
+  // avgEdge may be 0 or missing; don't use `|| 0`.
   const avgEdge = d.avgEdge;
   const avgEdgePresent = avgEdge != null;
   return (
@@ -345,9 +339,5 @@ function StationsPage({ d }) {
     </div>
   );
 }
-
-// RiskPage removed 2026-05-06: superseded by halt/reduced-size banner + per-strategy
-// caps surfaced on Overview/Performance. The standalone Risk tab held mostly
-// hardcoded prototype values (legacy sizing display, hardcoded $10.40 etc.).
 
 window.TradesPage = TradesPage; window.StationsPage = StationsPage;

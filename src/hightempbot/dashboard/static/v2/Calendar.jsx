@@ -108,9 +108,7 @@ function Calendar({ days, monthLabel, onPrev, onNext }) {
 
 function CalendarPage({ d }) {
   const months = Object.keys(d.calendar || {}).sort();
-  // Default to the most recent month with data; if the calendar is empty
-  // (clean slate after a cutoff bump), fall back to the current month rather
-  // than a stale hardcoded "2025-11".
+  // Latest month with data, else the current month.
   const _now = new Date();
   const _currentYM = `${_now.getFullYear()}-${String(_now.getMonth()+1).padStart(2,"0")}`;
   const [month, setMonth] = React.useState(months[months.length - 1] || _currentYM);
@@ -130,9 +128,7 @@ function CalendarPage({ d }) {
   const allDays = Object.values(d.calendar || {}).flat();
   const winDays = allDays.filter(x => (x.pnl || 0) > 0);
   const lossDays = allDays.filter(x => (x.pnl || 0) < 0);
-  // Best/worst restricted to actual gain/loss days. Reducing over all days
-  // would render the smallest positive PnL as "−$X.XX" via the abs() display
-  // formula in the KPI cells, which is misleading when no loss days exist.
+  // Best/worst consider only gain/loss days respectively.
   const bestDay = winDays.reduce((a, x) => (x.pnl > (a?.pnl ?? -Infinity) ? x : a), null);
   const worstDay = lossDays.reduce((a, x) => (x.pnl < (a?.pnl ?? Infinity) ? x : a), null);
   const avgPerDay = allDays.length ? allDays.reduce((s,x) => s + (x.pnl||0), 0) / allDays.length : 0;

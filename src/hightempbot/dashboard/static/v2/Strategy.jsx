@@ -1,9 +1,5 @@
 /* eslint-disable */
-// Strategy tab. Renders ONE COLUMN PER ENABLED SLEEVE from d.strategiesConfig
-// (v2_data.py serializes only enabled entries of the live STRATEGY_CONFIGS
-// registry) over a Basics / Filters / Entry rule / Sizing & exit grouping.
-// 2026-08-09: was hard-coded to TAIL/NO columns, so FLIP_MODE=1 (NO disabled,
-// FLIP enabled) rendered "No enabled strategies" — now fully payload-driven.
+// Strategy tab: one column per enabled strategy in d.strategiesConfig.
 
 function _fmtPct(x) {
   if (x == null) return "—";

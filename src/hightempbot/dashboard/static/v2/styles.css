@@ -454,7 +454,7 @@ body {
 }
 .cal-nav:hover { border-color: var(--border-strong); color: var(--fg1); }
 
-/* === Halted / reduced-size banner === */
+/* === Halted banner === */
 .halt-banner {
   margin: 0 var(--content-pad) 0;
   padding: 10px 16px;

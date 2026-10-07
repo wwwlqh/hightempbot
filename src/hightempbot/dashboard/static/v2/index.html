@@ -62,10 +62,7 @@ function App() {
   useEffect(() => {
     let cancelled = false;
     const refresh = async () => {
-      // Pause polling for 5s after an operator mutation.
-      // Operator.jsx writes window.__htbMutationAt = Date.now() on every
-      // successful POST so the next /api/v2/data poll doesn't read stale
-      // state and overwrite the just-applied change.
+      // Skip polls for 5s after an operator action (window.__htbMutationAt).
       const mutAt = (window.__htbMutationAt | 0);
       if (mutAt && (Date.now() - mutAt) < 5000) return;
       try {

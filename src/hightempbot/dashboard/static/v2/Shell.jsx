@@ -72,8 +72,7 @@ function Topbar({ title, sub, mode, range, setRange }) {
 }
 
 function HaltedBanner({ ddPct, halt }) {
-  // 2026-05-20: halt-on-DD replaced the prior halve-on-DD rule. No reduced
-  // band anymore — banner is binary (off / HALTED).
+  // Banner is either off or HALTED.
   const isHalted = ddPct >= halt;
   if (!isHalted) return null;
   return (
