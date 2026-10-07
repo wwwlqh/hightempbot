@@ -130,16 +130,7 @@ def _validate_dashboard_live_safety(cfg: Config, *, dry_run: bool, dash_host: st
 
 
 def setup_logging(level: str) -> None:
-    # Resolve the log path against the current working directory then ensure
-    # the parent exists. Doing this here (not relying on `logs/` being a
-    # relative path that exists) means launching from a different cwd — eg.
-    # systemd from `/` — won't crash on FileHandler open before
-    # `cfg.ensure_dirs()` has run.
-    #
-    # RotatingFileHandler caps disk growth at ~250 MB total (50 MB × 5
-    # backups). The previous plain FileHandler grew unbounded — at 50
-    # stations × 144 ticks/day the bot would fill a small VPS disk in
-    # weeks (perf-006 in the 2026-05-14 review).
+    # Create logs/ under the cwd; rotate at 50 MB × 5.
     from logging.handlers import RotatingFileHandler
 
     log_path = (Path.cwd() / "logs" / "hightempbot.log").resolve()
@@ -203,12 +194,7 @@ def _auto_retrain_missing_calibration(conn: sqlite3.Connection) -> None:
 
 
 def _stop_dry_run_pending_for_live(conn: sqlite3.Connection) -> int:
-    """Cancel any PENDING dry_run ledger rows when starting in live mode.
-
-    Live restart is meant to be a clean slate: the simulated book should
-    not keep eating capacity or showing up alongside real fills. Settled
-    dry_run rows (WIN/LOSS/CLOSED) are kept for historical PnL.
-    """
+    """On a live start, cancel PENDING dry-run rows (settled ones are kept)."""
     logger = logging.getLogger("hightempbot.main")
     cursor = conn.execute(
         "UPDATE ledger SET outcome = 'CANCELLED' "
@@ -268,9 +254,6 @@ def _sync_operator_boot_mode(conn: sqlite3.Connection, dry_run: bool) -> None:
 def main() -> None:
     from hightempbot.runtime_config import set_config
     cfg = Config()
-    # Cache the boot config as the process-wide singleton so per-tick callers
-    # (scheduler/betting_tick, jobs.py alerts, etc.) reuse it instead of
-    # re-reading .env on every fire (ce-code-review P1 #11).
     set_config(cfg)
     cfg.ensure_dirs()
     setup_logging(cfg.log_level)
@@ -279,7 +262,6 @@ def main() -> None:
     _install_thread_exception_alerts(cfg)
     logger.info("Starting HighTempBot")
 
-    # Initialise database
     conn = init_db(cfg.db_path)
     logger.info("Database initialised at %s", cfg.db_path)
 
@@ -295,9 +277,7 @@ def main() -> None:
     except Exception:
         logger.warning("Fee-adjusted PnL backfill failed (non-fatal)", exc_info=True)
 
-    # Phase 2: DRY_RUN mode check
-    # Use a local variable because Pydantic BaseSettings is frozen and
-    # cfg.dry_run cannot be mutated after construction.
+    # Downgrades below only change this local, never cfg.
     dry_run = cfg.dry_run
 
     if not dry_run:
@@ -380,11 +360,7 @@ def main() -> None:
     else:
         logger.info("DRY-RUN mode - signals will be logged but no orders placed")
 
-    # Phase 2: Startup reconciliation (live mode only).
-    # Each underlying CLOB call is timeout-bounded inside reconcile_orders,
-    # but a large orphan/missing-fill set could still block the main thread
-    # for minutes. Run the reconcile pass in a worker thread with an outer
-    # deadline so a brownout cannot prevent the bot from booting.
+    # Startup reconciliation (live), in a thread with a deadline so a slow CLOB can't block boot.
     if not dry_run:
         from concurrent.futures import (
             ThreadPoolExecutor as _ReconcileTPE,
@@ -487,8 +463,7 @@ def main() -> None:
             )
             dry_run = True
 
-    # Configure dashboard after live-mode safety checks so the UI reflects
-    # the actual runtime mode if startup reconciliation forces dry-run.
+    # After the dry-run downgrades, so the UI shows the real mode.
     _sync_operator_boot_mode(conn, dry_run)
     configure_dashboard(
         cfg.db_path,
@@ -507,7 +482,6 @@ def main() -> None:
     dash_host = _dashboard_bind_host(cfg)
     _validate_dashboard_live_safety(cfg, dry_run=dry_run, dash_host=dash_host)
 
-    # Load all stations from enrolled_stations DB and register in runtime maps
     from hightempbot.stations import get_all_stations, register_enrolled_station
 
     all_stations = get_all_stations(conn)
@@ -516,7 +490,6 @@ def main() -> None:
         for station in all_stations.values():
             register_enrolled_station(station)
 
-    # Repair historical resolved rows now that actuals may have arrived after resolution.
     try:
         from hightempbot.persistence.ledger import backfill_all_resolved_actuals
 
@@ -529,9 +502,7 @@ def main() -> None:
     except Exception:
         logger.warning("Resolved-actual backfill failed (non-fatal)", exc_info=True)
 
-    # One-shot migration: convert market_tokens rows written under the old
-    # integer-label parser to the new continuous [lo, hi) ranges. Idempotent:
-    # post-migration rows have fractional bounds and will not match the predicates.
+    # Idempotent: convert old integer market_tokens bounds to [lo, hi).
     try:
         floor_fixed = conn.execute(
             """
@@ -578,12 +549,9 @@ def main() -> None:
     except Exception:
         logger.warning("Bracket-bounds migration failed (non-fatal)", exc_info=True)
 
-    # Auto-retrain stations that have aligned data but no calibration params.
-    # This covers first deployment and data-restoration scenarios where backfill
-    # loaded actuals+forecasts but retrain was never triggered.
+    # Train stations that have data but no calibration yet.
     _auto_retrain_missing_calibration(conn)
 
-    # Start scheduler with enough worker threads for concurrent station scans.
     from apscheduler.executors.pool import ThreadPoolExecutor as APSThreadPool
 
     scheduler = BackgroundScheduler(
@@ -604,14 +572,9 @@ def main() -> None:
     scheduler.start()
     logger.info("Scheduler started with %d jobs", len(scheduler.get_jobs()))
 
-    # Start dashboard in a separate thread.
-    # bind-host hardening. Resolution order:
-    #   1. DASHBOARD_BIND_HOST env (explicit operator choice, including 0.0.0.0).
-    #   2. Legacy: DASHBOARD_PASS set => 0.0.0.0 (back-compat for current prod).
-    #   3. Default: 127.0.0.1 (SSH-tunnel only).
-    # In live mode, public dashboard binds fail closed unless auth and TLS
-    # termination are explicitly configured. Dry-run keeps the older warning so
-    # local experiments are not blocked by transport setup.
+    # Dashboard thread. Bind host: DASHBOARD_BIND_HOST, else 0.0.0.0 if a
+    # password is set, else 127.0.0.1. A public bind in live mode needs a
+    # password and TLS termination; dry-run only warns.
     _is_loopback = _is_loopback_dashboard_host(dash_host)
     _tls_terminated = bool(getattr(cfg, "dashboard_tls_terminated", False))
     if not _is_loopback and not _tls_terminated:
@@ -640,10 +603,7 @@ def main() -> None:
                 log_level="warning",
             )
         except Exception:
-            # Daemon thread crashes were silent: a port conflict or uvicorn
-            # blow-up would leave the bot running with no dashboard and no
-            # log entry. Log loudly here so the operator can see it; the
-            # main thread continues so the scheduler keeps trading.
+            # Log loudly; trading continues without the dashboard.
             logger.error(
                 "Dashboard thread crashed (host=%s port=%d) — bot continues without UI",
                 dash_host, cfg.dashboard_port, exc_info=True,
@@ -663,7 +623,6 @@ def main() -> None:
     dashboard_thread.start()
     logger.info("Dashboard running at http://%s:%d", dash_host, cfg.dashboard_port)
 
-    # Block until interrupt
     shutdown_event = threading.Event()
 
     def handle_signal(sig, frame) -> None:
@@ -677,7 +636,6 @@ def main() -> None:
     logger.info("HighTempBot running. Press Ctrl+C to stop.")
     shutdown_event.wait()
 
-    # Cleanup
     scheduler.shutdown(wait=True)
     conn.close()
     logger.info("HighTempBot stopped")

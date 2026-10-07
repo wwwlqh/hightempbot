@@ -1,18 +1,4 @@
-"""Market + ensemble data fetchers — extracted from station_scanner.py (U11).
-
-Two responsibilities collected here:
-
-* Open-Meteo ensemble cache and fetch (`_fetch_ensemble` + module-level
-  cache state) — locked once readiness fires for the UTC day.
-* Polymarket market_tokens DB cache and Gamma slug fallback
-  (`_fetch_market_data` + supporting helpers `_parse_raw_markets`,
-  `_filter_tradable_markets`, `_store_negative_sentinel`) — both
-  positive and negative TTL caching for the bracket inventory.
-
-Imports `parse_bracket_bounds` directly from `resolution.gamma` (post-U14
-package extraction). No back-import from station_scanner so this module can
-be loaded first without circular import.
-"""
+"""Cached fetchers for the Open-Meteo ensemble and Polymarket bracket markets."""
 
 from __future__ import annotations
 
@@ -32,13 +18,12 @@ logger = logging.getLogger(__name__)
 
 
 _NEGATIVE_MARKET_CACHE_TTL = 6 * 3600
-_POSITIVE_MARKET_CACHE_TTL = 12 * 3600   # refetch Gamma after 12h to catch relisting
+_POSITIVE_MARKET_CACHE_TTL = 12 * 3600   # refetch to catch relistings
 _MARKET_VOLUME_CACHE_TTL = 2 * 3600
 _GAMMA_VOLUME_REFRESH_TIMEOUTS = (10, 3)
 
 
-# Open-Meteo ensemble cache: {(station_id, target_date): (timestamp, data)}.
-# Locked for most of the UTC day after the readiness gate confirms all models.
+# {(station_id, target_date): (timestamp, data)}; reused for the rest of the UTC day.
 _ensemble_cache: dict[tuple[str, date], tuple[float, dict[str, float]]] = {}
 _ensemble_negative_cache: dict[tuple[str, date], float] = {}
 _ensemble_lock = threading.Lock()
@@ -46,7 +31,7 @@ _ensemble_inflight_locks: dict[tuple[str, date], threading.Lock] = {}
 _ENSEMBLE_NEGATIVE_TTL = 120
 _market_volume_cache: dict[str, tuple[float, float]] = {}
 _market_volume_lock = threading.Lock()
-_ENSEMBLE_TTL = 22 * 3600  # 22 hours — lock ensemble once readiness fires for the UTC day
+_ENSEMBLE_TTL = 22 * 3600
 
 
 def _prune_market_volume_cache_locked(now: float) -> None:
@@ -132,11 +117,7 @@ def _inflight_lock_for(cache_key: tuple[str, date]) -> threading.Lock:
 
 
 def _fetch_ensemble(station: StationConfig, target_date: date | None = None) -> dict[str, float]:
-    """Fetch latest forecast data from Open-Meteo for this station.
-
-    The target-date cache keeps all ticks on the same UTC readiness cycle
-    using the same ensemble.
-    """
+    """The station's ensemble for ``target_date`` as {model: tmax_c}, cached."""
     station_id = station.icao
     now = time.time()
     station_today = datetime.now(pytz.timezone(station.timezone)).date()
@@ -151,8 +132,7 @@ def _fetch_ensemble(station: StationConfig, target_date: date | None = None) -> 
         if _has_fresh_negative_ensemble(cache_key, now):
             return {}
 
-    # Singleflight per station/date without holding the global cache lock
-    # across Open-Meteo network I/O.
+    # One fetch per station/date at a time, without holding the cache lock during I/O.
     with _inflight_lock_for(cache_key):
         with _ensemble_lock:
             now = time.time()
@@ -192,10 +172,7 @@ def _fetch_ensemble(station: StationConfig, target_date: date | None = None) -> 
 
 
 def _parse_raw_markets(markets: list[dict]) -> dict[int, dict]:
-    """Convert raw Gamma API market dicts to structured bracket data.
-
-    Shared parser used by both discovery path and per-station slug fallback.
-    """
+    """Gamma market dicts → {bracket_idx: bracket data}."""
     import json
 
     by_index: dict[int, dict] = {}
@@ -214,14 +191,13 @@ def _parse_raw_markets(markets: list[dict]) -> dict[int, dict]:
         yes_token = token_ids[0]
         no_token = token_ids[1] if len(token_ids) > 1 else ""
         yes_price = float(prices[0]) if prices else 0.0
-        # Use actual NO price from Gamma (prices[1]), not synthetic 1-YES
         no_price = float(prices[1]) if len(prices) > 1 else (1.0 - yes_price if yes_price > 0 else 0.0)
         volume = float(market.get("volume", 0) or 0)
         market_id = market.get("conditionId", "")
 
         mkt_data = {
             "best_ask": yes_price,
-            "best_bid": no_price,  # actual NO price from Gamma API
+            "best_bid": no_price,  # NO token price (key name is historical)
             "volume24hr": volume,
             "market_id": market_id,
             "token_id": yes_token,
@@ -241,13 +217,7 @@ def _parse_raw_markets(markets: list[dict]) -> dict[int, dict]:
 
 
 def _filter_tradable_markets(markets: dict[int, dict]) -> dict[int, dict]:
-    """Keep only brackets with at least one live CLOB order book.
-
-    Gamma/web discovery can return token ids for brackets that no longer have
-    a CLOB book. A market page may still exist visually, but those dead tokens
-    are not tradable by the bot. We therefore validate tradability before
-    caching a newly discovered market.
-    """
+    """Keep only brackets that still have a CLOB order book."""
     if not markets:
         return {}
 
@@ -317,23 +287,16 @@ def _store_negative_sentinel(conn, station_id: str, date_iso: str) -> None:
 
 def _fetch_market_data(station_id: str, target_date: date | None = None,
                        conn=None) -> dict[int, dict]:
-    """Fetch market token metadata from DB cache or Gamma API (lazy cache).
+    """Bracket markets from the market_tokens cache, else from Gamma (then cached).
 
-    Strategy:
-      1. Check market_tokens DB table (cached from prior tick)
-      2. Cache miss → Gamma slug lookup, store in DB, return
-
-    Prices (best_ask, best_bid) are set to 0 from cache — CLOB enrichment
-    in run_betting_tick() overwrites them with live orderbook prices.
-
-    Returns {bracket_idx: {best_ask, best_bid, volume24hr, market_id, token_id, ...}}.
+    Cached prices are 0; run_betting_tick fills them from CLOB. Returns
+    {bracket_idx: {best_ask, best_bid, volume24hr, market_id, token_id, ...}}.
     """
     if target_date is None:
         target_date = date.today()
 
     date_iso = target_date.isoformat()
 
-    # --- Check DB cache ---
     if conn is not None:
         try:
             rows = conn.execute(
@@ -341,7 +304,7 @@ def _fetch_market_data(station_id: str, target_date: date | None = None,
                 (station_id, date_iso),
             ).fetchall()
             if rows:
-                # Check for negative-result sentinel (bracket_idx = -1)
+                # bracket_idx = -1 marks a cached "no market".
                 if len(rows) == 1 and rows[0]["bracket_idx"] == -1:
                     fetched_at = parse_utc_timestamp(rows[0]["fetched_at"])
                     negative_age = None if fetched_at is None else (datetime.now(timezone.utc) - fetched_at).total_seconds()
@@ -363,9 +326,6 @@ def _fetch_market_data(station_id: str, target_date: date | None = None,
                 if not rows:
                     pass
                 else:
-                    # Positive-cache TTL: rows older than _POSITIVE_MARKET_CACHE_TTL
-                    # for a future/current target_date are assumed stale (Polymarket
-                    # may have relisted brackets). Delete and fall through to Gamma.
                     fetched_at = parse_utc_timestamp(rows[0]["fetched_at"])
                     age = None if fetched_at is None else (datetime.now(timezone.utc) - fetched_at).total_seconds()
                     if target_date >= date.today() and (
@@ -387,11 +347,9 @@ def _fetch_market_data(station_id: str, target_date: date | None = None,
                             if row["bracket_idx"] == -1:
                                 continue
                             result[row["bracket_idx"]] = {
-                                "best_ask": 0.0,       # CLOB enrichment will overwrite
+                                "best_ask": 0.0,
                                 "best_bid": 0.0,
-                                # None = needs refresh from Gamma; fresh fetches
-                                # below set this from _parse_raw_markets so callers
-                                # can skip refresh_market_volume on cache miss.
+                                # None: refresh_market_volume fills it.
                                 "volume24hr": None,
                                 "market_id": row["market_id"],
                                 "token_id": row["token_id"],
@@ -420,9 +378,9 @@ def _fetch_market_data(station_id: str, target_date: date | None = None,
                             logger.debug("Loaded %d cached brackets for %s %s", len(result), station_id, date_iso)
                             return result
         except Exception:
-            pass  # table may not exist yet on first run
+            pass  # table may not exist yet
 
-    # --- Cache miss: Gamma slug lookup ---
+    # --- Cache miss: ask Gamma ---
     try:
         from hightempbot.ingestion.polymarket_prices import GAMMA_API, gamma_event_slug
         from hightempbot.stations import poly_slug_for_station_id
@@ -451,7 +409,6 @@ def _fetch_market_data(station_id: str, target_date: date | None = None,
 
         event = data[0] if isinstance(data, list) else data
 
-        # Safety: reject if not a "highest temperature" market
         event_title = event.get("title", "")
         if "highest temperature" not in event_title.lower():
             logger.warning("Rejecting non-highest-temp event for %s: %s", station_id, event_title[:80])
@@ -477,7 +434,6 @@ def _fetch_market_data(station_id: str, target_date: date | None = None,
             for mkt in result.values()
         })
 
-        # --- Store in DB cache ---
         if conn is not None:
             try:
                 rows_to_insert = []
@@ -517,18 +473,8 @@ def refresh_market_volume(
     *,
     conn=None,
 ) -> None:
-    """Refresh ``volume24hr`` on each bracket in ``mdata`` from Gamma.
-
-    The market_tokens DB cache stores token IDs and bracket bounds but not
-    volume — volume is per-tick state, not schema. This helper hits Gamma's
-    ``/events?slug=...`` once per (station, date) and patches each cached
-    bracket dict in-place by matching ``conditionId``. Best-effort: any
-    failure leaves ``mdata`` unchanged.
-
-    No-op when every bracket already carries a populated ``volume24hr``
-    (cache-miss path: _fetch_market_data already parsed volume from the
-    Gamma response, so re-fetching is wasted work).
-    """
+    """Fill ``volume24hr`` on cached brackets from Gamma, in place (best-effort).
+    No-op if every bracket already has it."""
     if mdata and all(mkt.get("volume24hr") is not None for mkt in mdata.values()):
         _cache_market_volumes({
             mkt.get("market_id", ""): mkt.get("volume24hr")
@@ -602,7 +548,6 @@ def refresh_market_volume(
                 )
             return
         event = data[0] if isinstance(data, list) else data
-        # Match by conditionId (stable) instead of enumerate index.
         vol_by_mid: dict[str, float] = {}
         for vm in event.get("markets", []):
             mid = vm.get("conditionId", "")

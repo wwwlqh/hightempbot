@@ -1,11 +1,4 @@
-"""Weather Underground actuals scraper.
-
-Used for resolution tracking (Polymarket settlement) on WU-resolved stations.
-Also serves as a fallback calibration source when GSOD is unavailable.
-
-Primary approach: undocumented api.weather.com JSON endpoint.
-Fallback: Selenium with undetected-chromedriver (not implemented yet).
-"""
+"""Weather Underground daily highs via the api.weather.com JSON endpoint."""
 
 from __future__ import annotations
 
@@ -23,12 +16,7 @@ logger = logging.getLogger(__name__)
 
 @functools.lru_cache(maxsize=1)
 def _get_wu_api_key() -> str:
-    """Return the WU API key from Config(), cached for the process lifetime.
-
-    Default is the legacy wunderground.com bundle public key (see Config).
-    An empty string means the operator explicitly disabled WU -- warn so
-    they see why every call 401s.
-    """
+    """WU API key from Config (warns if empty: every call will fail)."""
     from hightempbot.runtime_config import get_config
     key = get_config().wu_api_key
     if not key:
@@ -36,19 +24,12 @@ def _get_wu_api_key() -> str:
     return key
 _WU_BASE = "https://api.weather.com/v1/location"
 
-# Rate-limit: 0.5s per worker (27 workers at 0.3s caused SSL EOF under sustained load;
-# 10 workers at 0.5s = ~8 req/s sustained, safe for multi-hour runs)
+# 0.5s per request per worker; 10 workers is the tested safe limit.
 _MIN_DELAY_S = 0.5
 
-# WU historical observations for a day can post with a lag past local midnight.
-# A cached tmax is only trusted as the day's FINAL high once its fetch happened
-# at least this many hours after the station-local END of the target day.
-# Earlier fetches may be a partial max(in-progress observations) that would
-# poison calibration if served as the final actual.
+# A cached high counts as final only if fetched this long after the local day ended.
 _CACHE_COMPLETE_MARGIN_HOURS = 6.0
-# Legacy cache payloads ({"tmax": ...} with no ``fetched_at`` stamp) are trusted
-# only once the target day is at least this old — by then any same-day partial
-# has long since been superseded by a complete scrape.
+# Old cache entries without ``fetched_at`` are trusted once the day is this old.
 _LEGACY_CACHE_MAX_AGE_DAYS = 7
 
 
@@ -68,11 +49,7 @@ def _parse_iso_utc(raw: object) -> datetime | None:
 
 
 def _station_local_day_end_utc(target_date: date, tz_name: str) -> datetime | None:
-    """UTC instant at which the station-local ``target_date`` ends.
-
-    That is the next local midnight, converted to UTC. Returns None when the
-    timezone name is unknown so callers can fall back to the age heuristic.
-    """
+    """UTC time of the local midnight ending ``target_date``; None for an unknown tz."""
     try:
         import pytz
 
@@ -89,22 +66,15 @@ def _station_local_day_end_utc(target_date: date, tz_name: str) -> datetime | No
 def _cache_complete_enough(
     data: dict, target_date: date, tz_name: str, now_utc: datetime,
 ) -> bool:
-    """Whether a cached payload can be trusted as a COMPLETE-day final value.
-
-    Guards against serving a partial daily max cached during the station's
-    in-progress local day.
-    """
+    """Whether a cached value was fetched after the day was complete."""
     fetched_at_raw = data.get("fetched_at")
     if fetched_at_raw is None:
-        # Legacy payload without a fetch stamp: trust only once the target day
-        # is old enough that any same-day partial has been overwritten.
         return (now_utc.date() - target_date).days >= _LEGACY_CACHE_MAX_AGE_DAYS
     fetched_at = _parse_iso_utc(fetched_at_raw)
     if fetched_at is None:
         return False
     day_end_utc = _station_local_day_end_utc(target_date, tz_name)
     if day_end_utc is None:
-        # Unknown timezone — fall back to the legacy age heuristic on the day.
         return (now_utc.date() - target_date).days >= _LEGACY_CACHE_MAX_AGE_DAYS
     return fetched_at >= day_end_utc + timedelta(hours=_CACHE_COMPLETE_MARGIN_HOURS)
 
@@ -167,12 +137,7 @@ def _read_cached_tmax(
         _delete_bad_cache(path)
         return None
 
-    # Completeness gate — only when the caller supplies the station timezone
-    # (the live actuals path does; legacy tz-less callers keep prior behavior).
-    # Refuse to serve a value cached before the station-local target day was
-    # complete: it may be a partial daily max that would poison calibration.
-    # Do NOT delete — return None so the caller refetches and overwrites the
-    # entry with a stamped final value.
+    # With a tz, ignore (don't delete) values cached before the day ended; the refetch overwrites them.
     if tz_name is not None:
         if now_utc is None:
             now_utc = datetime.now(timezone.utc)
@@ -188,8 +153,7 @@ def _read_cached_tmax(
 
 
 
-# ICAO prefix → ISO 3166 country code for WU API URL
-# Must cover all prefixes that auto-enrollment can discover.
+# ICAO prefix → country code for the WU URL; must cover every enrollable station.
 _ICAO_COUNTRY: dict[str, str] = {
     "K": "US",     # US stations (KLGA, KLAX, etc.)
     "C": "CA",     # Canada (CYYZ)
@@ -253,16 +217,9 @@ def fetch_wu_tmax(
     unit: str = "F",
     tz: str | None = None,
 ) -> float | None:
-    """Fetch the WU historical high for a single station-day.
+    """WU daily high for a station-day, in the station's unit (°F US, °C elsewhere).
 
-    Returns tmax in the station's native unit (°F for US, °C for intl).
-    Uses valid cached data when available; invalid cache files are deleted and
-    refetched.
-
-    When ``tz`` (the station's IANA timezone) is supplied, a cached value is
-    only served if it was fetched after the station-local target day was
-    complete — see ``_cache_complete_enough``. tz-less callers keep the prior
-    unconditional cache-serve behavior.
+    Uses the cache when valid; with ``tz``, only if fetched after the day ended.
     """
     cached = _cache_path(icao, target_date, cache_dir, unit)
     if cached.exists():
@@ -270,9 +227,7 @@ def fetch_wu_tmax(
         if tmax_cached is not None:
             return tmax_cached
 
-    # Try the undocumented JSON endpoint. Pass apiKey via the params argument
-    # so it is not concatenated into the URL string — exception traces and
-    # urllib3 debug logs would otherwise leak the key.
+    # apiKey goes in params so it never appears in a logged URL.
     units_param = "e" if unit == "F" else "m"  # e=imperial, m=metric
     date_str = target_date.strftime("%Y%m%d")
     wu_icao = _get_wu_icao(icao)
@@ -306,8 +261,7 @@ def fetch_wu_tmax(
         )
         return None
 
-    # Extract the day's high from hourly observations
-    # WU API returns individual obs with "temp" field, not a daily summary
+    # The API returns individual observations; take the max temp.
     observations = payload.get("observations", [])
     if not observations:
         logger.warning("WU: no observations for %s %s", icao, target_date)
@@ -323,8 +277,6 @@ def fetch_wu_tmax(
 
     tmax = max(temps)
 
-    # Cache the result, stamped with the UTC fetch time so a later read can
-    # verify the value was captured after the station-local day completed.
     try:
         cached.parent.mkdir(parents=True, exist_ok=True)
         cached.write_text(
