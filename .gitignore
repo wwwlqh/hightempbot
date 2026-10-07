@@ -1,0 +1,58 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.eggs/
+.pytest_cache/
+
+# Virtual environment
+.venv/
+venv/
+
+# Secrets
+.env
+.deploy_key
+.deploy_key_runtime
+ssh-key-*.key
+
+# Playwright MCP session artifacts
+.playwright-mcp/
+
+# Screenshots
+*.png
+
+# Data and caches
+data/
+logs/
+
+# Power BI extracts are small and sanitized; keep them so the report opens after cloning
+!powerbi/data/
+
+# Backtest: downloaded historical data (large, regenerable)
+backtest/data/polymarket_history.db
+backtest/data/polymarket_history.db-shm
+backtest/data/polymarket_history.db-wal
+backtest/data/manifest.csv
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Jupyter checkpoints
+.ipynb_checkpoints/
+
+# Pytest tmp + DuckDB scratch
+.tmp/
+
+# Compound Engineering per-run artifacts (review findings, plan output)
+.context/
+
+# Claude Code session state (lock files, transient task state)
+.claude/
+

@@ -1,0 +1,12 @@
+{
+  "root": ".",
+  "status": "applied",
+  "applied_commit": "cc6a25d",
+  "purpose": "Historical cleanup manifest. All listed work was applied in cc6a25d; there are no pending delete items.",
+  "items": [],
+  "protected_rules": [
+    "Never delete .env, SSH keys, SQLite databases, WAL/SHM files, logs needed for audit, or unknown server files.",
+    "For future cleanup, create a new manifest and run it with python -m hightempbot.cli.cleanup_manifest <manifest> --json first.",
+    "Only use --apply after proof.unused is true for each item and the operator confirms."
+  ]
+}

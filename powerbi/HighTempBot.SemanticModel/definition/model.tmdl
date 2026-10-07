@@ -1,0 +1,23 @@
+model Model
+	culture: en-US
+	defaultPowerBIDataSourceVersion: powerBI_V3
+	discourageImplicitMeasures
+	sourceQueryCulture: en-US
+	dataAccessOptions
+		legacyRedirects
+		returnErrorValuesAsNull
+
+queryGroup Parameters
+
+queryGroup Functions
+
+annotation __PBI_TimeIntelligenceEnabled = 0
+
+ref table 'Key Measures'
+ref table Date
+ref table Stations
+ref table Trades
+ref table Forecasts
+ref table 'Backtest Bets'
+ref table Reconciliation
+ref table 'Data Quality'

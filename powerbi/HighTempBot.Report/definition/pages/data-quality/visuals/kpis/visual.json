@@ -1,0 +1,108 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.7.0/schema.json",
+  "name": "kpis",
+  "position": {
+    "x": 24,
+    "y": 88,
+    "z": 1000,
+    "width": 1232,
+    "height": 104,
+    "tabOrder": 1000
+  },
+  "visual": {
+    "visualType": "cardVisual",
+    "query": {
+      "queryState": {
+        "Data": {
+          "projections": [
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Key Measures"
+                    }
+                  },
+                  "Property": "Rules Checked"
+                }
+              },
+              "queryRef": "Key Measures.Rules Checked",
+              "nativeQueryRef": "Rules Checked"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Key Measures"
+                    }
+                  },
+                  "Property": "Rules Passed"
+                }
+              },
+              "queryRef": "Key Measures.Rules Passed",
+              "nativeQueryRef": "Rules Passed"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Key Measures"
+                    }
+                  },
+                  "Property": "Rule Pass Rate"
+                }
+              },
+              "queryRef": "Key Measures.Rule Pass Rate",
+              "nativeQueryRef": "Rule Pass Rate"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Key Measures"
+                    }
+                  },
+                  "Property": "Records Checked"
+                }
+              },
+              "queryRef": "Key Measures.Records Checked",
+              "nativeQueryRef": "Records Checked"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Key Measures"
+                    }
+                  },
+                  "Property": "Reconciliation Exceptions"
+                }
+              },
+              "queryRef": "Key Measures.Reconciliation Exceptions",
+              "nativeQueryRef": "Reconciliation Exceptions"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Key Measures"
+                    }
+                  },
+                  "Property": "Match Rate"
+                }
+              },
+              "queryRef": "Key Measures.Match Rate",
+              "nativeQueryRef": "Match Rate"
+            }
+          ]
+        }
+      }
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

@@ -1,0 +1,63 @@
+/// One row per weather station the bot trades.
+table Stations
+
+	column 'Station ID'
+		dataType: string
+		isKey
+		summarizeBy: none
+		sourceColumn: station_id
+
+	column City
+		dataType: string
+		summarizeBy: none
+		sourceColumn: city
+
+	column Latitude
+		dataType: double
+		dataCategory: Latitude
+		summarizeBy: none
+		sourceColumn: latitude
+
+	column Longitude
+		dataType: double
+		dataCategory: Longitude
+		summarizeBy: none
+		sourceColumn: longitude
+
+	column Timezone
+		dataType: string
+		summarizeBy: none
+		sourceColumn: timezone
+
+	column 'Market Unit'
+		dataType: string
+		summarizeBy: none
+		sourceColumn: market_unit
+
+	column 'Resolution Source'
+		dataType: string
+		summarizeBy: none
+		sourceColumn: resolution_source
+
+	column Status
+		dataType: string
+		summarizeBy: none
+		sourceColumn: status
+
+	partition Stations = m
+		mode: import
+		source =
+				let
+				    Source = LoadCsv("dim_station.csv"),
+				    Typed = Table.TransformColumnTypes(
+				        Source,
+				        {
+				            {"station_id", type text}, {"city", type text},
+				            {"latitude", type number}, {"longitude", type number},
+				            {"timezone", type text}, {"market_unit", type text},
+				            {"resolution_source", type text}, {"status", type text}
+				        },
+				        "en-US"
+				    )
+				in
+				    Typed

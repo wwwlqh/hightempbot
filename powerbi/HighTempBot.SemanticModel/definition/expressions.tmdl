@@ -1,0 +1,16 @@
+/// Folder that holds the hightempbot repository. Change it after cloning.
+expression ProjectFolder = "C:\Users\leowq\Desktop\hightempbot" meta [IsParameterQuery = true, Type = "Text", IsParameterQueryRequired = true]
+	queryGroup: Parameters
+
+/// Loads a CSV extract from powerbi\data and promotes the header row.
+expression LoadCsv =
+		(fileName as text) as table =>
+		let
+		    Source = Csv.Document(
+		        File.Contents(ProjectFolder & "\powerbi\data\" & fileName),
+		        [Delimiter = ",", Encoding = 65001, QuoteStyle = QuoteStyle.Csv]
+		    ),
+		    Promoted = Table.PromoteHeaders(Source, [PromoteAllScalars = true])
+		in
+		    Promoted
+	queryGroup: Functions

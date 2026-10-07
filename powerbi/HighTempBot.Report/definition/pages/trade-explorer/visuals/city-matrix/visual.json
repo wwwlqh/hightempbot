@@ -1,0 +1,122 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.7.0/schema.json",
+  "name": "city-matrix",
+  "position": {
+    "x": 24,
+    "y": 88,
+    "z": 4000,
+    "width": 400,
+    "height": 608,
+    "tabOrder": 4000
+  },
+  "visual": {
+    "visualType": "pivotTable",
+    "query": {
+      "queryState": {
+        "Rows": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Stations"
+                    }
+                  },
+                  "Property": "City"
+                }
+              },
+              "queryRef": "Stations.City",
+              "nativeQueryRef": "City",
+              "active": true
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Trades"
+                    }
+                  },
+                  "Property": "Strategy"
+                }
+              },
+              "queryRef": "Trades.Strategy",
+              "nativeQueryRef": "Strategy",
+              "active": true
+            }
+          ]
+        },
+        "Values": {
+          "projections": [
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Key Measures"
+                    }
+                  },
+                  "Property": "Settled Trades"
+                }
+              },
+              "queryRef": "Key Measures.Settled Trades",
+              "nativeQueryRef": "Settled Trades"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Key Measures"
+                    }
+                  },
+                  "Property": "Win Rate"
+                }
+              },
+              "queryRef": "Key Measures.Win Rate",
+              "nativeQueryRef": "Win Rate"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Key Measures"
+                    }
+                  },
+                  "Property": "Total P&L"
+                }
+              },
+              "queryRef": "Key Measures.Total P&L",
+              "nativeQueryRef": "Total P&L"
+            }
+          ]
+        }
+      }
+    },
+    "visualContainerObjects": {
+      "title": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            },
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'Results by city and strategy'"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

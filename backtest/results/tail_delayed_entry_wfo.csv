@@ -1,0 +1,5 @@
+variant,tail_entry_threshold,oos_pnl,oos_final_bankroll,oos_max_dd,oos_positive_chunks,oos_worst_chunk,oos_n,oos_no_n,oos_no_pnl,oos_tail_n,oos_tail_pnl,oos_tail_avg_stake,oos_max_open_exposure_pct,tail_signals,tail_entered,tail_missed,avg_delay_minutes,max_delay_hours,passes_gates
+wait_le_02c,0.02,2537.2371,2637.2371,26.1844,3,319.9398,308,278,1211.4342,30,1325.803,54.1862,120.0986,56,55,1,118.0,14.3333,True
+immediate,,1319.7052,1419.7052,26.2241,3,382.7677,309,278,849.984,31,469.7212,23.3826,126.0293,56,56,0,0.0,0.0,True
+wait_le_03c,0.03,1319.7052,1419.7052,26.2241,3,382.7677,309,278,849.984,31,469.7212,23.3826,126.0293,56,56,0,0.0,0.0,True
+wait_le_01c,0.01,197.3024,297.3024,41.689,2,-41.4972,306,278,276.2689,28,-78.9666,8.7292,132.6798,56,50,6,475.0,15.5,False

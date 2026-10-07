@@ -1,0 +1,51 @@
+/// Results of the data quality rules in powerbi/sql/data_quality_checks.sql.
+table 'Data Quality'
+
+	column 'Check ID'
+		dataType: string
+		isKey
+		summarizeBy: none
+		sourceColumn: check_id
+
+	column Area
+		dataType: string
+		summarizeBy: none
+		sourceColumn: area
+
+	column Rule
+		dataType: string
+		summarizeBy: none
+		sourceColumn: rule
+
+	column 'Rows Checked'
+		dataType: int64
+		formatString: #,0
+		summarizeBy: none
+		sourceColumn: rows_checked
+
+	column 'Rows Failed'
+		dataType: int64
+		formatString: #,0
+		summarizeBy: none
+		sourceColumn: rows_failed
+
+	column Status
+		dataType: string
+		summarizeBy: none
+		sourceColumn: status
+
+	partition 'Data Quality' = m
+		mode: import
+		source =
+				let
+				    Source = LoadCsv("data_quality_checks.csv"),
+				    Typed = Table.TransformColumnTypes(
+				        Source,
+				        {
+				            {"check_id", type text}, {"area", type text}, {"rule", type text},
+				            {"rows_checked", Int64.Type}, {"rows_failed", Int64.Type}, {"status", type text}
+				        },
+				        "en-US"
+				    )
+				in
+				    Typed

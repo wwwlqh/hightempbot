@@ -1,0 +1,252 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.7.0/schema.json",
+  "name": "trade-list",
+  "position": {
+    "x": 440,
+    "y": 88,
+    "z": 5000,
+    "width": 816,
+    "height": 608,
+    "tabOrder": 5000
+  },
+  "visual": {
+    "visualType": "tableEx",
+    "query": {
+      "queryState": {
+        "Values": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Trades"
+                    }
+                  },
+                  "Property": "Trade ID"
+                }
+              },
+              "queryRef": "Trades.Trade ID",
+              "nativeQueryRef": "Trade ID"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Trades"
+                    }
+                  },
+                  "Property": "Target Date"
+                }
+              },
+              "queryRef": "Trades.Target Date",
+              "nativeQueryRef": "Target Date"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Stations"
+                    }
+                  },
+                  "Property": "City"
+                }
+              },
+              "queryRef": "Stations.City",
+              "nativeQueryRef": "City"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Trades"
+                    }
+                  },
+                  "Property": "Mode"
+                }
+              },
+              "queryRef": "Trades.Mode",
+              "nativeQueryRef": "Mode"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Trades"
+                    }
+                  },
+                  "Property": "Side"
+                }
+              },
+              "queryRef": "Trades.Side",
+              "nativeQueryRef": "Side"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Trades"
+                    }
+                  },
+                  "Property": "Bracket"
+                }
+              },
+              "queryRef": "Trades.Bracket",
+              "nativeQueryRef": "Bracket"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Trades"
+                    }
+                  },
+                  "Property": "Model Probability"
+                }
+              },
+              "queryRef": "Trades.Model Probability",
+              "nativeQueryRef": "Model Probability"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Trades"
+                    }
+                  },
+                  "Property": "Market Price"
+                }
+              },
+              "queryRef": "Trades.Market Price",
+              "nativeQueryRef": "Market Price"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Trades"
+                    }
+                  },
+                  "Property": "Stake"
+                }
+              },
+              "queryRef": "Trades.Stake",
+              "nativeQueryRef": "Stake"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Trades"
+                    }
+                  },
+                  "Property": "Outcome"
+                }
+              },
+              "queryRef": "Trades.Outcome",
+              "nativeQueryRef": "Outcome"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Trades"
+                    }
+                  },
+                  "Property": "P&L"
+                }
+              },
+              "queryRef": "Trades.P&L",
+              "nativeQueryRef": "P&L"
+            }
+          ]
+        }
+      },
+      "sortDefinition": {
+        "sort": [
+          {
+            "field": {
+              "Column": {
+                "Expression": {
+                  "SourceRef": {
+                    "Entity": "Trades"
+                  }
+                },
+                "Property": "Trade ID"
+              }
+            },
+            "direction": "Descending"
+          }
+        ],
+        "isDefaultSort": true
+      }
+    },
+    "visualContainerObjects": {
+      "title": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            },
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'Trades'"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "drillFilterOtherVisuals": true,
+    "objects": {
+      "values": [
+        {
+          "properties": {
+            "fontColor": {
+              "solid": {
+                "color": {
+                  "expr": {
+                    "Measure": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "Key Measures"
+                        }
+                      },
+                      "Property": "P&L Colour"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "selector": {
+            "metadata": "Trades.P&L",
+            "data": [
+              {
+                "dataViewWildcard": {
+                  "matchingOption": 1
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

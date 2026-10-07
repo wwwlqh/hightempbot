@@ -1,0 +1,102 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.7.0/schema.json",
+  "name": "live",
+  "position": {
+    "x": 800,
+    "y": 88,
+    "z": 2000,
+    "width": 456,
+    "height": 248,
+    "tabOrder": 2000
+  },
+  "visual": {
+    "visualType": "cardVisual",
+    "query": {
+      "queryState": {
+        "Data": {
+          "projections": [
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Key Measures"
+                    }
+                  },
+                  "Property": "Live Settled Trades"
+                }
+              },
+              "queryRef": "Key Measures.Live Settled Trades",
+              "nativeQueryRef": "Live Settled Trades"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Key Measures"
+                    }
+                  },
+                  "Property": "Live Win Rate"
+                }
+              },
+              "queryRef": "Key Measures.Live Win Rate",
+              "nativeQueryRef": "Live Win Rate"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Key Measures"
+                    }
+                  },
+                  "Property": "Live ROI"
+                }
+              },
+              "queryRef": "Key Measures.Live ROI",
+              "nativeQueryRef": "Live ROI"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Key Measures"
+                    }
+                  },
+                  "Property": "Live P&L"
+                }
+              },
+              "queryRef": "Key Measures.Live P&L",
+              "nativeQueryRef": "Live P&L"
+            }
+          ]
+        }
+      }
+    },
+    "drillFilterOtherVisuals": true,
+    "visualContainerObjects": {
+      "title": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            },
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'Live trading'"
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

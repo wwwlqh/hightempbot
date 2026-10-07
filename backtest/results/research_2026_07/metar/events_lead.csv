@@ -1,0 +1,712 @@
+icao,md,hour,slug,label,yes_h,won_yes,flat60,rm_f,wu_f
+KLAX,2026-03-24,15,highest-temperature-in-los-angeles-on-march-24-2026-68-69f,between 68-69°F,0.5067777755555556,1,1,69.0,69.0
+KLAX,2026-03-24,16,highest-temperature-in-los-angeles-on-march-24-2026-68-69f,between 68-69°F,0.6360555555555556,1,1,69.0,69.0
+KLAX,2026-03-25,15,highest-temperature-in-los-angeles-on-march-25-2026-69forbelow,69°F or below,0.94975,1,1,68.0,68.0
+KLAX,2026-03-25,16,highest-temperature-in-los-angeles-on-march-25-2026-69forbelow,69°F or below,0.9845,1,1,68.0,68.0
+KLAX,2026-03-26,15,highest-temperature-in-los-angeles-on-march-26-2026-70-71f,between 70-71°F,0.9824444444444445,1,1,71.0,71.0
+KLAX,2026-03-26,16,highest-temperature-in-los-angeles-on-march-26-2026-70-71f,between 70-71°F,0.9898125,1,1,71.0,71.0
+KLAX,2026-03-27,15,highest-temperature-in-los-angeles-on-march-27-2026-71forbelow,71°F or below,0.9507142857142857,1,1,70.0,70.0
+KLAX,2026-03-27,16,highest-temperature-in-los-angeles-on-march-27-2026-71forbelow,71°F or below,0.989,1,1,70.0,70.0
+KLAX,2026-03-29,15,highest-temperature-in-los-angeles-on-march-29-2026-72-73f,between 72-73°F,0.964249999,1,1,72.0,72.0
+KLAX,2026-03-29,16,highest-temperature-in-los-angeles-on-march-29-2026-72-73f,between 72-73°F,0.982199999,1,1,72.0,72.0
+KLAX,2026-03-30,15,highest-temperature-in-los-angeles-on-march-30-2026-68-69f,between 68-69°F,0.8550000000000001,1,1,69.0,69.0
+KLAX,2026-03-30,16,highest-temperature-in-los-angeles-on-march-30-2026-68-69f,between 68-69°F,0.9338,1,1,69.0,69.0
+KLAX,2026-04-01,15,highest-temperature-in-los-angeles-on-april-1-2026-66-67f,between 66-67°F,0.9568999979999999,0,1,67.0,62.0
+KLAX,2026-04-01,16,highest-temperature-in-los-angeles-on-april-1-2026-66-67f,between 66-67°F,0.9526,0,1,67.0,62.0
+KLAX,2026-04-06,15,highest-temperature-in-los-angeles-on-april-6-2026-76-77f,between 76-77°F,0.9973000000000001,1,1,77.0,77.0
+KLAX,2026-04-06,16,highest-temperature-in-los-angeles-on-april-6-2026-76-77f,between 76-77°F,0.9925499999999999,1,1,77.0,77.0
+KLAX,2026-04-07,15,highest-temperature-in-los-angeles-on-april-7-2026-68-69f,between 68-69°F,0.7005,1,1,69.0,69.0
+KLAX,2026-04-07,16,highest-temperature-in-los-angeles-on-april-7-2026-68-69f,between 68-69°F,0.9015000000000001,1,1,69.0,69.0
+KLAX,2026-04-08,15,highest-temperature-in-los-angeles-on-april-8-2026-70-71f,between 70-71°F,0.9135,1,1,70.0,70.0
+KLAX,2026-04-08,16,highest-temperature-in-los-angeles-on-april-8-2026-70-71f,between 70-71°F,0.9890000000000001,1,1,70.0,70.0
+KLAX,2026-04-09,15,highest-temperature-in-los-angeles-on-april-9-2026-70-71f,between 70-71°F,0.9544,1,1,71.0,71.0
+KLAX,2026-04-09,16,highest-temperature-in-los-angeles-on-april-9-2026-70-71f,between 70-71°F,0.9949,1,1,71.0,71.0
+KLAX,2026-04-11,15,highest-temperature-in-los-angeles-on-april-11-2026-68-69f,between 68-69°F,0.9631428571428572,1,1,68.0,68.0
+KLAX,2026-04-11,16,highest-temperature-in-los-angeles-on-april-11-2026-68-69f,between 68-69°F,0.9903000000000001,1,1,68.0,68.0
+KLAX,2026-04-12,15,highest-temperature-in-los-angeles-on-april-12-2026-68-69f,between 68-69°F,0.94675,1,1,68.0,68.0
+KLAX,2026-04-12,16,highest-temperature-in-los-angeles-on-april-12-2026-68-69f,between 68-69°F,0.9843500000000001,1,1,68.0,68.0
+KLAX,2026-04-13,15,highest-temperature-in-los-angeles-on-april-13-2026-64-65f,between 64-65°F,0.845,0,1,65.0,66.0
+KLAX,2026-04-13,16,highest-temperature-in-los-angeles-on-april-13-2026-66-67f,between 66-67°F,0.8225,1,0,66.0,66.0
+KLAX,2026-04-14,15,highest-temperature-in-los-angeles-on-april-14-2026-68-69f,between 68-69°F,0.96125,1,1,68.0,68.0
+KLAX,2026-04-14,16,highest-temperature-in-los-angeles-on-april-14-2026-68-69f,between 68-69°F,0.9922000000000001,1,1,68.0,68.0
+KLAX,2026-04-15,15,highest-temperature-in-los-angeles-on-april-15-2026-68-69f,between 68-69°F,0.8234,1,0,69.0,69.0
+KLAX,2026-04-15,16,highest-temperature-in-los-angeles-on-april-15-2026-68-69f,between 68-69°F,0.968,1,1,69.0,69.0
+KLAX,2026-04-16,15,highest-temperature-in-los-angeles-on-april-16-2026-68-69f,between 68-69°F,0.8835714285714286,1,1,69.0,69.0
+KLAX,2026-04-16,16,highest-temperature-in-los-angeles-on-april-16-2026-68-69f,between 68-69°F,0.9029999999999999,1,1,69.0,69.0
+KLAX,2026-04-17,15,highest-temperature-in-los-angeles-on-april-17-2026-72-73f,between 72-73°F,0.9400000000000001,1,1,72.0,72.0
+KLAX,2026-04-17,16,highest-temperature-in-los-angeles-on-april-17-2026-72-73f,between 72-73°F,0.9898999999999999,1,1,72.0,72.0
+KLAX,2026-04-19,15,highest-temperature-in-los-angeles-on-april-19-2026-70-71f,between 70-71°F,0.9782272727272727,1,1,71.0,71.0
+KLAX,2026-04-19,16,highest-temperature-in-los-angeles-on-april-19-2026-70-71f,between 70-71°F,0.9488,1,1,71.0,71.0
+KLAX,2026-04-20,15,highest-temperature-in-los-angeles-on-april-20-2026-70-71f,between 70-71°F,0.9926,1,1,70.0,70.0
+KLAX,2026-04-20,16,highest-temperature-in-los-angeles-on-april-20-2026-70-71f,between 70-71°F,0.9925,1,1,70.0,70.0
+KLAX,2026-04-21,15,highest-temperature-in-los-angeles-on-april-21-2026-70-71f,between 70-71°F,0.9772000000000001,1,1,70.0,70.0
+KLAX,2026-04-21,16,highest-temperature-in-los-angeles-on-april-21-2026-70-71f,between 70-71°F,0.98515,1,1,70.0,70.0
+KLAX,2026-04-23,15,highest-temperature-in-los-angeles-on-april-23-2026-70-71f,between 70-71°F,0.9592,1,1,71.0,71.0
+KLAX,2026-04-23,16,highest-temperature-in-los-angeles-on-april-23-2026-70-71f,between 70-71°F,0.9887499999999999,1,1,71.0,71.0
+KLAX,2026-04-24,15,highest-temperature-in-los-angeles-on-april-24-2026-72-73f,between 72-73°F,0.93,1,1,73.0,73.0
+KLAX,2026-04-24,16,highest-temperature-in-los-angeles-on-april-24-2026-72-73f,between 72-73°F,0.9971,1,1,73.0,73.0
+KLAX,2026-04-25,15,highest-temperature-in-los-angeles-on-april-25-2026-64-65f,between 64-65°F,0.9625999999999999,1,1,65.0,65.0
+KLAX,2026-04-25,16,highest-temperature-in-los-angeles-on-april-25-2026-64-65f,between 64-65°F,0.9875,1,1,65.0,65.0
+KLAX,2026-04-26,15,highest-temperature-in-los-angeles-on-april-26-2026-66-67f,between 66-67°F,0.9470000000000001,1,1,66.0,66.0
+KLAX,2026-04-26,16,highest-temperature-in-los-angeles-on-april-26-2026-66-67f,between 66-67°F,0.9869,1,1,66.0,66.0
+KLAX,2026-04-27,15,highest-temperature-in-los-angeles-on-april-27-2026-66-67f,between 66-67°F,0.971,1,1,66.0,66.0
+KLAX,2026-04-27,16,highest-temperature-in-los-angeles-on-april-27-2026-66-67f,between 66-67°F,0.9881,1,1,66.0,66.0
+KLAX,2026-04-28,15,highest-temperature-in-los-angeles-on-april-28-2026-68-69f,between 68-69°F,0.9451,1,1,68.0,68.0
+KLAX,2026-04-28,16,highest-temperature-in-los-angeles-on-april-28-2026-68-69f,between 68-69°F,0.9898999999999999,1,1,68.0,68.0
+KLAX,2026-04-29,15,highest-temperature-in-los-angeles-on-april-29-2026-68-69f,between 68-69°F,0.95475,1,1,68.0,68.0
+KLAX,2026-04-29,16,highest-temperature-in-los-angeles-on-april-29-2026-68-69f,between 68-69°F,0.9938,1,1,68.0,68.0
+KLAX,2026-05-01,15,highest-temperature-in-los-angeles-on-may-1-2026-68-69f,between 68-69°F,0.9692000000000001,1,1,69.0,69.0
+KLAX,2026-05-01,16,highest-temperature-in-los-angeles-on-may-1-2026-68-69f,between 68-69°F,0.9945,1,1,69.0,69.0
+KLAX,2026-05-02,15,highest-temperature-in-los-angeles-on-may-2-2026-66-67f,between 66-67°F,0.95,1,1,67.0,67.0
+KLAX,2026-05-02,16,highest-temperature-in-los-angeles-on-may-2-2026-66-67f,between 66-67°F,0.9904999999999999,1,1,67.0,67.0
+KLAX,2026-05-03,15,highest-temperature-in-los-angeles-on-may-3-2026-66-67f,between 66-67°F,0.9897500000000001,1,1,66.0,66.0
+KLAX,2026-05-03,16,highest-temperature-in-los-angeles-on-may-3-2026-66-67f,between 66-67°F,0.99375,1,1,66.0,66.0
+KDAL,2026-02-18,15,highest-temperature-in-dallas-on-february-18-2026-76-77f,between 76-77°F,0.583999996,1,0,76.0,77.0
+KDAL,2026-02-18,16,highest-temperature-in-dallas-on-february-18-2026-76-77f,between 76-77°F,0.8210000000000001,1,0,77.0,77.0
+KDAL,2026-02-18,17,highest-temperature-in-dallas-on-february-18-2026-76-77f,between 76-77°F,0.9132,1,1,77.0,77.0
+KDAL,2026-02-19,15,highest-temperature-in-dallas-on-february-19-2026-78-79f,between 78-79°F,0.78,1,1,78.0,78.0
+KDAL,2026-02-19,16,highest-temperature-in-dallas-on-february-19-2026-78-79f,between 78-79°F,0.8166666666666667,1,1,78.0,78.0
+KDAL,2026-02-19,17,highest-temperature-in-dallas-on-february-19-2026-78-79f,between 78-79°F,0.9359,1,1,78.0,78.0
+KDAL,2026-02-20,15,highest-temperature-in-dallas-on-february-20-2026-65forbelow,65°F or below,0.9868,1,0,59.0,61.0
+KDAL,2026-02-20,16,highest-temperature-in-dallas-on-february-20-2026-65forbelow,65°F or below,0.9874499999999999,1,0,60.0,61.0
+KDAL,2026-02-20,17,highest-temperature-in-dallas-on-february-20-2026-65forbelow,65°F or below,0.9935,1,1,60.0,61.0
+KDAL,2026-02-21,15,highest-temperature-in-dallas-on-february-21-2026-62-63f,between 62-63°F,0.7907142857142857,1,1,62.0,62.0
+KDAL,2026-02-21,16,highest-temperature-in-dallas-on-february-21-2026-62-63f,between 62-63°F,0.9544499999999999,1,1,62.0,62.0
+KDAL,2026-02-21,17,highest-temperature-in-dallas-on-february-21-2026-62-63f,between 62-63°F,0.98765,1,1,62.0,62.0
+KDAL,2026-02-22,15,highest-temperature-in-dallas-on-february-22-2026-57forbelow,57°F or below,0.5674999941666666,0,0,57.0,58.0
+KDAL,2026-02-22,16,highest-temperature-in-dallas-on-february-22-2026-58-59f,between 58-59°F,0.8109999999999999,1,0,58.0,58.0
+KDAL,2026-02-22,17,highest-temperature-in-dallas-on-february-22-2026-58-59f,between 58-59°F,0.99,1,1,58.0,58.0
+KDAL,2026-02-23,15,highest-temperature-in-dallas-on-february-23-2026-59forbelow,59°F or below,0.39249999999999996,0,0,58.0,60.0
+KDAL,2026-02-23,16,highest-temperature-in-dallas-on-february-23-2026-59forbelow,59°F or below,0.7575000000000001,0,0,59.0,60.0
+KDAL,2026-02-23,17,highest-temperature-in-dallas-on-february-23-2026-60-61f,between 60-61°F,0.978,1,0,60.0,60.0
+KDAL,2026-02-24,15,highest-temperature-in-dallas-on-february-24-2026-70-71f,between 70-71°F,0.04011111111111111,1,0,70.0,71.0
+KDAL,2026-02-24,16,highest-temperature-in-dallas-on-february-24-2026-70-71f,between 70-71°F,0.05222222222222222,1,0,71.0,71.0
+KDAL,2026-02-24,17,highest-temperature-in-dallas-on-february-24-2026-70-71f,between 70-71°F,0.5378333333333333,1,1,71.0,71.0
+KDAL,2026-02-25,15,highest-temperature-in-dallas-on-february-25-2026-78-79f,between 78-79°F,0.04633333333333333,0,0,78.0,80.0
+KDAL,2026-02-25,16,highest-temperature-in-dallas-on-february-25-2026-80-81f,between 80-81°F,0.6911111111111111,1,0,80.0,80.0
+KDAL,2026-02-25,17,highest-temperature-in-dallas-on-february-25-2026-80-81f,between 80-81°F,0.8444444444444444,1,1,80.0,80.0
+KDAL,2026-02-26,15,highest-temperature-in-dallas-on-february-26-2026-80-81f,between 80-81°F,0.2711111111111111,0,0,81.0,82.0
+KDAL,2026-02-26,16,highest-temperature-in-dallas-on-february-26-2026-82forhigher,82°F or higher,0.9995,1,0,82.0,82.0
+KDAL,2026-02-26,17,highest-temperature-in-dallas-on-february-26-2026-82forhigher,82°F or higher,0.9994999999999999,1,1,82.0,82.0
+KDAL,2026-02-28,15,highest-temperature-in-dallas-on-february-28-2026-82-83f,between 82-83°F,0.132999996,1,0,83.0,83.0
+KDAL,2026-02-28,16,highest-temperature-in-dallas-on-february-28-2026-82-83f,between 82-83°F,0.143,1,1,83.0,83.0
+KDAL,2026-02-28,17,highest-temperature-in-dallas-on-february-28-2026-82-83f,between 82-83°F,0.9484999999999999,1,1,83.0,83.0
+KDAL,2026-03-03,15,highest-temperature-in-dallas-on-march-3-2026-82-83f,between 82-83°F,0.176,0,0,83.0,84.0
+KDAL,2026-03-03,16,highest-temperature-in-dallas-on-march-3-2026-84forhigher,84°F or higher,0.9994999999999999,1,0,84.0,84.0
+KDAL,2026-03-03,17,highest-temperature-in-dallas-on-march-3-2026-84forhigher,84°F or higher,0.9994999999999999,1,1,84.0,84.0
+KDAL,2026-03-05,15,highest-temperature-in-dallas-on-march-5-2026-80-81f,between 80-81°F,0.562,1,0,81.0,81.0
+KDAL,2026-03-05,16,highest-temperature-in-dallas-on-march-5-2026-80-81f,between 80-81°F,0.487,1,1,81.0,81.0
+KDAL,2026-03-05,17,highest-temperature-in-dallas-on-march-5-2026-80-81f,between 80-81°F,0.9029999999999999,1,1,81.0,81.0
+KDAL,2026-03-06,15,highest-temperature-in-dallas-on-march-6-2026-80-81f,between 80-81°F,0.603999996,0,1,81.0,83.0
+KDAL,2026-03-06,16,highest-temperature-in-dallas-on-march-6-2026-82-83f,between 82-83°F,0.8539999999999999,1,0,83.0,83.0
+KDAL,2026-03-06,17,highest-temperature-in-dallas-on-march-6-2026-82-83f,between 82-83°F,0.9696,1,1,83.0,83.0
+KDAL,2026-03-08,15,highest-temperature-in-dallas-on-march-8-2026-66forhigher,66°F or higher,0.9994999999999999,0,0,71.0,49.0
+KDAL,2026-03-08,16,highest-temperature-in-dallas-on-march-8-2026-66forhigher,66°F or higher,0.9994999999999999,0,0,75.0,49.0
+KDAL,2026-03-08,17,highest-temperature-in-dallas-on-march-8-2026-66forhigher,66°F or higher,0.9994999999999999,0,1,75.0,49.0
+KDAL,2026-03-09,15,highest-temperature-in-dallas-on-march-9-2026-80-81f,between 80-81°F,0.09277777777777778,0,0,81.0,84.0
+KDAL,2026-03-09,16,highest-temperature-in-dallas-on-march-9-2026-82-83f,between 82-83°F,0.20400000000000001,0,0,83.0,84.0
+KDAL,2026-03-09,17,highest-temperature-in-dallas-on-march-9-2026-84-85f,between 84-85°F,0.9435,1,0,84.0,84.0
+KDAL,2026-03-10,15,highest-temperature-in-dallas-on-march-10-2026-78-79f,between 78-79°F,0.3525,0,1,78.0,82.0
+KDAL,2026-03-10,16,highest-temperature-in-dallas-on-march-10-2026-78-79f,between 78-79°F,0.705,0,1,78.0,82.0
+KDAL,2026-03-10,17,highest-temperature-in-dallas-on-march-10-2026-78-79f,between 78-79°F,0.6205555555555555,0,0,79.0,82.0
+KDAL,2026-03-11,15,highest-temperature-in-dallas-on-march-11-2026-74forhigher,74°F or higher,0.9994999999999999,1,1,76.0,76.0
+KDAL,2026-03-11,16,highest-temperature-in-dallas-on-march-11-2026-74forhigher,74°F or higher,0.9994999999999999,1,1,76.0,76.0
+KDAL,2026-03-12,15,highest-temperature-in-dallas-on-march-12-2026-60-61f,between 60-61°F,0.0195,0,0,60.0,63.0
+KDAL,2026-03-12,16,highest-temperature-in-dallas-on-march-12-2026-62-63f,between 62-63°F,0.5575,1,0,62.0,63.0
+KDAL,2026-03-12,17,highest-temperature-in-dallas-on-march-12-2026-62-63f,between 62-63°F,0.41,1,0,63.0,63.0
+KDAL,2026-03-13,15,highest-temperature-in-dallas-on-march-13-2026-74-75f,between 74-75°F,0.040350000000000004,0,0,74.0,76.0
+KDAL,2026-03-13,16,highest-temperature-in-dallas-on-march-13-2026-76-77f,between 76-77°F,0.6900000000000001,1,0,76.0,76.0
+KDAL,2026-03-13,17,highest-temperature-in-dallas-on-march-13-2026-76-77f,between 76-77°F,0.8855555555555555,1,1,76.0,76.0
+KDAL,2026-03-14,15,highest-temperature-in-dallas-on-march-14-2026-78-79f,between 78-79°F,0.055611111111111104,0,0,79.0,81.0
+KDAL,2026-03-14,16,highest-temperature-in-dallas-on-march-14-2026-80-81f,between 80-81°F,0.6622222222222223,1,0,80.0,81.0
+KDAL,2026-03-14,17,highest-temperature-in-dallas-on-march-14-2026-80-81f,between 80-81°F,0.9255000000000001,1,0,81.0,81.0
+KDAL,2026-03-15,15,highest-temperature-in-dallas-on-march-15-2026-84-85f,between 84-85°F,0.99535,1,1,85.0,85.0
+KDAL,2026-03-15,16,highest-temperature-in-dallas-on-march-15-2026-84-85f,between 84-85°F,0.9978999999999999,1,1,85.0,85.0
+KDAL,2026-03-15,17,highest-temperature-in-dallas-on-march-15-2026-84-85f,between 84-85°F,0.9982,1,1,85.0,85.0
+KDAL,2026-03-16,15,highest-temperature-in-dallas-on-march-16-2026-44-45f,between 44-45°F,0.23511111111111113,0,0,45.0,48.0
+KDAL,2026-03-16,16,highest-temperature-in-dallas-on-march-16-2026-48-49f,between 48-49°F,0.8905555555555557,1,0,48.0,48.0
+KDAL,2026-03-16,17,highest-temperature-in-dallas-on-march-16-2026-48-49f,between 48-49°F,0.9692222222222223,1,1,48.0,48.0
+KDAL,2026-03-17,15,highest-temperature-in-dallas-on-march-17-2026-60-61f,between 60-61°F,0.03562499,0,0,60.0,63.0
+KDAL,2026-03-17,16,highest-temperature-in-dallas-on-march-17-2026-60-61f,between 60-61°F,0.05275,0,0,61.0,63.0
+KDAL,2026-03-17,17,highest-temperature-in-dallas-on-march-17-2026-62-63f,between 62-63°F,0.9354444444444445,1,0,62.0,63.0
+KDAL,2026-03-18,15,highest-temperature-in-dallas-on-march-18-2026-70-71f,between 70-71°F,0.009166666666666667,0,0,71.0,74.0
+KDAL,2026-03-18,16,highest-temperature-in-dallas-on-march-18-2026-74-75f,between 74-75°F,0.6533333333333333,1,0,74.0,74.0
+KDAL,2026-03-18,17,highest-temperature-in-dallas-on-march-18-2026-74-75f,between 74-75°F,0.925,1,1,74.0,74.0
+KDAL,2026-03-19,15,highest-temperature-in-dallas-on-march-19-2026-82-83f,between 82-83°F,0.01515,0,0,82.0,86.0
+KDAL,2026-03-19,16,highest-temperature-in-dallas-on-march-19-2026-84-85f,between 84-85°F,0.36,0,0,84.0,86.0
+KDAL,2026-03-19,17,highest-temperature-in-dallas-on-march-19-2026-86-87f,between 86-87°F,0.948125,1,0,86.0,86.0
+KDAL,2026-03-20,15,highest-temperature-in-dallas-on-march-20-2026-86-87f,between 86-87°F,0.011,0,0,86.0,89.0
+KDAL,2026-03-20,16,highest-temperature-in-dallas-on-march-20-2026-86-87f,between 86-87°F,0.04518749625,0,0,87.0,89.0
+KDAL,2026-03-20,17,highest-temperature-in-dallas-on-march-20-2026-88-89f,between 88-89°F,0.884375,1,0,89.0,89.0
+KDAL,2026-03-21,15,highest-temperature-in-dallas-on-march-21-2026-88-89f,between 88-89°F,0.009611107777777777,0,0,89.0,91.0
+KDAL,2026-03-21,16,highest-temperature-in-dallas-on-march-21-2026-90-91f,between 90-91°F,0.564375,1,0,91.0,91.0
+KDAL,2026-03-21,17,highest-temperature-in-dallas-on-march-21-2026-90-91f,between 90-91°F,0.9803888888888888,1,1,91.0,91.0
+KDAL,2026-03-22,15,highest-temperature-in-dallas-on-march-22-2026-90-91f,between 90-91°F,0.05599999888888888,0,0,91.0,93.0
+KDAL,2026-03-22,16,highest-temperature-in-dallas-on-march-22-2026-92-93f,between 92-93°F,0.6172222222222222,1,0,93.0,93.0
+KDAL,2026-03-22,17,highest-temperature-in-dallas-on-march-22-2026-92-93f,between 92-93°F,0.9706666666666668,1,1,93.0,93.0
+KDAL,2026-03-23,15,highest-temperature-in-dallas-on-march-23-2026-78-79f,between 78-79°F,0.24422222222222223,0,0,78.0,80.0
+KDAL,2026-03-23,16,highest-temperature-in-dallas-on-march-23-2026-78-79f,between 78-79°F,0.172,0,0,79.0,80.0
+KDAL,2026-03-23,17,highest-temperature-in-dallas-on-march-23-2026-80-81f,between 80-81°F,0.9427777777777777,1,0,80.0,80.0
+KDAL,2026-03-24,15,highest-temperature-in-dallas-on-march-24-2026-80-81f,between 80-81°F,0.022000000000000002,0,1,81.0,83.0
+KDAL,2026-03-24,16,highest-temperature-in-dallas-on-march-24-2026-82-83f,between 82-83°F,0.7127777755555555,1,0,82.0,83.0
+KDAL,2026-03-24,17,highest-temperature-in-dallas-on-march-24-2026-82-83f,between 82-83°F,0.77,1,0,83.0,83.0
+KDAL,2026-03-25,15,highest-temperature-in-dallas-on-march-25-2026-82-83f,between 82-83°F,0.06525,0,0,83.0,84.0
+KDAL,2026-03-25,16,highest-temperature-in-dallas-on-march-25-2026-84-85f,between 84-85°F,0.6994444444444444,1,0,84.0,84.0
+KDAL,2026-03-25,17,highest-temperature-in-dallas-on-march-25-2026-84-85f,between 84-85°F,0.974375,1,1,84.0,84.0
+KDAL,2026-03-26,15,highest-temperature-in-dallas-on-march-26-2026-84-85f,between 84-85°F,0.03694444222222222,1,0,85.0,85.0
+KDAL,2026-03-26,16,highest-temperature-in-dallas-on-march-26-2026-84-85f,between 84-85°F,0.30256249625,1,1,85.0,85.0
+KDAL,2026-03-26,17,highest-temperature-in-dallas-on-march-26-2026-84-85f,between 84-85°F,0.7569444444444444,1,1,85.0,85.0
+KDAL,2026-03-27,15,highest-temperature-in-dallas-on-march-27-2026-74-75f,between 74-75°F,0.9935714285714285,1,1,74.0,74.0
+KDAL,2026-03-27,16,highest-temperature-in-dallas-on-march-27-2026-74-75f,between 74-75°F,0.9984999999999999,1,1,74.0,74.0
+KDAL,2026-03-27,17,highest-temperature-in-dallas-on-march-27-2026-74-75f,between 74-75°F,0.998,1,1,74.0,74.0
+KDAL,2026-03-29,15,highest-temperature-in-dallas-on-march-29-2026-80-81f,between 80-81°F,0.23700000000000002,0,0,80.0,82.0
+KDAL,2026-03-29,16,highest-temperature-in-dallas-on-march-29-2026-80-81f,between 80-81°F,0.282,0,0,81.0,82.0
+KDAL,2026-03-29,17,highest-temperature-in-dallas-on-march-29-2026-82-83f,between 82-83°F,0.9611999969999999,1,0,82.0,82.0
+KDAL,2026-03-30,15,highest-temperature-in-dallas-on-march-30-2026-80-81f,between 80-81°F,0.13525,0,1,80.0,83.0
+KDAL,2026-03-30,16,highest-temperature-in-dallas-on-march-30-2026-82-83f,between 82-83°F,0.7586,1,0,82.0,83.0
+KDAL,2026-03-30,17,highest-temperature-in-dallas-on-march-30-2026-82-83f,between 82-83°F,0.771449998,1,0,83.0,83.0
+KDAL,2026-04-01,15,highest-temperature-in-dallas-on-april-1-2026-82-83f,between 82-83°F,0.036499995,0,1,83.0,75.0
+KDAL,2026-04-02,15,highest-temperature-in-dallas-on-april-2-2026-80-81f,between 80-81°F,0.296499997,0,1,81.0,82.0
+KDAL,2026-04-02,16,highest-temperature-in-dallas-on-april-2-2026-80-81f,between 80-81°F,0.671,0,1,81.0,82.0
+KDAL,2026-04-02,17,highest-temperature-in-dallas-on-april-2-2026-82-83f,between 82-83°F,0.9738,1,0,82.0,82.0
+KDAL,2026-04-03,15,highest-temperature-in-dallas-on-april-3-2026-80-81f,between 80-81°F,0.3,0,0,81.0,83.0
+KDAL,2026-04-03,16,highest-temperature-in-dallas-on-april-3-2026-82-83f,between 82-83°F,0.36,1,0,82.0,83.0
+KDAL,2026-04-03,17,highest-temperature-in-dallas-on-april-3-2026-82-83f,between 82-83°F,0.8244999999999999,1,0,83.0,83.0
+KDAL,2026-04-04,15,highest-temperature-in-dallas-on-april-4-2026-74-75f,between 74-75°F,0.9960000000000001,1,1,74.0,74.0
+KDAL,2026-04-04,16,highest-temperature-in-dallas-on-april-4-2026-74-75f,between 74-75°F,0.99605,1,1,74.0,74.0
+KDAL,2026-04-04,17,highest-temperature-in-dallas-on-april-4-2026-74-75f,between 74-75°F,0.9955,1,1,74.0,74.0
+KDAL,2026-04-05,15,highest-temperature-in-dallas-on-april-5-2026-68-69f,between 68-69°F,0.29100000000000004,0,0,69.0,70.0
+KDAL,2026-04-05,16,highest-temperature-in-dallas-on-april-5-2026-68-69f,between 68-69°F,0.333,0,1,69.0,70.0
+KDAL,2026-04-05,17,highest-temperature-in-dallas-on-april-5-2026-70-71f,between 70-71°F,0.95875,1,0,70.0,70.0
+KDAL,2026-04-06,15,highest-temperature-in-dallas-on-april-6-2026-72-73f,between 72-73°F,0.674,1,0,72.0,72.0
+KDAL,2026-04-06,16,highest-temperature-in-dallas-on-april-6-2026-72-73f,between 72-73°F,0.6515,1,1,72.0,72.0
+KDAL,2026-04-06,17,highest-temperature-in-dallas-on-april-6-2026-72-73f,between 72-73°F,0.9638500000000001,1,1,72.0,72.0
+KDAL,2026-04-07,15,highest-temperature-in-dallas-on-april-7-2026-70-71f,between 70-71°F,0.11295,0,1,71.0,72.0
+KDAL,2026-04-07,16,highest-temperature-in-dallas-on-april-7-2026-72-73f,between 72-73°F,0.8644999999999999,1,0,72.0,72.0
+KDAL,2026-04-07,17,highest-temperature-in-dallas-on-april-7-2026-72-73f,between 72-73°F,0.933,1,1,72.0,72.0
+KDAL,2026-04-08,15,highest-temperature-in-dallas-on-april-8-2026-76-77f,between 76-77°F,0.1845,0,0,76.0,78.0
+KDAL,2026-04-08,16,highest-temperature-in-dallas-on-april-8-2026-78-79f,between 78-79°F,0.9339999999999999,1,0,78.0,78.0
+KDAL,2026-04-08,17,highest-temperature-in-dallas-on-april-8-2026-78-79f,between 78-79°F,0.9797499999999999,1,1,78.0,78.0
+KDAL,2026-04-11,15,highest-temperature-in-dallas-on-april-11-2026-74forhigher,74°F or higher,0.9994999999999999,1,1,78.0,80.0
+KDAL,2026-04-12,15,highest-temperature-in-dallas-on-april-12-2026-70-71f,between 70-71°F,0.036,0,1,71.0,73.0
+KDAL,2026-04-12,16,highest-temperature-in-dallas-on-april-12-2026-70-71f,between 70-71°F,0.052649999999999995,0,1,71.0,73.0
+KDAL,2026-04-12,17,highest-temperature-in-dallas-on-april-12-2026-70-71f,between 70-71°F,0.5717499970000001,0,1,71.0,73.0
+KDAL,2026-04-13,15,highest-temperature-in-dallas-on-april-13-2026-82forhigher,82°F or higher,0.9994999999999999,1,1,82.0,83.0
+KDAL,2026-04-13,16,highest-temperature-in-dallas-on-april-13-2026-82forhigher,82°F or higher,0.9994999999999999,1,0,83.0,83.0
+KDAL,2026-04-13,17,highest-temperature-in-dallas-on-april-13-2026-82forhigher,82°F or higher,0.9994999999999999,1,1,83.0,83.0
+KDAL,2026-04-14,15,highest-temperature-in-dallas-on-april-14-2026-78-79f,between 78-79°F,0.26025,0,0,78.0,80.0
+KDAL,2026-04-14,16,highest-temperature-in-dallas-on-april-14-2026-78-79f,between 78-79°F,0.2324,0,0,79.0,80.0
+KDAL,2026-04-14,17,highest-temperature-in-dallas-on-april-14-2026-80-81f,between 80-81°F,0.9170999999999999,1,0,80.0,80.0
+KDAL,2026-04-15,15,highest-temperature-in-dallas-on-april-15-2026-78-79f,between 78-79°F,0.688,1,1,78.0,79.0
+KDAL,2026-04-15,16,highest-temperature-in-dallas-on-april-15-2026-78-79f,between 78-79°F,0.728,1,0,79.0,79.0
+KDAL,2026-04-15,17,highest-temperature-in-dallas-on-april-15-2026-78-79f,between 78-79°F,0.881,1,1,79.0,79.0
+KDAL,2026-04-16,15,highest-temperature-in-dallas-on-april-16-2026-84-85f,between 84-85°F,0.359,1,0,85.0,85.0
+KDAL,2026-04-16,16,highest-temperature-in-dallas-on-april-16-2026-84-85f,between 84-85°F,0.43499999999999994,1,1,85.0,85.0
+KDAL,2026-04-16,17,highest-temperature-in-dallas-on-april-16-2026-84-85f,between 84-85°F,0.8140000000000001,1,1,85.0,85.0
+KDAL,2026-04-17,15,highest-temperature-in-dallas-on-april-17-2026-80-81f,between 80-81°F,0.6559999999999999,0,1,80.0,83.0
+KDAL,2026-04-17,16,highest-temperature-in-dallas-on-april-17-2026-80-81f,between 80-81°F,0.31,0,0,81.0,83.0
+KDAL,2026-04-17,17,highest-temperature-in-dallas-on-april-17-2026-82-83f,between 82-83°F,0.8720000000000001,1,0,83.0,83.0
+KDAL,2026-04-18,15,highest-temperature-in-dallas-on-april-18-2026-74-75f,between 74-75°F,0.9970000000000001,1,1,75.0,75.0
+KDAL,2026-04-18,16,highest-temperature-in-dallas-on-april-18-2026-74-75f,between 74-75°F,0.9970000000000001,1,1,75.0,75.0
+KDAL,2026-04-18,17,highest-temperature-in-dallas-on-april-18-2026-74-75f,between 74-75°F,0.999,1,1,75.0,75.0
+KDAL,2026-04-19,15,highest-temperature-in-dallas-on-april-19-2026-71forbelow,71°F or below,0.08,0,0,71.0,72.0
+KDAL,2026-04-19,16,highest-temperature-in-dallas-on-april-19-2026-72-73f,between 72-73°F,0.9349999999999999,1,0,72.0,72.0
+KDAL,2026-04-19,17,highest-temperature-in-dallas-on-april-19-2026-72-73f,between 72-73°F,0.9695,1,1,72.0,72.0
+KDAL,2026-04-20,15,highest-temperature-in-dallas-on-april-20-2026-71forbelow,71°F or below,0.7144999999999999,1,1,70.0,70.0
+KDAL,2026-04-20,16,highest-temperature-in-dallas-on-april-20-2026-71forbelow,71°F or below,0.8855000000000001,1,1,70.0,70.0
+KDAL,2026-04-20,17,highest-temperature-in-dallas-on-april-20-2026-71forbelow,71°F or below,0.9550000000000001,1,1,70.0,70.0
+KDAL,2026-04-21,15,highest-temperature-in-dallas-on-april-21-2026-62-63f,between 62-63°F,0.8413,1,1,62.0,63.0
+KDAL,2026-04-21,16,highest-temperature-in-dallas-on-april-21-2026-62-63f,between 62-63°F,0.75195,1,0,63.0,63.0
+KDAL,2026-04-21,17,highest-temperature-in-dallas-on-april-21-2026-62-63f,between 62-63°F,0.8934,1,1,63.0,63.0
+KDAL,2026-04-22,15,highest-temperature-in-dallas-on-april-22-2026-70-71f,between 70-71°F,0.014000000000000002,0,0,71.0,77.0
+KDAL,2026-04-22,16,highest-temperature-in-dallas-on-april-22-2026-72forhigher,72°F or higher,0.9994999999999999,1,0,74.0,77.0
+KDAL,2026-04-22,17,highest-temperature-in-dallas-on-april-22-2026-72forhigher,72°F or higher,0.9994999999999999,1,0,77.0,77.0
+KDAL,2026-04-23,15,highest-temperature-in-dallas-on-april-23-2026-76forhigher,76°F or higher,0.9994999999999999,1,0,78.0,81.0
+KDAL,2026-04-23,16,highest-temperature-in-dallas-on-april-23-2026-76forhigher,76°F or higher,0.9994999999999999,1,0,79.0,81.0
+KDAL,2026-04-23,17,highest-temperature-in-dallas-on-april-23-2026-76forhigher,76°F or higher,0.9994999999999999,1,0,81.0,81.0
+KDAL,2026-04-25,15,highest-temperature-in-dallas-on-april-25-2026-84forhigher,84°F or higher,0.9994999999999999,1,0,86.0,86.0
+KDAL,2026-04-25,16,highest-temperature-in-dallas-on-april-25-2026-84forhigher,84°F or higher,0.9994999999999999,1,1,86.0,86.0
+KDAL,2026-04-25,17,highest-temperature-in-dallas-on-april-25-2026-84forhigher,84°F or higher,0.9994999999999999,1,1,86.0,86.0
+KDAL,2026-04-26,15,highest-temperature-in-dallas-on-april-26-2026-82-83f,between 82-83°F,0.0177,0,0,83.0,85.0
+KDAL,2026-04-26,16,highest-temperature-in-dallas-on-april-26-2026-82-83f,between 82-83°F,0.028249999999999997,0,1,83.0,85.0
+KDAL,2026-04-26,17,highest-temperature-in-dallas-on-april-26-2026-84-85f,between 84-85°F,0.9019999999999999,1,0,84.0,85.0
+KDAL,2026-04-27,15,highest-temperature-in-dallas-on-april-27-2026-88forhigher,88°F or higher,0.9994999999999999,1,0,91.0,92.0
+KDAL,2026-04-27,16,highest-temperature-in-dallas-on-april-27-2026-88forhigher,88°F or higher,0.9994999999999999,1,0,92.0,92.0
+KDAL,2026-04-27,17,highest-temperature-in-dallas-on-april-27-2026-88forhigher,88°F or higher,0.9995,1,1,92.0,92.0
+KDAL,2026-04-28,15,highest-temperature-in-dallas-on-april-28-2026-82-83f,between 82-83°F,0.22105000000000002,1,0,83.0,83.0
+KDAL,2026-04-28,16,highest-temperature-in-dallas-on-april-28-2026-82-83f,between 82-83°F,0.9616,1,1,83.0,83.0
+KDAL,2026-04-28,17,highest-temperature-in-dallas-on-april-28-2026-82-83f,between 82-83°F,0.98605,1,1,83.0,83.0
+KDAL,2026-04-29,15,highest-temperature-in-dallas-on-april-29-2026-74-75f,between 74-75°F,0.9970000000000001,1,1,75.0,75.0
+KDAL,2026-04-29,16,highest-temperature-in-dallas-on-april-29-2026-74-75f,between 74-75°F,0.9945,1,1,75.0,75.0
+KDAL,2026-04-29,17,highest-temperature-in-dallas-on-april-29-2026-74-75f,between 74-75°F,0.9962,1,1,75.0,75.0
+KDAL,2026-04-30,15,highest-temperature-in-dallas-on-april-30-2026-69forbelow,69°F or below,0.998,1,1,65.0,65.0
+KDAL,2026-04-30,16,highest-temperature-in-dallas-on-april-30-2026-69forbelow,69°F or below,0.998,1,1,65.0,65.0
+KDAL,2026-04-30,17,highest-temperature-in-dallas-on-april-30-2026-69forbelow,69°F or below,0.998,1,1,65.0,65.0
+KDAL,2026-05-01,15,highest-temperature-in-dallas-on-may-1-2026-67forbelow,67°F or below,0.9420999999999999,1,0,65.0,65.0
+KDAL,2026-05-01,16,highest-temperature-in-dallas-on-may-1-2026-67forbelow,67°F or below,0.9705999999999999,1,1,65.0,65.0
+KDAL,2026-05-01,17,highest-temperature-in-dallas-on-may-1-2026-67forbelow,67°F or below,0.9949999999999999,1,1,65.0,65.0
+KDAL,2026-05-02,15,highest-temperature-in-dallas-on-may-2-2026-74forhigher,74°F or higher,0.9994999999999999,1,1,75.0,77.0
+KDAL,2026-05-02,16,highest-temperature-in-dallas-on-may-2-2026-74forhigher,74°F or higher,0.9994999999999999,1,0,77.0,77.0
+KDAL,2026-05-02,17,highest-temperature-in-dallas-on-may-2-2026-74forhigher,74°F or higher,0.9995,1,1,77.0,77.0
+KDAL,2026-05-03,15,highest-temperature-in-dallas-on-may-3-2026-74forhigher,74°F or higher,0.9994999999999999,1,0,81.0,81.0
+KDAL,2026-05-03,16,highest-temperature-in-dallas-on-may-3-2026-74forhigher,74°F or higher,0.9995,1,1,81.0,81.0
+KHOU,2026-03-24,15,highest-temperature-in-houston-on-march-24-2026-80-81f,between 80-81°F,0.42214285714285715,1,0,80.0,80.0
+KHOU,2026-03-24,16,highest-temperature-in-houston-on-march-24-2026-80-81f,between 80-81°F,0.6377777777777778,1,1,80.0,80.0
+KHOU,2026-03-24,17,highest-temperature-in-houston-on-march-24-2026-80-81f,between 80-81°F,0.7422222222222222,1,1,80.0,80.0
+KHOU,2026-03-25,15,highest-temperature-in-houston-on-march-25-2026-82-83f,between 82-83°F,0.65062499875,1,0,82.0,83.0
+KHOU,2026-03-25,16,highest-temperature-in-houston-on-march-25-2026-82-83f,between 82-83°F,0.8811111111111111,1,0,83.0,83.0
+KHOU,2026-03-25,17,highest-temperature-in-houston-on-march-25-2026-82-83f,between 82-83°F,0.935375,1,1,83.0,83.0
+KHOU,2026-03-26,15,highest-temperature-in-houston-on-march-26-2026-80-81f,between 80-81°F,0.15944444444444444,0,1,81.0,82.0
+KHOU,2026-03-26,16,highest-temperature-in-houston-on-march-26-2026-82-83f,between 82-83°F,0.78,1,0,82.0,82.0
+KHOU,2026-03-26,17,highest-temperature-in-houston-on-march-26-2026-82-83f,between 82-83°F,0.984111111111111,1,1,82.0,82.0
+KHOU,2026-03-27,15,highest-temperature-in-houston-on-march-27-2026-82-83f,between 82-83°F,0.07314285714285715,0,0,83.0,85.0
+KHOU,2026-03-27,16,highest-temperature-in-houston-on-march-27-2026-84-85f,between 84-85°F,0.8328571428571429,1,0,85.0,85.0
+KHOU,2026-03-27,17,highest-temperature-in-houston-on-march-27-2026-84-85f,between 84-85°F,0.9731428571428572,1,1,85.0,85.0
+KHOU,2026-03-29,15,highest-temperature-in-houston-on-march-29-2026-80-81f,between 80-81°F,0.8095000000000001,1,0,81.0,81.0
+KHOU,2026-03-29,16,highest-temperature-in-houston-on-march-29-2026-80-81f,between 80-81°F,0.940999999,1,1,81.0,81.0
+KHOU,2026-03-29,17,highest-temperature-in-houston-on-march-29-2026-80-81f,between 80-81°F,0.924999999,1,1,81.0,81.0
+KHOU,2026-04-01,15,highest-temperature-in-houston-on-april-1-2026-84-85f,between 84-85°F,0.8800000000000001,0,0,84.0,73.0
+KHOU,2026-04-01,16,highest-temperature-in-houston-on-april-1-2026-84-85f,between 84-85°F,0.9820999990000001,0,1,84.0,73.0
+KHOU,2026-04-01,17,highest-temperature-in-houston-on-april-1-2026-84-85f,between 84-85°F,0.9917,0,1,84.0,73.0
+KHOU,2026-04-02,15,highest-temperature-in-houston-on-april-2-2026-82-83f,between 82-83°F,0.9032,1,1,82.0,82.0
+KHOU,2026-04-02,16,highest-temperature-in-houston-on-april-2-2026-82-83f,between 82-83°F,0.98425,1,1,82.0,82.0
+KHOU,2026-04-02,17,highest-temperature-in-houston-on-april-2-2026-82-83f,between 82-83°F,0.991,1,1,82.0,82.0
+KHOU,2026-04-03,15,highest-temperature-in-houston-on-april-3-2026-84-85f,between 84-85°F,0.13999999999999999,1,1,84.0,84.0
+KHOU,2026-04-03,16,highest-temperature-in-houston-on-april-3-2026-84-85f,between 84-85°F,0.13999999999999999,1,1,84.0,84.0
+KHOU,2026-04-03,17,highest-temperature-in-houston-on-april-3-2026-84-85f,between 84-85°F,0.9891500000000001,1,1,84.0,84.0
+KHOU,2026-04-04,15,highest-temperature-in-houston-on-april-4-2026-80-81f,between 80-81°F,0.9275,1,1,81.0,81.0
+KHOU,2026-04-04,16,highest-temperature-in-houston-on-april-4-2026-80-81f,between 80-81°F,0.9694,1,1,81.0,81.0
+KHOU,2026-04-04,17,highest-temperature-in-houston-on-april-4-2026-80-81f,between 80-81°F,0.9685,1,1,81.0,81.0
+KHOU,2026-04-05,15,highest-temperature-in-houston-on-april-5-2026-66-67f,between 66-67°F,0.5102,1,1,66.0,66.0
+KHOU,2026-04-05,16,highest-temperature-in-houston-on-april-5-2026-66-67f,between 66-67°F,0.8319444444444444,1,1,66.0,66.0
+KHOU,2026-04-05,17,highest-temperature-in-houston-on-april-5-2026-66-67f,between 66-67°F,0.94015,1,1,66.0,66.0
+KHOU,2026-04-06,15,highest-temperature-in-houston-on-april-6-2026-72-73f,between 72-73°F,0.45949999999999996,1,0,73.0,73.0
+KHOU,2026-04-06,16,highest-temperature-in-houston-on-april-6-2026-72-73f,between 72-73°F,0.255499997,1,1,73.0,73.0
+KHOU,2026-04-06,17,highest-temperature-in-houston-on-april-6-2026-72-73f,between 72-73°F,0.8345,1,1,73.0,73.0
+KHOU,2026-04-07,15,highest-temperature-in-houston-on-april-7-2026-72-73f,between 72-73°F,0.08745,0,0,73.0,74.0
+KHOU,2026-04-07,16,highest-temperature-in-houston-on-april-7-2026-74-75f,between 74-75°F,0.8975,1,0,74.0,74.0
+KHOU,2026-04-07,17,highest-temperature-in-houston-on-april-7-2026-74-75f,between 74-75°F,0.9515,1,1,74.0,74.0
+KHOU,2026-04-08,15,highest-temperature-in-houston-on-april-8-2026-78-79f,between 78-79°F,0.94525,1,1,78.0,78.0
+KHOU,2026-04-08,16,highest-temperature-in-houston-on-april-8-2026-78-79f,between 78-79°F,0.96835,1,1,78.0,78.0
+KHOU,2026-04-08,17,highest-temperature-in-houston-on-april-8-2026-78-79f,between 78-79°F,0.982,1,1,78.0,78.0
+KHOU,2026-04-13,15,highest-temperature-in-houston-on-april-13-2026-80forhigher,80°F or higher,0.9994999999999999,1,0,81.0,81.0
+KHOU,2026-04-14,15,highest-temperature-in-houston-on-april-14-2026-82-83f,between 82-83°F,0.505,1,0,83.0,83.0
+KHOU,2026-04-14,16,highest-temperature-in-houston-on-april-14-2026-82-83f,between 82-83°F,0.8885,1,1,83.0,83.0
+KHOU,2026-04-14,17,highest-temperature-in-houston-on-april-14-2026-82-83f,between 82-83°F,0.9652,1,1,83.0,83.0
+KHOU,2026-04-15,15,highest-temperature-in-houston-on-april-15-2026-82-83f,between 82-83°F,0.3585,1,1,83.0,83.0
+KHOU,2026-04-15,16,highest-temperature-in-houston-on-april-15-2026-82-83f,between 82-83°F,0.818,1,1,83.0,83.0
+KHOU,2026-04-15,17,highest-temperature-in-houston-on-april-15-2026-82-83f,between 82-83°F,0.9688000000000001,1,1,83.0,83.0
+KHOU,2026-04-16,15,highest-temperature-in-houston-on-april-16-2026-84-85f,between 84-85°F,0.8664999999999999,1,0,85.0,85.0
+KHOU,2026-04-16,16,highest-temperature-in-houston-on-april-16-2026-84-85f,between 84-85°F,0.8375,1,1,85.0,85.0
+KHOU,2026-04-16,17,highest-temperature-in-houston-on-april-16-2026-84-85f,between 84-85°F,0.96,1,1,85.0,85.0
+KHOU,2026-04-17,15,highest-temperature-in-houston-on-april-17-2026-82-83f,between 82-83°F,0.8285,1,1,82.0,82.0
+KHOU,2026-04-17,16,highest-temperature-in-houston-on-april-17-2026-82-83f,between 82-83°F,0.875,1,1,82.0,82.0
+KHOU,2026-04-17,17,highest-temperature-in-houston-on-april-17-2026-82-83f,between 82-83°F,0.98865,1,1,82.0,82.0
+KHOU,2026-04-18,15,highest-temperature-in-houston-on-april-18-2026-84forhigher,84°F or higher,0.9994999999999999,1,1,84.0,84.0
+KHOU,2026-04-18,16,highest-temperature-in-houston-on-april-18-2026-84forhigher,84°F or higher,0.9994999999999999,1,1,84.0,84.0
+KHOU,2026-04-18,17,highest-temperature-in-houston-on-april-18-2026-84forhigher,84°F or higher,0.9994999999999999,1,1,84.0,84.0
+KHOU,2026-04-19,15,highest-temperature-in-houston-on-april-19-2026-68-69f,between 68-69°F,0.26549999999999996,0,0,69.0,70.0
+KHOU,2026-04-19,16,highest-temperature-in-houston-on-april-19-2026-68-69f,between 68-69°F,0.28625,0,1,69.0,70.0
+KHOU,2026-04-19,17,highest-temperature-in-houston-on-april-19-2026-70-71f,between 70-71°F,0.9236363636363637,1,0,70.0,70.0
+KHOU,2026-04-20,15,highest-temperature-in-houston-on-april-20-2026-70-71f,between 70-71°F,0.9721,1,1,71.0,71.0
+KHOU,2026-04-20,16,highest-temperature-in-houston-on-april-20-2026-70-71f,between 70-71°F,0.9669000000000001,1,1,71.0,71.0
+KHOU,2026-04-20,17,highest-temperature-in-houston-on-april-20-2026-70-71f,between 70-71°F,0.9913000000000001,1,1,71.0,71.0
+KHOU,2026-04-21,15,highest-temperature-in-houston-on-april-21-2026-68-69f,between 68-69°F,0.8699999999999999,1,1,68.0,68.0
+KHOU,2026-04-21,16,highest-temperature-in-houston-on-april-21-2026-68-69f,between 68-69°F,0.9414999999999999,1,1,68.0,68.0
+KHOU,2026-04-21,17,highest-temperature-in-houston-on-april-21-2026-68-69f,between 68-69°F,0.9624,1,1,68.0,68.0
+KHOU,2026-04-22,15,highest-temperature-in-houston-on-april-22-2026-76forhigher,76°F or higher,0.9994999999999999,1,1,81.0,81.0
+KHOU,2026-04-24,15,highest-temperature-in-houston-on-april-24-2026-76forhigher,76°F or higher,0.9994999999999999,1,1,83.0,83.0
+KHOU,2026-04-25,15,highest-temperature-in-houston-on-april-25-2026-82forhigher,82°F or higher,0.9994999999999999,1,1,86.0,86.0
+KHOU,2026-04-26,15,highest-temperature-in-houston-on-april-26-2026-82-83f,between 82-83°F,0.9140499999999999,0,1,83.0,85.0
+KHOU,2026-04-26,16,highest-temperature-in-houston-on-april-26-2026-84forhigher,84°F or higher,0.55275,1,0,84.0,85.0
+KHOU,2026-04-26,17,highest-temperature-in-houston-on-april-26-2026-84forhigher,84°F or higher,0.9994999999999999,1,0,85.0,85.0
+KHOU,2026-04-27,15,highest-temperature-in-houston-on-april-27-2026-86forhigher,86°F or higher,0.9994999999999999,1,0,88.0,88.0
+KHOU,2026-04-28,15,highest-temperature-in-houston-on-april-28-2026-86forhigher,86°F or higher,0.9994999999999999,1,1,87.0,88.0
+KHOU,2026-04-29,15,highest-temperature-in-houston-on-april-29-2026-84-85f,between 84-85°F,0.45785,1,1,85.0,85.0
+KHOU,2026-04-29,16,highest-temperature-in-houston-on-april-29-2026-84-85f,between 84-85°F,0.9202,1,1,85.0,85.0
+KHOU,2026-04-29,17,highest-temperature-in-houston-on-april-29-2026-84-85f,between 84-85°F,0.9945499999999999,1,1,85.0,85.0
+KHOU,2026-04-30,15,highest-temperature-in-houston-on-april-30-2026-88-89f,between 88-89°F,0.8905,1,0,88.0,88.0
+KHOU,2026-04-30,16,highest-temperature-in-houston-on-april-30-2026-88-89f,between 88-89°F,0.9934499999999999,1,1,88.0,88.0
+KHOU,2026-04-30,17,highest-temperature-in-houston-on-april-30-2026-88-89f,between 88-89°F,0.9945,1,1,88.0,88.0
+KHOU,2026-05-01,15,highest-temperature-in-houston-on-may-1-2026-71forbelow,71°F or below,0.9880000000000001,1,1,70.0,70.0
+KHOU,2026-05-01,16,highest-temperature-in-houston-on-may-1-2026-71forbelow,71°F or below,0.9946999999999999,1,1,70.0,70.0
+KHOU,2026-05-01,17,highest-temperature-in-houston-on-may-1-2026-71forbelow,71°F or below,0.9960000000000001,1,1,70.0,70.0
+KHOU,2026-05-02,15,highest-temperature-in-houston-on-may-2-2026-74-75f,between 74-75°F,0.6775,0,0,74.0,76.0
+KHOU,2026-05-02,16,highest-temperature-in-houston-on-may-2-2026-76-77f,between 76-77°F,0.8484999999999999,1,0,76.0,76.0
+KHOU,2026-05-02,17,highest-temperature-in-houston-on-may-2-2026-76-77f,between 76-77°F,0.9737500000000001,1,1,76.0,76.0
+KHOU,2026-05-03,15,highest-temperature-in-houston-on-may-3-2026-78-79f,between 78-79°F,0.615,1,0,78.0,78.0
+KHOU,2026-05-03,16,highest-temperature-in-houston-on-may-3-2026-78-79f,between 78-79°F,0.8574999999999999,1,1,78.0,78.0
+KHOU,2026-05-03,17,highest-temperature-in-houston-on-may-3-2026-78-79f,between 78-79°F,0.9425000000000001,1,1,78.0,78.0
+KMIA,2026-02-18,15,highest-temperature-in-miami-on-february-18-2026-78-79f,between 78-79°F,0.729,1,1,79.0,79.0
+KMIA,2026-02-18,16,highest-temperature-in-miami-on-february-18-2026-78-79f,between 78-79°F,0.9390000000000001,1,1,79.0,79.0
+KMIA,2026-02-18,17,highest-temperature-in-miami-on-february-18-2026-78-79f,between 78-79°F,0.99275,1,1,79.0,79.0
+KMIA,2026-02-19,15,highest-temperature-in-miami-on-february-19-2026-80-81f,between 80-81°F,0.6849999999999999,1,1,81.0,81.0
+KMIA,2026-02-19,16,highest-temperature-in-miami-on-february-19-2026-80-81f,between 80-81°F,0.9435,1,1,81.0,81.0
+KMIA,2026-02-19,17,highest-temperature-in-miami-on-february-19-2026-80-81f,between 80-81°F,0.8494444444444444,1,1,81.0,81.0
+KMIA,2026-02-20,15,highest-temperature-in-miami-on-february-20-2026-82-83f,between 82-83°F,0.8805,1,1,83.0,83.0
+KMIA,2026-02-20,16,highest-temperature-in-miami-on-february-20-2026-82-83f,between 82-83°F,0.968,1,1,83.0,83.0
+KMIA,2026-02-20,17,highest-temperature-in-miami-on-february-20-2026-82-83f,between 82-83°F,0.84515,1,1,83.0,83.0
+KMIA,2026-02-21,15,highest-temperature-in-miami-on-february-21-2026-82-83f,between 82-83°F,0.7615000000000001,1,1,83.0,83.0
+KMIA,2026-02-21,16,highest-temperature-in-miami-on-february-21-2026-82-83f,between 82-83°F,0.8255000000000001,1,1,83.0,83.0
+KMIA,2026-02-21,17,highest-temperature-in-miami-on-february-21-2026-82-83f,between 82-83°F,0.9951000000000001,1,1,83.0,83.0
+KMIA,2026-02-22,15,highest-temperature-in-miami-on-february-22-2026-88-89f,between 88-89°F,0.9650000000000001,1,1,88.0,88.0
+KMIA,2026-02-22,16,highest-temperature-in-miami-on-february-22-2026-88-89f,between 88-89°F,0.9929,1,1,88.0,88.0
+KMIA,2026-02-22,17,highest-temperature-in-miami-on-february-22-2026-88-89f,between 88-89°F,0.9994999999999999,1,1,88.0,88.0
+KMIA,2026-02-23,15,highest-temperature-in-miami-on-february-23-2026-65forbelow,65°F or below,0.9717499999999999,1,1,63.0,64.0
+KMIA,2026-02-23,16,highest-temperature-in-miami-on-february-23-2026-65forbelow,65°F or below,0.9513,1,0,64.0,64.0
+KMIA,2026-02-23,17,highest-temperature-in-miami-on-february-23-2026-65forbelow,65°F or below,0.976,1,1,64.0,64.0
+KMIA,2026-02-24,15,highest-temperature-in-miami-on-february-24-2026-64-65f,between 64-65°F,0.4438888888888889,1,0,65.0,65.0
+KMIA,2026-02-24,16,highest-temperature-in-miami-on-february-24-2026-64-65f,between 64-65°F,0.6466666666666667,1,1,65.0,65.0
+KMIA,2026-02-24,17,highest-temperature-in-miami-on-february-24-2026-64-65f,between 64-65°F,0.5720833333333334,1,1,65.0,65.0
+KMIA,2026-02-25,15,highest-temperature-in-miami-on-february-25-2026-72-73f,between 72-73°F,0.8727777777777779,1,1,72.0,72.0
+KMIA,2026-02-25,16,highest-temperature-in-miami-on-february-25-2026-72-73f,between 72-73°F,0.9416666666666667,1,1,72.0,72.0
+KMIA,2026-02-25,17,highest-temperature-in-miami-on-february-25-2026-72-73f,between 72-73°F,0.9833888888888889,1,1,72.0,72.0
+KMIA,2026-02-26,15,highest-temperature-in-miami-on-february-26-2026-78-79f,between 78-79°F,0.9910555555555555,1,1,78.0,78.0
+KMIA,2026-02-26,16,highest-temperature-in-miami-on-february-26-2026-78-79f,between 78-79°F,0.9643333333333334,1,1,78.0,78.0
+KMIA,2026-02-26,17,highest-temperature-in-miami-on-february-26-2026-78-79f,between 78-79°F,0.9905,1,1,78.0,78.0
+KMIA,2026-02-27,15,highest-temperature-in-miami-on-february-27-2026-82-83f,between 82-83°F,0.8688888888888889,1,1,82.0,82.0
+KMIA,2026-02-27,16,highest-temperature-in-miami-on-february-27-2026-82-83f,between 82-83°F,0.9699444444444444,1,1,82.0,82.0
+KMIA,2026-02-27,17,highest-temperature-in-miami-on-february-27-2026-82-83f,between 82-83°F,0.984,1,1,82.0,82.0
+KMIA,2026-02-28,15,highest-temperature-in-miami-on-february-28-2026-84-85f,between 84-85°F,0.9884999999999999,1,1,84.0,84.0
+KMIA,2026-02-28,16,highest-temperature-in-miami-on-february-28-2026-84-85f,between 84-85°F,0.994,1,1,84.0,84.0
+KMIA,2026-02-28,17,highest-temperature-in-miami-on-february-28-2026-84-85f,between 84-85°F,0.994,1,1,84.0,84.0
+KMIA,2026-03-01,15,highest-temperature-in-miami-on-march-1-2026-82-83f,between 82-83°F,0.9923,1,1,83.0,83.0
+KMIA,2026-03-01,16,highest-temperature-in-miami-on-march-1-2026-82-83f,between 82-83°F,0.9945999999999999,1,1,83.0,83.0
+KMIA,2026-03-01,17,highest-temperature-in-miami-on-march-1-2026-82-83f,between 82-83°F,0.9963,1,1,83.0,83.0
+KMIA,2026-03-02,15,highest-temperature-in-miami-on-march-2-2026-80-81f,between 80-81°F,0.8962999999999999,1,1,81.0,81.0
+KMIA,2026-03-02,16,highest-temperature-in-miami-on-march-2-2026-80-81f,between 80-81°F,0.9702999999999999,1,1,81.0,81.0
+KMIA,2026-03-02,17,highest-temperature-in-miami-on-march-2-2026-80-81f,between 80-81°F,0.9936999999999999,1,1,81.0,81.0
+KMIA,2026-03-03,15,highest-temperature-in-miami-on-march-3-2026-82-83f,between 82-83°F,0.9083500000000001,1,1,83.0,83.0
+KMIA,2026-03-03,16,highest-temperature-in-miami-on-march-3-2026-82-83f,between 82-83°F,0.9945499999999999,1,1,83.0,83.0
+KMIA,2026-03-03,17,highest-temperature-in-miami-on-march-3-2026-82-83f,between 82-83°F,0.9983888888888889,1,1,83.0,83.0
+KMIA,2026-03-04,15,highest-temperature-in-miami-on-march-4-2026-80-81f,between 80-81°F,0.9601000000000001,1,1,81.0,81.0
+KMIA,2026-03-04,16,highest-temperature-in-miami-on-march-4-2026-80-81f,between 80-81°F,0.9901,1,1,81.0,81.0
+KMIA,2026-03-04,17,highest-temperature-in-miami-on-march-4-2026-80-81f,between 80-81°F,0.9945,1,1,81.0,81.0
+KMIA,2026-03-05,15,highest-temperature-in-miami-on-march-5-2026-82-83f,between 82-83°F,0.98765,1,1,82.0,82.0
+KMIA,2026-03-05,16,highest-temperature-in-miami-on-march-5-2026-82-83f,between 82-83°F,0.9912000000000001,1,1,82.0,82.0
+KMIA,2026-03-05,17,highest-temperature-in-miami-on-march-5-2026-82-83f,between 82-83°F,0.9891,1,1,82.0,82.0
+KMIA,2026-03-06,15,highest-temperature-in-miami-on-march-6-2026-84-85f,between 84-85°F,0.9172,1,1,84.0,84.0
+KMIA,2026-03-06,16,highest-temperature-in-miami-on-march-6-2026-84-85f,between 84-85°F,0.97965,1,1,84.0,84.0
+KMIA,2026-03-06,17,highest-temperature-in-miami-on-march-6-2026-84-85f,between 84-85°F,0.97445,1,1,84.0,84.0
+KMIA,2026-03-07,15,highest-temperature-in-miami-on-march-7-2026-82-83f,between 82-83°F,0.8960000000000001,1,0,82.0,82.0
+KMIA,2026-03-07,16,highest-temperature-in-miami-on-march-7-2026-82-83f,between 82-83°F,0.992,1,1,82.0,82.0
+KMIA,2026-03-07,17,highest-temperature-in-miami-on-march-7-2026-82-83f,between 82-83°F,0.9945,1,1,82.0,82.0
+KMIA,2026-03-08,15,highest-temperature-in-miami-on-march-8-2026-84-85f,between 84-85°F,0.9826,0,1,84.0,75.0
+KMIA,2026-03-08,16,highest-temperature-in-miami-on-march-8-2026-84-85f,between 84-85°F,0.998,0,1,84.0,75.0
+KMIA,2026-03-08,17,highest-temperature-in-miami-on-march-8-2026-84-85f,between 84-85°F,0.9970000000000001,0,1,84.0,75.0
+KMIA,2026-03-09,15,highest-temperature-in-miami-on-march-9-2026-84-85f,between 84-85°F,0.8873,1,1,84.0,84.0
+KMIA,2026-03-09,16,highest-temperature-in-miami-on-march-9-2026-84-85f,between 84-85°F,0.923,1,1,84.0,84.0
+KMIA,2026-03-09,17,highest-temperature-in-miami-on-march-9-2026-84-85f,between 84-85°F,0.9913000000000001,1,1,84.0,84.0
+KMIA,2026-03-10,15,highest-temperature-in-miami-on-march-10-2026-84-85f,between 84-85°F,0.95975,1,1,84.0,84.0
+KMIA,2026-03-10,16,highest-temperature-in-miami-on-march-10-2026-84-85f,between 84-85°F,0.991,1,1,84.0,84.0
+KMIA,2026-03-10,17,highest-temperature-in-miami-on-march-10-2026-84-85f,between 84-85°F,0.9920500000000001,1,1,84.0,84.0
+KMIA,2026-03-11,15,highest-temperature-in-miami-on-march-11-2026-84-85f,between 84-85°F,0.9816,1,1,84.0,84.0
+KMIA,2026-03-11,16,highest-temperature-in-miami-on-march-11-2026-84-85f,between 84-85°F,0.99305,1,1,84.0,84.0
+KMIA,2026-03-11,17,highest-temperature-in-miami-on-march-11-2026-84-85f,between 84-85°F,0.9926999999999999,1,1,84.0,84.0
+KMIA,2026-03-12,15,highest-temperature-in-miami-on-march-12-2026-82-83f,between 82-83°F,0.8648,0,1,82.0,85.0
+KMIA,2026-03-12,16,highest-temperature-in-miami-on-march-12-2026-82-83f,between 82-83°F,0.8676,0,1,82.0,85.0
+KMIA,2026-03-12,17,highest-temperature-in-miami-on-march-12-2026-82-83f,between 82-83°F,0.6693,0,0,83.0,85.0
+KMIA,2026-03-13,15,highest-temperature-in-miami-on-march-13-2026-78-79f,between 78-79°F,0.8275,1,1,79.0,79.0
+KMIA,2026-03-13,16,highest-temperature-in-miami-on-march-13-2026-78-79f,between 78-79°F,0.8484999999999999,1,1,79.0,79.0
+KMIA,2026-03-13,17,highest-temperature-in-miami-on-march-13-2026-78-79f,between 78-79°F,0.9265000000000001,1,1,79.0,79.0
+KMIA,2026-03-14,15,highest-temperature-in-miami-on-march-14-2026-84-85f,between 84-85°F,0.8272222222222223,1,0,85.0,85.0
+KMIA,2026-03-14,16,highest-temperature-in-miami-on-march-14-2026-84-85f,between 84-85°F,0.9672222222222222,1,1,85.0,85.0
+KMIA,2026-03-14,17,highest-temperature-in-miami-on-march-14-2026-84-85f,between 84-85°F,0.9929444444444445,1,1,85.0,85.0
+KMIA,2026-03-15,15,highest-temperature-in-miami-on-march-15-2026-80-81f,between 80-81°F,0.9887,1,1,81.0,81.0
+KMIA,2026-03-15,16,highest-temperature-in-miami-on-march-15-2026-80-81f,between 80-81°F,0.99665,1,1,81.0,81.0
+KMIA,2026-03-15,17,highest-temperature-in-miami-on-march-15-2026-80-81f,between 80-81°F,0.9979444444444445,1,1,81.0,81.0
+KMIA,2026-03-16,15,highest-temperature-in-miami-on-march-16-2026-86-87f,between 86-87°F,0.945,1,0,86.0,87.0
+KMIA,2026-03-16,16,highest-temperature-in-miami-on-march-16-2026-86-87f,between 86-87°F,0.6755555555555556,1,0,87.0,87.0
+KMIA,2026-03-16,17,highest-temperature-in-miami-on-march-16-2026-86-87f,between 86-87°F,0.9852777777777777,1,1,87.0,87.0
+KMIA,2026-03-17,15,highest-temperature-in-miami-on-march-17-2026-70-71f,between 70-71°F,0.9867777777777778,1,1,71.0,71.0
+KMIA,2026-03-17,16,highest-temperature-in-miami-on-march-17-2026-70-71f,between 70-71°F,0.996,1,1,71.0,71.0
+KMIA,2026-03-17,17,highest-temperature-in-miami-on-march-17-2026-70-71f,between 70-71°F,0.99725,1,1,71.0,71.0
+KMIA,2026-03-18,15,highest-temperature-in-miami-on-march-18-2026-68-69f,between 68-69°F,0.7788888888888889,1,1,69.0,69.0
+KMIA,2026-03-18,16,highest-temperature-in-miami-on-march-18-2026-68-69f,between 68-69°F,0.7711111111111112,1,1,69.0,69.0
+KMIA,2026-03-18,17,highest-temperature-in-miami-on-march-18-2026-68-69f,between 68-69°F,0.8438888888888889,1,1,69.0,69.0
+KMIA,2026-03-19,15,highest-temperature-in-miami-on-march-19-2026-76-77f,between 76-77°F,0.7405555555555555,1,0,77.0,77.0
+KMIA,2026-03-19,16,highest-temperature-in-miami-on-march-19-2026-76-77f,between 76-77°F,0.9125,1,1,77.0,77.0
+KMIA,2026-03-19,17,highest-temperature-in-miami-on-march-19-2026-76-77f,between 76-77°F,0.9837,1,1,77.0,77.0
+KMIA,2026-03-20,15,highest-temperature-in-miami-on-march-20-2026-76-77f,between 76-77°F,0.8366666666666667,1,0,76.0,76.0
+KMIA,2026-03-20,16,highest-temperature-in-miami-on-march-20-2026-76-77f,between 76-77°F,0.8425,1,1,76.0,76.0
+KMIA,2026-03-20,17,highest-temperature-in-miami-on-march-20-2026-76-77f,between 76-77°F,0.933125,1,1,76.0,76.0
+KMIA,2026-03-21,15,highest-temperature-in-miami-on-march-21-2026-78-79f,between 78-79°F,0.43714285714285717,1,1,79.0,79.0
+KMIA,2026-03-21,16,highest-temperature-in-miami-on-march-21-2026-78-79f,between 78-79°F,0.8788888888888889,1,1,79.0,79.0
+KMIA,2026-03-21,17,highest-temperature-in-miami-on-march-21-2026-78-79f,between 78-79°F,0.959125,1,1,79.0,79.0
+KMIA,2026-03-22,15,highest-temperature-in-miami-on-march-22-2026-80-81f,between 80-81°F,0.8422222222222222,1,0,80.0,80.0
+KMIA,2026-03-22,16,highest-temperature-in-miami-on-march-22-2026-80-81f,between 80-81°F,0.9934999999999999,1,1,80.0,80.0
+KMIA,2026-03-22,17,highest-temperature-in-miami-on-march-22-2026-80-81f,between 80-81°F,0.9921666666666668,1,1,80.0,80.0
+KMIA,2026-03-23,15,highest-temperature-in-miami-on-march-23-2026-80-81f,between 80-81°F,0.86025,1,1,81.0,81.0
+KMIA,2026-03-23,16,highest-temperature-in-miami-on-march-23-2026-80-81f,between 80-81°F,0.9627222222222223,1,1,81.0,81.0
+KMIA,2026-03-23,17,highest-temperature-in-miami-on-march-23-2026-80-81f,between 80-81°F,0.9785,1,1,81.0,81.0
+KMIA,2026-03-24,15,highest-temperature-in-miami-on-march-24-2026-84-85f,between 84-85°F,0.8794444444444445,1,0,85.0,85.0
+KMIA,2026-03-24,16,highest-temperature-in-miami-on-march-24-2026-84-85f,between 84-85°F,0.9806111111111111,1,1,85.0,85.0
+KMIA,2026-03-24,17,highest-temperature-in-miami-on-march-24-2026-84-85f,between 84-85°F,0.9944999999999999,1,1,85.0,85.0
+KMIA,2026-03-25,15,highest-temperature-in-miami-on-march-25-2026-80-81f,between 80-81°F,0.7588888877777777,1,1,81.0,81.0
+KMIA,2026-03-25,16,highest-temperature-in-miami-on-march-25-2026-80-81f,between 80-81°F,0.98,1,1,81.0,81.0
+KMIA,2026-03-25,17,highest-temperature-in-miami-on-march-25-2026-80-81f,between 80-81°F,0.9909444444444444,1,1,81.0,81.0
+KMIA,2026-03-26,15,highest-temperature-in-miami-on-march-26-2026-82-83f,between 82-83°F,0.973125,1,1,83.0,83.0
+KMIA,2026-03-26,16,highest-temperature-in-miami-on-march-26-2026-82-83f,between 82-83°F,0.9796111111111111,1,1,83.0,83.0
+KMIA,2026-03-26,17,highest-temperature-in-miami-on-march-26-2026-82-83f,between 82-83°F,0.9825,1,1,83.0,83.0
+KMIA,2026-03-27,15,highest-temperature-in-miami-on-march-27-2026-82-83f,between 82-83°F,0.9713571428571429,1,1,82.0,82.0
+KMIA,2026-03-27,16,highest-temperature-in-miami-on-march-27-2026-82-83f,between 82-83°F,0.9675,1,1,82.0,82.0
+KMIA,2026-03-27,17,highest-temperature-in-miami-on-march-27-2026-82-83f,between 82-83°F,0.9840714285714285,1,1,82.0,82.0
+KMIA,2026-03-29,15,highest-temperature-in-miami-on-march-29-2026-78-79f,between 78-79°F,0.9194999989999999,1,1,78.0,78.0
+KMIA,2026-03-29,16,highest-temperature-in-miami-on-march-29-2026-78-79f,between 78-79°F,0.963499998,1,1,78.0,78.0
+KMIA,2026-03-29,17,highest-temperature-in-miami-on-march-29-2026-78-79f,between 78-79°F,0.972299999,1,1,78.0,78.0
+KMIA,2026-04-01,15,highest-temperature-in-miami-on-april-1-2026-78-79f,between 78-79°F,0.739,0,1,79.0,74.0
+KMIA,2026-04-01,16,highest-temperature-in-miami-on-april-1-2026-78-79f,between 78-79°F,0.8896499999999999,0,1,79.0,74.0
+KMIA,2026-04-01,17,highest-temperature-in-miami-on-april-1-2026-78-79f,between 78-79°F,0.9036,0,1,79.0,74.0
+KMIA,2026-04-06,15,highest-temperature-in-miami-on-april-6-2026-84-85f,between 84-85°F,0.9551000000000001,1,1,84.0,84.0
+KMIA,2026-04-06,16,highest-temperature-in-miami-on-april-6-2026-84-85f,between 84-85°F,0.9783333333333333,1,1,84.0,84.0
+KMIA,2026-04-06,17,highest-temperature-in-miami-on-april-6-2026-84-85f,between 84-85°F,0.9892083333333334,1,1,84.0,84.0
+KMIA,2026-04-07,15,highest-temperature-in-miami-on-april-7-2026-82-83f,between 82-83°F,0.9807,1,1,82.0,82.0
+KMIA,2026-04-07,16,highest-temperature-in-miami-on-april-7-2026-82-83f,between 82-83°F,0.9922000000000001,1,1,82.0,82.0
+KMIA,2026-04-07,17,highest-temperature-in-miami-on-april-7-2026-82-83f,between 82-83°F,0.9964999999999999,1,1,82.0,82.0
+KMIA,2026-04-08,15,highest-temperature-in-miami-on-april-8-2026-80-81f,between 80-81°F,0.8352499999999999,1,0,81.0,81.0
+KMIA,2026-04-08,16,highest-temperature-in-miami-on-april-8-2026-80-81f,between 80-81°F,0.9407500000000001,1,1,81.0,81.0
+KMIA,2026-04-08,17,highest-temperature-in-miami-on-april-8-2026-80-81f,between 80-81°F,0.98505,1,1,81.0,81.0
+KMIA,2026-04-09,15,highest-temperature-in-miami-on-april-9-2026-78-79f,between 78-79°F,0.8956,1,0,78.8,79.0
+KMIA,2026-04-09,16,highest-temperature-in-miami-on-april-9-2026-78-79f,between 78-79°F,0.9724999999999999,1,1,78.8,79.0
+KMIA,2026-04-09,17,highest-temperature-in-miami-on-april-9-2026-78-79f,between 78-79°F,0.9686,1,1,78.8,79.0
+KMIA,2026-04-10,15,highest-temperature-in-miami-on-april-10-2026-80-81f,between 80-81°F,0.9747,1,1,80.0,80.0
+KMIA,2026-04-10,16,highest-temperature-in-miami-on-april-10-2026-80-81f,between 80-81°F,0.9935,1,1,80.0,80.0
+KMIA,2026-04-10,17,highest-temperature-in-miami-on-april-10-2026-80-81f,between 80-81°F,0.9960000000000001,1,1,80.0,80.0
+KMIA,2026-04-11,15,highest-temperature-in-miami-on-april-11-2026-80-81f,between 80-81°F,0.9820499999999999,1,1,80.0,80.0
+KMIA,2026-04-11,16,highest-temperature-in-miami-on-april-11-2026-80-81f,between 80-81°F,0.96745,1,1,80.0,80.0
+KMIA,2026-04-11,17,highest-temperature-in-miami-on-april-11-2026-80-81f,between 80-81°F,0.99445,1,1,80.0,80.0
+KMIA,2026-04-12,15,highest-temperature-in-miami-on-april-12-2026-80-81f,between 80-81°F,0.98135,1,1,80.0,80.0
+KMIA,2026-04-12,16,highest-temperature-in-miami-on-april-12-2026-80-81f,between 80-81°F,0.9872,1,1,80.0,80.0
+KMIA,2026-04-12,17,highest-temperature-in-miami-on-april-12-2026-80-81f,between 80-81°F,0.9891500000000001,1,1,80.0,80.0
+KMIA,2026-04-13,15,highest-temperature-in-miami-on-april-13-2026-80-81f,between 80-81°F,0.8795,1,0,81.0,81.0
+KMIA,2026-04-13,16,highest-temperature-in-miami-on-april-13-2026-80-81f,between 80-81°F,0.9664999999999999,1,1,81.0,81.0
+KMIA,2026-04-13,17,highest-temperature-in-miami-on-april-13-2026-80-81f,between 80-81°F,0.9913000000000001,1,1,81.0,81.0
+KMIA,2026-04-14,15,highest-temperature-in-miami-on-april-14-2026-80-81f,between 80-81°F,0.945,1,1,81.0,81.0
+KMIA,2026-04-14,16,highest-temperature-in-miami-on-april-14-2026-80-81f,between 80-81°F,0.9385,1,1,81.0,81.0
+KMIA,2026-04-14,17,highest-temperature-in-miami-on-april-14-2026-80-81f,between 80-81°F,0.93995,1,1,81.0,81.0
+KMIA,2026-04-15,15,highest-temperature-in-miami-on-april-15-2026-80-81f,between 80-81°F,0.8154999999999999,1,0,80.0,80.0
+KMIA,2026-04-15,16,highest-temperature-in-miami-on-april-15-2026-80-81f,between 80-81°F,0.98415,1,1,80.0,80.0
+KMIA,2026-04-15,17,highest-temperature-in-miami-on-april-15-2026-80-81f,between 80-81°F,0.9935,1,1,80.0,80.0
+KMIA,2026-04-16,15,highest-temperature-in-miami-on-april-16-2026-80-81f,between 80-81°F,0.1915,1,1,81.0,81.0
+KMIA,2026-04-16,16,highest-temperature-in-miami-on-april-16-2026-80-81f,between 80-81°F,0.645,1,1,81.0,81.0
+KMIA,2026-04-16,17,highest-temperature-in-miami-on-april-16-2026-80-81f,between 80-81°F,0.94825,1,1,81.0,81.0
+KMIA,2026-04-17,15,highest-temperature-in-miami-on-april-17-2026-84-85f,between 84-85°F,0.8905,1,1,84.0,84.0
+KMIA,2026-04-17,16,highest-temperature-in-miami-on-april-17-2026-84-85f,between 84-85°F,0.9826,1,1,84.0,84.0
+KMIA,2026-04-17,17,highest-temperature-in-miami-on-april-17-2026-84-85f,between 84-85°F,0.9891500000000001,1,1,84.0,84.0
+KMIA,2026-04-18,15,highest-temperature-in-miami-on-april-18-2026-84-85f,between 84-85°F,0.769,1,0,85.0,85.0
+KMIA,2026-04-18,16,highest-temperature-in-miami-on-april-18-2026-84-85f,between 84-85°F,0.9569000000000001,1,1,85.0,85.0
+KMIA,2026-04-18,17,highest-temperature-in-miami-on-april-18-2026-84-85f,between 84-85°F,0.96635,1,1,85.0,85.0
+KMIA,2026-04-19,15,highest-temperature-in-miami-on-april-19-2026-88-89f,between 88-89°F,0.6032,1,0,88.0,88.0
+KMIA,2026-04-19,16,highest-temperature-in-miami-on-april-19-2026-88-89f,between 88-89°F,0.98525,1,1,88.0,88.0
+KMIA,2026-04-19,17,highest-temperature-in-miami-on-april-19-2026-88-89f,between 88-89°F,0.9964999999999999,1,1,88.0,88.0
+KMIA,2026-04-20,15,highest-temperature-in-miami-on-april-20-2026-86-87f,between 86-87°F,0.9836,1,1,86.0,86.0
+KMIA,2026-04-20,16,highest-temperature-in-miami-on-april-20-2026-86-87f,between 86-87°F,0.9755,1,1,86.0,86.0
+KMIA,2026-04-20,17,highest-temperature-in-miami-on-april-20-2026-86-87f,between 86-87°F,0.9835,1,1,86.0,86.0
+KMIA,2026-04-21,15,highest-temperature-in-miami-on-april-21-2026-80-81f,between 80-81°F,0.98855,1,1,80.0,80.0
+KMIA,2026-04-21,16,highest-temperature-in-miami-on-april-21-2026-80-81f,between 80-81°F,0.9939500000000001,1,1,80.0,80.0
+KMIA,2026-04-21,17,highest-temperature-in-miami-on-april-21-2026-80-81f,between 80-81°F,0.9948,1,1,80.0,80.0
+KMIA,2026-04-22,15,highest-temperature-in-miami-on-april-22-2026-78-79f,between 78-79°F,0.7275,1,0,79.0,79.0
+KMIA,2026-04-22,16,highest-temperature-in-miami-on-april-22-2026-78-79f,between 78-79°F,0.9385,1,1,79.0,79.0
+KMIA,2026-04-22,17,highest-temperature-in-miami-on-april-22-2026-78-79f,between 78-79°F,0.986,1,1,79.0,79.0
+KMIA,2026-04-23,15,highest-temperature-in-miami-on-april-23-2026-78-79f,between 78-79°F,0.9869999999999999,1,1,78.0,78.0
+KMIA,2026-04-23,16,highest-temperature-in-miami-on-april-23-2026-78-79f,between 78-79°F,0.9935,1,1,78.0,78.0
+KMIA,2026-04-23,17,highest-temperature-in-miami-on-april-23-2026-78-79f,between 78-79°F,0.9958500000000001,1,1,78.0,78.0
+KMIA,2026-04-24,15,highest-temperature-in-miami-on-april-24-2026-82-83f,between 82-83°F,0.8975,1,1,82.0,82.0
+KMIA,2026-04-24,16,highest-temperature-in-miami-on-april-24-2026-82-83f,between 82-83°F,0.96,1,1,82.0,82.0
+KMIA,2026-04-24,17,highest-temperature-in-miami-on-april-24-2026-82-83f,between 82-83°F,0.9894999999999999,1,1,82.0,82.0
+KMIA,2026-04-25,15,highest-temperature-in-miami-on-april-25-2026-84-85f,between 84-85°F,0.8975,1,1,84.0,84.0
+KMIA,2026-04-25,16,highest-temperature-in-miami-on-april-25-2026-84-85f,between 84-85°F,0.958,1,1,84.0,84.0
+KMIA,2026-04-25,17,highest-temperature-in-miami-on-april-25-2026-84-85f,between 84-85°F,0.9906,1,1,84.0,84.0
+KMIA,2026-04-26,15,highest-temperature-in-miami-on-april-26-2026-86-87f,between 86-87°F,0.885,1,0,87.0,87.0
+KMIA,2026-04-26,16,highest-temperature-in-miami-on-april-26-2026-86-87f,between 86-87°F,0.9349999999999999,1,1,87.0,87.0
+KMIA,2026-04-26,17,highest-temperature-in-miami-on-april-26-2026-86-87f,between 86-87°F,0.9960000000000001,1,1,87.0,87.0
+KMIA,2026-04-27,15,highest-temperature-in-miami-on-april-27-2026-86-87f,between 86-87°F,0.9647,1,1,86.0,87.0
+KMIA,2026-04-27,16,highest-temperature-in-miami-on-april-27-2026-86-87f,between 86-87°F,0.9826,1,0,87.0,87.0
+KMIA,2026-04-27,17,highest-temperature-in-miami-on-april-27-2026-86-87f,between 86-87°F,0.9945,1,1,87.0,87.0
+KMIA,2026-04-28,15,highest-temperature-in-miami-on-april-28-2026-84-85f,between 84-85°F,0.9550000000000001,1,1,85.0,85.0
+KMIA,2026-04-28,16,highest-temperature-in-miami-on-april-28-2026-84-85f,between 84-85°F,0.9521499999999999,1,1,85.0,85.0
+KMIA,2026-04-28,17,highest-temperature-in-miami-on-april-28-2026-84-85f,between 84-85°F,0.9864499999999999,1,1,85.0,85.0
+KMIA,2026-04-29,15,highest-temperature-in-miami-on-april-29-2026-84-85f,between 84-85°F,0.9425000000000001,1,1,84.0,84.0
+KMIA,2026-04-29,16,highest-temperature-in-miami-on-april-29-2026-84-85f,between 84-85°F,0.9925,1,1,84.0,84.0
+KMIA,2026-04-29,17,highest-temperature-in-miami-on-april-29-2026-84-85f,between 84-85°F,0.9944000000000001,1,1,84.0,84.0
+KMIA,2026-04-30,15,highest-temperature-in-miami-on-april-30-2026-86-87f,between 86-87°F,0.8145,1,1,87.0,87.0
+KMIA,2026-04-30,16,highest-temperature-in-miami-on-april-30-2026-86-87f,between 86-87°F,0.9,1,1,87.0,87.0
+KMIA,2026-04-30,17,highest-temperature-in-miami-on-april-30-2026-86-87f,between 86-87°F,0.9814,1,1,87.0,87.0
+KMIA,2026-05-01,15,highest-temperature-in-miami-on-may-1-2026-86-87f,between 86-87°F,0.7725,1,1,87.0,87.0
+KMIA,2026-05-01,16,highest-temperature-in-miami-on-may-1-2026-86-87f,between 86-87°F,0.8550000000000001,1,1,87.0,87.0
+KMIA,2026-05-01,17,highest-temperature-in-miami-on-may-1-2026-86-87f,between 86-87°F,0.9865999999999999,1,1,87.0,87.0
+KMIA,2026-05-02,15,highest-temperature-in-miami-on-may-2-2026-92-93f,between 92-93°F,0.63,0,0,93.0,94.0
+KMIA,2026-05-02,16,highest-temperature-in-miami-on-may-2-2026-92-93f,between 92-93°F,0.8675,0,1,93.0,94.0
+KMIA,2026-05-02,17,highest-temperature-in-miami-on-may-2-2026-94-95f,between 94-95°F,0.8746,1,0,94.0,94.0
+KMIA,2026-05-03,15,highest-temperature-in-miami-on-may-3-2026-80-81f,between 80-81°F,0.6639999999999999,1,1,81.0,81.0
+KMIA,2026-05-03,16,highest-temperature-in-miami-on-may-3-2026-80-81f,between 80-81°F,0.9375,1,1,81.0,81.0
+KMIA,2026-05-03,17,highest-temperature-in-miami-on-may-3-2026-80-81f,between 80-81°F,0.9708500000000001,1,1,81.0,81.0
+KMIA,2026-05-04,15,highest-temperature-in-miami-on-may-4-2026-80-81f,between 80-81°F,0.905,1,1,81.0,81.0
+KMIA,2026-05-04,16,highest-temperature-in-miami-on-may-4-2026-80-81f,between 80-81°F,0.9475,1,1,81.0,81.0
+KMIA,2026-05-04,17,highest-temperature-in-miami-on-may-4-2026-80-81f,between 80-81°F,0.9773999999999999,1,1,81.0,81.0
+KORD,2026-02-18,15,highest-temperature-in-chicago-on-february-18-2026-62-63f,between 62-63°F,0.5699999960000001,1,0,63.0,63.0
+KORD,2026-02-18,16,highest-temperature-in-chicago-on-february-18-2026-62-63f,between 62-63°F,0.8210000000000001,1,1,63.0,63.0
+KORD,2026-02-18,17,highest-temperature-in-chicago-on-february-18-2026-62-63f,between 62-63°F,0.9945,1,1,63.0,63.0
+KORD,2026-02-20,15,highest-temperature-in-chicago-on-february-20-2026-44-45f,between 44-45°F,0.9955,1,1,44.0,44.0
+KORD,2026-02-20,16,highest-temperature-in-chicago-on-february-20-2026-44-45f,between 44-45°F,0.9960000000000001,1,1,44.0,44.0
+KORD,2026-02-20,17,highest-temperature-in-chicago-on-february-20-2026-44-45f,between 44-45°F,0.9974500000000001,1,1,44.0,44.0
+KORD,2026-02-21,15,highest-temperature-in-chicago-on-february-21-2026-29forbelow,29°F or below,0.6086,1,1,28.0,28.0
+KORD,2026-02-21,16,highest-temperature-in-chicago-on-february-21-2026-29forbelow,29°F or below,0.94115,1,1,28.0,28.0
+KORD,2026-02-21,17,highest-temperature-in-chicago-on-february-21-2026-29forbelow,29°F or below,0.9572499999999999,1,1,28.0,28.0
+KORD,2026-02-22,15,highest-temperature-in-chicago-on-february-22-2026-26-27f,between 26-27°F,0.9650000000000001,1,1,27.0,27.0
+KORD,2026-02-22,16,highest-temperature-in-chicago-on-february-22-2026-26-27f,between 26-27°F,0.9489000000000001,1,1,27.0,27.0
+KORD,2026-02-22,17,highest-temperature-in-chicago-on-february-22-2026-26-27f,between 26-27°F,0.9976,1,1,27.0,27.0
+KORD,2026-02-23,15,highest-temperature-in-chicago-on-february-23-2026-28-29f,between 28-29°F,0.8305,1,0,29.0,29.0
+KORD,2026-02-23,16,highest-temperature-in-chicago-on-february-23-2026-28-29f,between 28-29°F,0.701,1,1,29.0,29.0
+KORD,2026-02-23,17,highest-temperature-in-chicago-on-february-23-2026-28-29f,between 28-29°F,0.9851000000000001,1,1,29.0,29.0
+KORD,2026-02-24,15,highest-temperature-in-chicago-on-february-24-2026-34-35f,between 34-35°F,0.09483333333333334,0,0,35.0,38.0
+KORD,2026-02-24,16,highest-temperature-in-chicago-on-february-24-2026-34-35f,between 34-35°F,0.0185,0,1,35.0,38.0
+KORD,2026-02-24,17,highest-temperature-in-chicago-on-february-24-2026-36-37f,between 36-37°F,0.8066666666666666,0,0,37.0,38.0
+KORD,2026-02-25,15,highest-temperature-in-chicago-on-february-25-2026-36-37f,between 36-37°F,0.9166666666666666,1,0,37.0,37.0
+KORD,2026-02-25,16,highest-temperature-in-chicago-on-february-25-2026-36-37f,between 36-37°F,0.8875555555555557,1,1,37.0,37.0
+KORD,2026-02-25,17,highest-temperature-in-chicago-on-february-25-2026-36-37f,between 36-37°F,0.9415,1,1,37.0,37.0
+KORD,2026-02-26,15,highest-temperature-in-chicago-on-february-26-2026-40-41f,between 40-41°F,0.165,1,0,40.0,41.0
+KORD,2026-02-26,16,highest-temperature-in-chicago-on-february-26-2026-40-41f,between 40-41°F,0.4875,1,1,40.0,41.0
+KORD,2026-02-26,17,highest-temperature-in-chicago-on-february-26-2026-40-41f,between 40-41°F,0.9383333333333334,1,0,41.0,41.0
+KORD,2026-02-27,15,highest-temperature-in-chicago-on-february-27-2026-62-63f,between 62-63°F,0.5644444377777779,0,0,62.0,65.0
+KORD,2026-02-27,16,highest-temperature-in-chicago-on-february-27-2026-64-65f,between 64-65°F,0.5966666666666667,1,0,65.0,65.0
+KORD,2026-02-27,17,highest-temperature-in-chicago-on-february-27-2026-64-65f,between 64-65°F,0.9664999999999999,1,1,65.0,65.0
+KORD,2026-03-01,15,highest-temperature-in-chicago-on-march-1-2026-32-33f,between 32-33°F,0.9355,1,1,32.0,32.0
+KORD,2026-03-01,16,highest-temperature-in-chicago-on-march-1-2026-32-33f,between 32-33°F,0.9949999999999999,1,1,32.0,32.0
+KORD,2026-03-01,17,highest-temperature-in-chicago-on-march-1-2026-32-33f,between 32-33°F,0.9955,1,1,32.0,32.0
+KORD,2026-03-02,15,highest-temperature-in-chicago-on-march-2-2026-42-43f,between 42-43°F,0.8789999999999999,1,1,42.0,42.0
+KORD,2026-03-02,16,highest-temperature-in-chicago-on-march-2-2026-42-43f,between 42-43°F,0.9622999999999999,1,1,42.0,42.0
+KORD,2026-03-02,17,highest-temperature-in-chicago-on-march-2-2026-42-43f,between 42-43°F,0.9945,1,1,42.0,42.0
+KORD,2026-03-03,15,highest-temperature-in-chicago-on-march-3-2026-42-43f,between 42-43°F,0.916,1,1,42.0,42.0
+KORD,2026-03-03,16,highest-temperature-in-chicago-on-march-3-2026-42-43f,between 42-43°F,0.9087777777777778,1,1,42.0,42.0
+KORD,2026-03-03,17,highest-temperature-in-chicago-on-march-3-2026-42-43f,between 42-43°F,0.9955,1,1,42.0,42.0
+KORD,2026-03-04,15,highest-temperature-in-chicago-on-march-4-2026-44-45f,between 44-45°F,0.99515,1,1,45.0,45.0
+KORD,2026-03-04,16,highest-temperature-in-chicago-on-march-4-2026-44-45f,between 44-45°F,0.9949999999999999,1,1,45.0,45.0
+KORD,2026-03-04,17,highest-temperature-in-chicago-on-march-4-2026-44-45f,between 44-45°F,0.9955,1,1,45.0,45.0
+KORD,2026-03-05,15,highest-temperature-in-chicago-on-march-5-2026-48-49f,between 48-49°F,0.639799996,0,0,49.0,50.0
+KORD,2026-03-05,16,highest-temperature-in-chicago-on-march-5-2026-48-49f,between 48-49°F,0.9388,0,1,49.0,50.0
+KORD,2026-03-05,17,highest-temperature-in-chicago-on-march-5-2026-50-51f,between 50-51°F,0.9639,1,0,50.0,50.0
+KORD,2026-03-06,15,highest-temperature-in-chicago-on-march-6-2026-64-65f,between 64-65°F,0.608,1,0,64.0,65.0
+KORD,2026-03-06,16,highest-temperature-in-chicago-on-march-6-2026-64-65f,between 64-65°F,0.8925000000000001,1,1,64.0,65.0
+KORD,2026-03-06,17,highest-temperature-in-chicago-on-march-6-2026-64-65f,between 64-65°F,0.7895,1,0,65.0,65.0
+KORD,2026-03-08,15,highest-temperature-in-chicago-on-march-8-2026-60-61f,between 60-61°F,0.195,0,0,61.0,34.0
+KORD,2026-03-08,16,highest-temperature-in-chicago-on-march-8-2026-62-63f,between 62-63°F,0.9490000000000001,0,0,62.0,34.0
+KORD,2026-03-08,17,highest-temperature-in-chicago-on-march-8-2026-62-63f,between 62-63°F,0.9506,0,1,62.0,34.0
+KORD,2026-03-09,15,highest-temperature-in-chicago-on-march-9-2026-70-71f,between 70-71°F,0.08888888888888889,0,0,71.0,72.0
+KORD,2026-03-09,16,highest-temperature-in-chicago-on-march-9-2026-72-73f,between 72-73°F,0.546999992,1,0,72.0,72.0
+KORD,2026-03-09,17,highest-temperature-in-chicago-on-march-9-2026-72-73f,between 72-73°F,0.9695,1,1,72.0,72.0
+KORD,2026-03-10,15,highest-temperature-in-chicago-on-march-10-2026-60-61f,between 60-61°F,0.9934,1,1,61.0,61.0
+KORD,2026-03-10,16,highest-temperature-in-chicago-on-march-10-2026-60-61f,between 60-61°F,0.993,1,1,61.0,61.0
+KORD,2026-03-10,17,highest-temperature-in-chicago-on-march-10-2026-60-61f,between 60-61°F,0.9974999999999999,1,1,61.0,61.0
+KORD,2026-03-11,15,highest-temperature-in-chicago-on-march-11-2026-46-47f,between 46-47°F,0.99565,1,1,46.4,46.0
+KORD,2026-03-11,16,highest-temperature-in-chicago-on-march-11-2026-46-47f,between 46-47°F,0.9952,1,1,46.4,46.0
+KORD,2026-03-11,17,highest-temperature-in-chicago-on-march-11-2026-46-47f,between 46-47°F,0.9958,1,1,46.4,46.0
+KORD,2026-03-12,15,highest-temperature-in-chicago-on-march-12-2026-44-45f,between 44-45°F,0.3735,1,0,44.0,44.0
+KORD,2026-03-12,16,highest-temperature-in-chicago-on-march-12-2026-44-45f,between 44-45°F,0.6465,1,1,44.0,44.0
+KORD,2026-03-12,17,highest-temperature-in-chicago-on-march-12-2026-44-45f,between 44-45°F,0.8245454545454546,1,1,44.0,44.0
+KORD,2026-03-13,15,highest-temperature-in-chicago-on-march-13-2026-46-47f,between 46-47°F,0.6065,1,0,47.0,47.0
+KORD,2026-03-13,16,highest-temperature-in-chicago-on-march-13-2026-46-47f,between 46-47°F,0.7325,1,1,47.0,47.0
+KORD,2026-03-13,17,highest-temperature-in-chicago-on-march-13-2026-46-47f,between 46-47°F,0.9425555555555556,1,1,47.0,47.0
+KORD,2026-03-14,15,highest-temperature-in-chicago-on-march-14-2026-36-37f,between 36-37°F,0.6711111111111111,1,1,36.0,36.0
+KORD,2026-03-14,16,highest-temperature-in-chicago-on-march-14-2026-36-37f,between 36-37°F,0.7972222222222222,1,1,36.0,36.0
+KORD,2026-03-14,17,highest-temperature-in-chicago-on-march-14-2026-36-37f,between 36-37°F,0.867,1,1,36.0,36.0
+KORD,2026-03-15,15,highest-temperature-in-chicago-on-march-15-2026-60-61f,between 60-61°F,0.8560000000000001,0,0,60.0,62.0
+KORD,2026-03-15,16,highest-temperature-in-chicago-on-march-15-2026-62-63f,between 62-63°F,0.9633333333333334,1,0,62.0,62.0
+KORD,2026-03-15,17,highest-temperature-in-chicago-on-march-15-2026-62-63f,between 62-63°F,0.9978,1,1,62.0,62.0
+KORD,2026-03-16,15,highest-temperature-in-chicago-on-march-16-2026-30-31f,between 30-31°F,0.9929999999999999,1,1,31.0,31.0
+KORD,2026-03-16,16,highest-temperature-in-chicago-on-march-16-2026-30-31f,between 30-31°F,0.996,1,1,31.0,31.0
+KORD,2026-03-16,17,highest-temperature-in-chicago-on-march-16-2026-30-31f,between 30-31°F,0.9850555555555557,1,1,31.0,31.0
+KORD,2026-03-17,15,highest-temperature-in-chicago-on-march-17-2026-22-23f,between 22-23°F,0.190625,0,1,22.0,24.0
+KORD,2026-03-17,16,highest-temperature-in-chicago-on-march-17-2026-22-23f,between 22-23°F,0.5487499975,0,1,22.0,24.0
+KORD,2026-03-17,17,highest-temperature-in-chicago-on-march-17-2026-22-23f,between 22-23°F,0.5555555533333334,0,1,22.0,24.0
+KORD,2026-03-18,15,highest-temperature-in-chicago-on-march-18-2026-42-43f,between 42-43°F,0.5877777733333334,0,0,42.0,46.0
+KORD,2026-03-18,16,highest-temperature-in-chicago-on-march-18-2026-44-45f,between 44-45°F,0.6683333333333333,0,0,44.0,46.0
+KORD,2026-03-18,17,highest-temperature-in-chicago-on-march-18-2026-46-47f,between 46-47°F,0.9694375,1,0,46.0,46.0
+KORD,2026-03-20,15,highest-temperature-in-chicago-on-march-20-2026-70-71f,between 70-71°F,0.979625,1,1,71.0,71.0
+KORD,2026-03-20,16,highest-temperature-in-chicago-on-march-20-2026-70-71f,between 70-71°F,0.9940625,1,1,71.0,71.0
+KORD,2026-03-20,17,highest-temperature-in-chicago-on-march-20-2026-70-71f,between 70-71°F,0.992875,1,1,71.0,71.0
+KORD,2026-03-21,15,highest-temperature-in-chicago-on-march-21-2026-70-71f,between 70-71°F,0.07388888888888889,0,0,70.0,77.0
+KORD,2026-03-21,16,highest-temperature-in-chicago-on-march-21-2026-70-71f,between 70-71°F,0.05025,0,0,71.0,77.0
+KORD,2026-03-21,17,highest-temperature-in-chicago-on-march-21-2026-74-75f,between 74-75°F,0.9307222222222222,0,0,74.0,77.0
+KORD,2026-03-22,15,highest-temperature-in-chicago-on-march-22-2026-68-69f,between 68-69°F,0.9948333333333333,1,1,69.0,69.0
+KORD,2026-03-22,16,highest-temperature-in-chicago-on-march-22-2026-68-69f,between 68-69°F,0.9946666666666667,1,1,69.0,69.0
+KORD,2026-03-22,17,highest-temperature-in-chicago-on-march-22-2026-68-69f,between 68-69°F,0.996,1,1,69.0,69.0
+KORD,2026-03-23,15,highest-temperature-in-chicago-on-march-23-2026-40-41f,between 40-41°F,0.8166666666666667,1,0,41.0,41.0
+KORD,2026-03-23,16,highest-temperature-in-chicago-on-march-23-2026-40-41f,between 40-41°F,0.7307142857142858,1,1,41.0,41.0
+KORD,2026-03-23,17,highest-temperature-in-chicago-on-march-23-2026-40-41f,between 40-41°F,0.9777777777777779,1,1,41.0,41.0
+KORD,2026-03-24,15,highest-temperature-in-chicago-on-march-24-2026-46-47f,between 46-47°F,0.06438888888888888,0,1,47.0,51.0
+KORD,2026-03-24,16,highest-temperature-in-chicago-on-march-24-2026-48-49f,between 48-49°F,0.14350000000000002,0,0,49.0,51.0
+KORD,2026-03-24,17,highest-temperature-in-chicago-on-march-24-2026-50-51f,between 50-51°F,0.56999999,1,0,51.0,51.0
+KORD,2026-03-25,15,highest-temperature-in-chicago-on-march-25-2026-68forhigher,68°F or higher,0.9995,1,0,68.0,71.0
+KORD,2026-03-25,16,highest-temperature-in-chicago-on-march-25-2026-68forhigher,68°F or higher,0.9994999999999999,1,0,70.0,71.0
+KORD,2026-03-25,17,highest-temperature-in-chicago-on-march-25-2026-68forhigher,68°F or higher,0.9995,1,0,71.0,71.0
+KORD,2026-03-26,15,highest-temperature-in-chicago-on-march-26-2026-66-67f,between 66-67°F,0.9916666666666667,1,1,67.0,67.0
+KORD,2026-03-26,16,highest-temperature-in-chicago-on-march-26-2026-66-67f,between 66-67°F,0.99675,1,1,67.0,67.0
+KORD,2026-03-26,17,highest-temperature-in-chicago-on-march-26-2026-66-67f,between 66-67°F,0.9974999999999999,1,1,67.0,67.0
+KORD,2026-03-27,15,highest-temperature-in-chicago-on-march-27-2026-44-45f,between 44-45°F,0.8888571428571429,1,0,44.0,44.0
+KORD,2026-03-27,16,highest-temperature-in-chicago-on-march-27-2026-44-45f,between 44-45°F,0.9390000000000001,1,1,44.0,44.0
+KORD,2026-03-27,17,highest-temperature-in-chicago-on-march-27-2026-44-45f,between 44-45°F,0.9774285714285714,1,1,44.0,44.0
+KORD,2026-03-29,15,highest-temperature-in-chicago-on-march-29-2026-62-63f,between 62-63°F,0.6275000000000001,1,1,62.0,63.0
+KORD,2026-03-29,16,highest-temperature-in-chicago-on-march-29-2026-62-63f,between 62-63°F,0.813999999,1,0,63.0,63.0
+KORD,2026-03-29,17,highest-temperature-in-chicago-on-march-29-2026-62-63f,between 62-63°F,0.917,1,1,63.0,63.0
+KORD,2026-04-01,15,highest-temperature-in-chicago-on-april-1-2026-40-41f,between 40-41°F,0.836,1,1,40.0,40.0
+KORD,2026-04-01,16,highest-temperature-in-chicago-on-april-1-2026-40-41f,between 40-41°F,0.8445,1,1,40.0,40.0
+KORD,2026-04-01,17,highest-temperature-in-chicago-on-april-1-2026-40-41f,between 40-41°F,0.8717,1,1,40.0,40.0
+KORD,2026-04-02,15,highest-temperature-in-chicago-on-april-2-2026-48forhigher,48°F or higher,0.9994999999999999,1,0,68.0,70.0
+KORD,2026-04-04,15,highest-temperature-in-chicago-on-april-4-2026-57forbelow,57°F or below,0.9954000000000001,1,1,56.0,56.0
+KORD,2026-04-04,16,highest-temperature-in-chicago-on-april-4-2026-57forbelow,57°F or below,0.9963,1,1,56.0,56.0
+KORD,2026-04-04,17,highest-temperature-in-chicago-on-april-4-2026-57forbelow,57°F or below,0.9973000000000001,1,1,56.0,56.0
+KORD,2026-04-05,15,highest-temperature-in-chicago-on-april-5-2026-50-51f,between 50-51°F,0.153999999,0,0,51.0,53.0
+KORD,2026-04-05,16,highest-temperature-in-chicago-on-april-5-2026-52-53f,between 52-53°F,0.8055,1,0,53.0,53.0
+KORD,2026-04-05,17,highest-temperature-in-chicago-on-april-5-2026-52-53f,between 52-53°F,0.8470000000000001,1,1,53.0,53.0
+KORD,2026-04-06,15,highest-temperature-in-chicago-on-april-6-2026-48-49f,between 48-49°F,0.3775,0,1,49.0,50.0
+KORD,2026-04-06,16,highest-temperature-in-chicago-on-april-6-2026-50-51f,between 50-51°F,0.8149999969999999,1,0,50.0,50.0
+KORD,2026-04-06,17,highest-temperature-in-chicago-on-april-6-2026-50-51f,between 50-51°F,0.9698,1,1,50.0,50.0
+KORD,2026-04-07,15,highest-temperature-in-chicago-on-april-7-2026-38-39f,between 38-39°F,0.8385,1,0,38.0,38.0
+KORD,2026-04-07,16,highest-temperature-in-chicago-on-april-7-2026-38-39f,between 38-39°F,0.9385,1,1,38.0,38.0
+KORD,2026-04-07,17,highest-temperature-in-chicago-on-april-7-2026-38-39f,between 38-39°F,0.9490000000000001,1,1,38.0,38.0
+KORD,2026-04-10,15,highest-temperature-in-chicago-on-april-10-2026-50-51f,between 50-51°F,0.8913,0,0,50.0,54.0
+KORD,2026-04-10,16,highest-temperature-in-chicago-on-april-10-2026-50-51f,between 50-51°F,0.10925,0,0,51.0,54.0
+KORD,2026-04-10,17,highest-temperature-in-chicago-on-april-10-2026-52-53f,between 52-53°F,0.511449995,0,0,53.0,54.0
+KORD,2026-04-13,15,highest-temperature-in-chicago-on-april-13-2026-74forhigher,74°F or higher,0.9994999999999999,1,1,74.0,78.0
+KORD,2026-04-13,16,highest-temperature-in-chicago-on-april-13-2026-74forhigher,74°F or higher,0.9994999999999999,1,0,77.0,78.0
+KORD,2026-04-13,17,highest-temperature-in-chicago-on-april-13-2026-74forhigher,74°F or higher,0.9994999999999999,1,0,78.0,78.0
+KORD,2026-04-15,15,highest-temperature-in-chicago-on-april-15-2026-68-69f,between 68-69°F,0.10195000000000001,0,1,68.0,72.0
+KORD,2026-04-15,16,highest-temperature-in-chicago-on-april-15-2026-70-71f,between 70-71°F,0.634,0,0,70.0,72.0
+KORD,2026-04-15,17,highest-temperature-in-chicago-on-april-15-2026-70-71f,between 70-71°F,0.53,0,0,71.0,72.0
+KORD,2026-04-16,15,highest-temperature-in-chicago-on-april-16-2026-72-73f,between 72-73°F,0.849,0,0,72.0,74.0
+KORD,2026-04-16,16,highest-temperature-in-chicago-on-april-16-2026-72-73f,between 72-73°F,0.795,0,1,72.0,74.0
+KORD,2026-04-16,17,highest-temperature-in-chicago-on-april-16-2026-74-75f,between 74-75°F,0.95085,1,0,74.0,74.0
+KORD,2026-04-17,15,highest-temperature-in-chicago-on-april-17-2026-78-79f,between 78-79°F,0.08,0,0,78.0,80.0
+KORD,2026-04-17,16,highest-temperature-in-chicago-on-april-17-2026-80-81f,between 80-81°F,0.8275,1,0,80.0,80.0
+KORD,2026-04-17,17,highest-temperature-in-chicago-on-april-17-2026-80-81f,between 80-81°F,0.9235,1,1,80.0,80.0
+KORD,2026-04-18,15,highest-temperature-in-chicago-on-april-18-2026-62-63f,between 62-63°F,0.9970000000000001,1,1,63.0,63.0
+KORD,2026-04-18,16,highest-temperature-in-chicago-on-april-18-2026-62-63f,between 62-63°F,0.9971,1,1,63.0,63.0
+KORD,2026-04-18,17,highest-temperature-in-chicago-on-april-18-2026-62-63f,between 62-63°F,0.9974999999999999,1,1,63.0,63.0
+KORD,2026-04-19,15,highest-temperature-in-chicago-on-april-19-2026-48-49f,between 48-49°F,0.825,1,1,48.0,48.0
+KORD,2026-04-19,16,highest-temperature-in-chicago-on-april-19-2026-48-49f,between 48-49°F,0.9099999999999999,1,1,48.0,48.0
+KORD,2026-04-19,17,highest-temperature-in-chicago-on-april-19-2026-48-49f,between 48-49°F,0.925,1,1,48.0,48.0
+KORD,2026-04-20,15,highest-temperature-in-chicago-on-april-20-2026-55forbelow,55°F or below,0.40149999999999997,0,0,53.0,56.0
+KORD,2026-04-20,16,highest-temperature-in-chicago-on-april-20-2026-55forbelow,55°F or below,0.14150000000000001,0,0,55.0,56.0
+KORD,2026-04-20,17,highest-temperature-in-chicago-on-april-20-2026-56-57f,between 56-57°F,0.961,1,0,56.0,56.0
+KORD,2026-04-24,15,highest-temperature-in-chicago-on-april-24-2026-70-71f,between 70-71°F,0.9375,1,1,71.0,71.0
+KORD,2026-04-24,16,highest-temperature-in-chicago-on-april-24-2026-70-71f,between 70-71°F,0.95,1,1,71.0,71.0
+KORD,2026-04-24,17,highest-temperature-in-chicago-on-april-24-2026-70-71f,between 70-71°F,0.9553499999999999,1,1,71.0,71.0
+KORD,2026-04-25,15,highest-temperature-in-chicago-on-april-25-2026-54-55f,between 54-55°F,0.8890499999999999,1,1,55.0,55.0
+KORD,2026-04-25,16,highest-temperature-in-chicago-on-april-25-2026-54-55f,between 54-55°F,0.9102,1,1,55.0,55.0
+KORD,2026-04-25,17,highest-temperature-in-chicago-on-april-25-2026-54-55f,between 54-55°F,0.9652,1,1,55.0,55.0
+KORD,2026-04-26,15,highest-temperature-in-chicago-on-april-26-2026-65forbelow,65°F or below,0.98525,1,0,58.0,59.0
+KORD,2026-04-26,16,highest-temperature-in-chicago-on-april-26-2026-65forbelow,65°F or below,0.9935,1,1,58.0,59.0
+KORD,2026-04-26,17,highest-temperature-in-chicago-on-april-26-2026-65forbelow,65°F or below,0.9974999999999999,1,1,58.0,59.0
+KORD,2026-04-27,15,highest-temperature-in-chicago-on-april-27-2026-62-63f,between 62-63°F,0.24369999999999997,0,0,62.0,68.0
+KORD,2026-04-27,16,highest-temperature-in-chicago-on-april-27-2026-64-65f,between 64-65°F,0.1348,0,0,65.0,68.0
+KORD,2026-04-27,17,highest-temperature-in-chicago-on-april-27-2026-66-67f,between 66-67°F,0.815,0,0,67.0,68.0
+KORD,2026-04-30,15,highest-temperature-in-chicago-on-april-30-2026-55forbelow,55°F or below,0.9964999999999999,1,1,54.0,54.0
+KORD,2026-04-30,16,highest-temperature-in-chicago-on-april-30-2026-55forbelow,55°F or below,0.9949999999999999,1,1,54.0,54.0
+KORD,2026-04-30,17,highest-temperature-in-chicago-on-april-30-2026-55forbelow,55°F or below,0.9957,1,1,54.0,54.0
+KORD,2026-05-01,15,highest-temperature-in-chicago-on-may-1-2026-51forbelow,51°F or below,0.9845,1,1,49.0,49.0
+KORD,2026-05-01,16,highest-temperature-in-chicago-on-may-1-2026-51forbelow,51°F or below,0.994,1,1,49.0,49.0
+KORD,2026-05-01,17,highest-temperature-in-chicago-on-may-1-2026-51forbelow,51°F or below,0.994,1,1,49.0,49.0
+KORD,2026-05-02,15,highest-temperature-in-chicago-on-may-2-2026-54forhigher,54°F or higher,0.9994999999999999,1,0,54.0,56.0
+KORD,2026-05-02,16,highest-temperature-in-chicago-on-may-2-2026-54forhigher,54°F or higher,0.9994999999999999,1,1,54.0,56.0
+KORD,2026-05-02,17,highest-temperature-in-chicago-on-may-2-2026-54forhigher,54°F or higher,0.9994999999999999,1,1,54.0,56.0

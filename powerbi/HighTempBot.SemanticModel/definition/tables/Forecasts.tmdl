@@ -1,0 +1,80 @@
+/// Day-ahead forecast of the daily high against the observed high,
+/// one row per station, day and weather model.
+table Forecasts
+
+	column 'Station ID'
+		dataType: string
+		isHidden
+		summarizeBy: none
+		sourceColumn: station_id
+
+	column 'Target Date'
+		dataType: dateTime
+		formatString: yyyy-mm-dd
+		summarizeBy: none
+		sourceColumn: target_date
+
+	column Model
+		dataType: string
+		summarizeBy: none
+		sourceColumn: model
+
+	column 'Ensemble Members'
+		dataType: int64
+		formatString: 0
+		summarizeBy: none
+		sourceColumn: ensemble_members
+
+	column 'Forecast High (°C)'
+		dataType: double
+		formatString: 0.0
+		summarizeBy: none
+		sourceColumn: forecast_high_c
+
+	column 'Observed High (°C)'
+		dataType: double
+		formatString: 0.0
+		summarizeBy: none
+		sourceColumn: observed_high_c
+
+	column 'Error (°C)'
+		dataType: double
+		formatString: 0.0
+		summarizeBy: none
+		sourceColumn: error_c
+
+	partition Forecasts = m
+		mode: import
+		source =
+				let
+				    Source = Parquet.Document(
+				        File.Contents(ProjectFolder & "\powerbi\data\fact_forecast_error.parquet")
+				    ),
+				    Typed = Table.TransformColumnTypes(
+				        Source,
+				        {
+				            {"station_id", type text}, {"target_date", type date}, {"model", type text},
+				            {"ensemble_members", Int64.Type}, {"forecast_high_c", type number},
+				            {"observed_high_c", type number}, {"error_c", type number}
+				        },
+				        "en-US"
+				    ),
+				    ModelNames = [
+				        bom_access_global = "BOM ACCESS (Australia)",
+				        dmi_seamless = "DMI (Denmark)",
+				        ecmwf_ifs025 = "ECMWF IFS (Europe)",
+				        gem_seamless = "GEM (Canada)",
+				        gfs_seamless = "GFS (US)",
+				        icon_seamless = "ICON (Germany)",
+				        jma_seamless = "JMA (Japan)",
+				        knmi_seamless = "KNMI (Netherlands)",
+				        meteofrance_seamless = "ARPEGE (France)",
+				        ncep_gfs013 = "GFS 0.13° (US)",
+				        ukmo_seamless = "UKMO (UK)"
+				    ],
+				    Renamed = Table.TransformColumns(
+				        Typed,
+				        {{"model", each Record.FieldOrDefault(ModelNames, _, _), type text}}
+				    )
+				in
+				    Renamed

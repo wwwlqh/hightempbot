@@ -1,0 +1,182 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.7.0/schema.json",
+  "name": "rules",
+  "position": {
+    "x": 24,
+    "y": 208,
+    "z": 2000,
+    "width": 760,
+    "height": 488,
+    "tabOrder": 2000
+  },
+  "visual": {
+    "visualType": "tableEx",
+    "query": {
+      "queryState": {
+        "Values": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Data Quality"
+                    }
+                  },
+                  "Property": "Check ID"
+                }
+              },
+              "queryRef": "Data Quality.Check ID",
+              "nativeQueryRef": "Check ID"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Data Quality"
+                    }
+                  },
+                  "Property": "Area"
+                }
+              },
+              "queryRef": "Data Quality.Area",
+              "nativeQueryRef": "Area"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Data Quality"
+                    }
+                  },
+                  "Property": "Rule"
+                }
+              },
+              "queryRef": "Data Quality.Rule",
+              "nativeQueryRef": "Rule"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Data Quality"
+                    }
+                  },
+                  "Property": "Rows Checked"
+                }
+              },
+              "queryRef": "Data Quality.Rows Checked",
+              "nativeQueryRef": "Rows Checked"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Data Quality"
+                    }
+                  },
+                  "Property": "Rows Failed"
+                }
+              },
+              "queryRef": "Data Quality.Rows Failed",
+              "nativeQueryRef": "Rows Failed"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Data Quality"
+                    }
+                  },
+                  "Property": "Status"
+                }
+              },
+              "queryRef": "Data Quality.Status",
+              "nativeQueryRef": "Status"
+            }
+          ]
+        }
+      },
+      "sortDefinition": {
+        "sort": [
+          {
+            "field": {
+              "Column": {
+                "Expression": {
+                  "SourceRef": {
+                    "Entity": "Data Quality"
+                  }
+                },
+                "Property": "Check ID"
+              }
+            },
+            "direction": "Ascending"
+          }
+        ],
+        "isDefaultSort": true
+      }
+    },
+    "visualContainerObjects": {
+      "title": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            },
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'Validation rules'"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "drillFilterOtherVisuals": true,
+    "objects": {
+      "values": [
+        {
+          "properties": {
+            "fontColor": {
+              "solid": {
+                "color": {
+                  "expr": {
+                    "Measure": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "Key Measures"
+                        }
+                      },
+                      "Property": "Status Colour"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "selector": {
+            "metadata": "Data Quality.Status",
+            "data": [
+              {
+                "dataViewWildcard": {
+                  "matchingOption": 1
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

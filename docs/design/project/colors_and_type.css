@@ -1,0 +1,114 @@
+/* ============================================================
+ * HighTempBot Design System — Colors & Type
+ * Extracted from src/hightempbot/dashboard/static/dashboard.css
+ * ============================================================ */
+
+:root {
+    /* === Surfaces (warm off-white paper feel) === */
+    --bg:           #faf9f6;          /* page background — warm cream */
+    --bg-surface:  #ffffff;           /* cards, tables, panels */
+    --card:        #ffffff;
+    --card-raised: #f5f4f1;           /* slightly recessed surface */
+    --hover:       rgba(0,0,0,0.02);
+
+    /* === Borders === */
+    --border:        #e8e5e0;         /* default hairline */
+    --border-subtle: rgba(0,0,0,0.06);
+
+    /* === Foreground (warm near-black, neutral grays) === */
+    --fg1: #1a1a1a;                   /* primary text */
+    --fg2: #666666;                   /* secondary text */
+    --fg3: #999999;                   /* muted / labels */
+
+    /* legacy aliases used in templates */
+    --text:           var(--fg1);
+    --text-secondary: var(--fg2);
+    --text-muted:     var(--fg3);
+
+    /* === Semantic / status palette ===
+     * Trading dashboards lean on saturated, slightly "Tailwind" tones.
+     * Each color ships with a 6%-alpha tint for backgrounds and pills.
+     */
+    --blue:    #2563eb;  --blue-bg:   rgba(37,99,235,0.06);
+    --green:   #16a34a;  --green-bg:  rgba(22,163,74,0.06);
+    --red:     #dc2626;  --red-bg:    rgba(220,38,38,0.06);
+    --yellow:  #ca8a04;  --yellow-bg: rgba(202,138,4,0.06);
+    --orange:  #ea580c;
+    --purple:  #7c3aed;
+    --amber:   #b45309;  /* darker text-on-yellow-bg */
+
+    /* P&L semantics */
+    --pos: var(--green);
+    --neg: var(--red);
+    --neu: var(--blue);
+
+    /* === Typography === */
+    --font-ui:      Calibri, 'Segoe UI', -apple-system, system-ui, sans-serif;
+    --font-display: Calibri, 'Segoe UI', -apple-system, system-ui, sans-serif;
+    --font-mono:    Consolas, 'Cascadia Code', 'SF Mono', ui-monospace, monospace;
+
+    /* === Radii === */
+    --radius:    8px;
+    --radius-sm: 5px;
+    --radius-xs: 3px;
+
+    /* === Spacing === */
+    --gap-sm: 8px;
+    --gap:    16px;
+    --gap-lg: 24px;
+
+    /* === Layout === */
+    --content-max: 1200px;
+    --nav-height:  56px;
+
+    /* === Type scale (semantic) === */
+    --h1-size: 2.2em;       --h1-weight: 700;  --h1-tracking: -0.02em;
+    --h2-size: 1.4em;       --h2-weight: 600;
+    --h3-size: 1.1em;       --h3-weight: 600;
+    --kpi-size: 1.75em;     --kpi-weight: 700; --kpi-tracking: -0.02em;
+    --label-size: 0.72em;   --label-weight: 700; --label-tracking: 0.1em;
+    --body-size: 16px;      --body-line: 1.6;
+    --small-size: 0.88em;
+    --mono-size: 0.92em;
+}
+
+/* === Semantic element styles ===
+ * Apply these via class names so non-dashboard pages can use the same vocab.
+ */
+.h1, h1.ds {
+    font-family: var(--font-display);
+    font-size: var(--h1-size); font-weight: var(--h1-weight);
+    letter-spacing: var(--h1-tracking); line-height: 1.15;
+    color: var(--fg1);
+}
+.h2, h2.ds {
+    font-family: var(--font-display);
+    font-size: var(--h2-size); font-weight: var(--h2-weight);
+    color: var(--fg1);
+}
+.h3, h3.ds {
+    font-family: var(--font-display);
+    font-size: var(--h3-size); font-weight: var(--h3-weight);
+    color: var(--fg1);
+}
+.kpi {
+    font-family: var(--font-display);
+    font-size: var(--kpi-size); font-weight: var(--kpi-weight);
+    letter-spacing: var(--kpi-tracking);
+    font-variant-numeric: tabular-nums;
+    line-height: 1.15;
+}
+.label {
+    font-size: var(--label-size); font-weight: var(--label-weight);
+    letter-spacing: var(--label-tracking);
+    text-transform: uppercase;
+    color: var(--fg3);
+}
+.p, p.ds  { font-size: var(--body-size); line-height: var(--body-line); color: var(--fg2); }
+.small    { font-size: var(--small-size); color: var(--fg3); }
+.mono, code, .code { font-family: var(--font-mono); font-size: var(--mono-size); }
+
+/* P&L number coloring */
+.pos { color: var(--pos); }
+.neg { color: var(--neg); }
+.neu { color: var(--neu); }

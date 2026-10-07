@@ -1,0 +1,13 @@
+check_id,area,rule,rows_checked,rows_failed,status
+REC-01,Reconciliation,Wallet trade matches a ledger bet (latest run),27,0,Pass
+REC-02,Reconciliation,Open position matches the ledger (latest run),5,0,Pass
+TRD-01,Trades,Settled bet has a P&L value,167,0,Pass
+TRD-02,Trades,Won or lost bet has an observed high,163,0,Pass
+TRD-03,Trades,Fill price is between 0 and 1,183,0,Pass
+TRD-04,Trades,Exchange order id is unique,183,0,Pass
+TRD-05,Trades,Bet station exists in the station list,218,0,Pass
+TRD-06,Trades,Pending bet is less than 2 days past its target date,2,0,Pass
+WX-01,Weather,Observed high is between -60 and 60 °C,88926,3,Fail
+WX-02,Weather,Observed high is not a one-day spike of 15 °C or more,88826,15,Fail
+WX-03,Weather,Day-ahead forecast has an observation to score against,90474,2239,Fail
+WX-04,Weather,Forecast high is between -60 and 60 °C,570391,0,Pass

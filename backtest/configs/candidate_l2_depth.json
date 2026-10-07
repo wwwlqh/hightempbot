@@ -1,0 +1,86 @@
+{
+  "_amendment_2026_07_17_realfill": "no_min_edge 0.04 -> 0.05, aligning the entry gate with execution_min_edge=0.05 (real-fill scoring, backtest/scripts/score_deployed_realfill.py: the 0.04 gate fired bets the walker floor can never fill). Same scoring found the verifiable-real-depth subset of the calibrated gate ADVERSELY SELECTED (n=27, ~-6% ROS, negative even at mid) while the mid-fill headline (+6.16%) lives in rows without book history; per operator directive 'everything must be based on real depth' (RUNBOOK checklist #6), the 5-9pp marginal band is treated as unproven until live book_snapshots telemetry validates per-band realized edge. Escalation rule: raise min_edge back toward 0.09 if the live 5-9pp band shows negative realized edge over the validation window.",
+  "_amendment_2026_07_17_tail": "TAIL disabled (enabled=false): slice forensics (backtest/scripts/explore_tail_slices.py) found EV<=0 at honest fills in every slice; the dump-to-2c delayed-entry trigger is itself the adverse selection, and the +$1,325 TAIL WFO profit was a fill artifact (~0.6% of entries had $10 executable at the print; real $10 fills ~4.2c). Config block retained for provenance; sleeve must not fire.",
+  "_amendment_2026_07_16": "Calibrated-gate amendment after the first live month (2026-05-21..06-13, net +$54.54 on $100): NO no_min_edge 0.090 -> 0.04, evaluated on BLEND-CALIBRATED edge (logit blend of model claim and market NO price, reliability_curves table, calibration/reliability.py). Walk-forward B+C+D via backtest/scripts/sweep_calibrated_gate.py: n=849 (12.5/day), win 91.2%+-1.0, rel-gap +1.8pp, ROS +6.16%, PnL@$10 +$522.75, 3/3 windows positive, robust across 0.03-0.04. degeneracy guard refuses the F blend OOS (price_weight>=0.90, F runs raw); C is the calibrated unit (rel-gap +1.5..2.4pp). ALLOWED_BRACKET_UNITS widened back to F+C behind the blend precondition. PRECONDITION: NO_C logit_blend curve fitted+committed before deploy; without curves calibration is identity and the 4pp gate over-fires on raw edge. Walker execution_min_edge stays 0.05 (intentional asymmetry: 4pp gate admits, walker fills only >=5pp realized VWAP edge - conservative partial fills accepted). Prior 0.090 raw-gate live result: realized ROS +2.34%, +6.4pp over-confidence, all profit from F stations.",
+  "_": "L2-depth forward candidate from 2026-05-28 refreshed PMD books final sweep: sel_taila40_fp03_cs40. Uses real ask-ladder entry execution when present, enters TAIL at local hour 1, walks NO while realized VWAP edge stays >=5pp, and walks TAIL while realized VWAP edge stays >=7pp. The prior +10c L2 ask-premium guard was disabled by operator override on 2026-06-06; executable price quality is now owned by the realized-edge book walker. 2026-06-09 delayed TAIL entry WFO keeps the TAIL signal band at <=3c but waits for YES ask <=2c before placing; wait_le_02c was the B-D continuous OOS winner at +$2,537.24, max DD 26.18%, worst chunk +$319.94, TAIL +$1,325.80 on 30 bets. Final strict expanding ABCD selector profile excludes NO-side retunes that overfit chunk A and ranks train candidates by PnL/maxDD. B-D out-of-sample total +$251.96, 3/3 positive, worst +$52.55, max test DD 18.22%, n=314. Final trained fixed replay on decision_table_may11plus_l2: total +$464.46, chunks A +$116.26 / B +$167.46 / C +$128.19 / D +$52.55, 4/4 positive, max chunk DD 19.49%, n=440. 2026-06-04 equity-cap sizing refresh: sizing OOS now runs one continuous B-D bankroll path from $100 instead of summing reset chunks. Fixed continuous B-D winner is NO 8% / TAIL 6% / cap 100%: +$1,496.77, final bankroll $1,596.77, max DD 29.93%, actual open exposure 90.0%, target cap used 97.7%. Live deployment now uses NO 7% / TAIL 5% / cap 100% per the 2026-06-05 operator override because it remains below the 30% DD training constraint while adding NO exposure: +$1,345.48, final bankroll $1,445.48, max DD 26.25%, actual open exposure 91.1%, target cap used 96.5%, zero >100% exposure dates, 3/3 positive B-D segments. Deployment sizing is dynamic: no static stake cap; idempotency top-ups toward size_frac * live capital only while fill quality and realized edge remain acceptable.",
+  "min_bvol": 50,
+  "max_dd_halve_threshold": 0.40,
+  "poly_fee_theta": 0.05,
+  "min_bet_usd": 1.0,
+  "entry_local_hour": 0,
+  "max_l2_ask_premium": null,
+  "NO": {
+    "enabled": true,
+    "signal": "p_E",
+    "signal_for_high_bracket": "p_B_50",
+    "no_min_fill_price": 0.75,
+    "no_min_fill_price_for_high": 0.50,
+    "no_min_edge": 0.05,
+    "execution_min_edge": 0.050,
+    "max_edge": 0.150,
+    "max_edge_for_high": 0.35,
+    "entry_local_hours": [0, 1, 2, 3, 4, 5, 6],
+    "size_frac": 0.0700,
+    "tp": null,
+    "sl": null
+  },
+  "YMID": {
+    "enabled": false,
+    "signal": "p_Shrink_n50",
+    "alpha": 1.3,
+    "fp_min": 0.10001,
+    "fp_max": 0.50,
+    "entry_local_hours": [0],
+    "size_frac": 0.0100,
+    "tp": 0.15,
+    "sl": null
+  },
+  "TAIL": {
+    "enabled": false,
+    "vote_signals": ["p_E", "p_B_50", "p_L_loose", "p_Shrink_n10"],
+    "alpha": 4.0,
+    "n_required": 4,
+    "consensus_skip_threshold": 0.40,
+    "fp_min": 0.001,
+    "fp_max": 0.03,
+    "delayed_entry_fp_max": 0.02,
+    "entry_local_hours": [1],
+    "size_frac": 0.0500,
+    "execution_min_edge": 0.070,
+    "tp": 0.20,
+    "sl": null
+  },
+  "YHIGH": {
+    "enabled": false,
+    "signal": "p_B_50",
+    "bracket_kind": "high",
+    "fp_min": 0.50,
+    "fp_max": 1.00,
+    "min_edge": 0.025,
+    "max_edge": 0.30,
+    "entry_local_hours": [0],
+    "size_frac": 0.0100,
+    "tp": null,
+    "sl": null
+  },
+  "live_execution_policy": {
+    "_": "Static per-bankroll caps are not the strategy. The live control is idempotent FAK top-up plus fill-quality gates.",
+    "static_stake_caps_enabled": false,
+    "slot_target": "target_usd = strategy size_frac * live capital; slot_filled is subtracted before each top-up",
+    "first_fill": "opening a new slot only on the first scheduler tick of an allowed entry hour",
+    "top_up": "after first fill, retry every 10 minutes while remaining >= max(min_bet_usd, 1% of target)",
+    "NO": {
+      "target_frac": 0.0700,
+      "min_realized_edge": 0.050,
+      "max_vwap_slip_from_anchor": null,
+      "anchor_repair": "disabled 2026-05-31; top-ups use current full entry gates plus realized edge floor"
+    },
+    "TAIL": {
+      "target_frac": 0.0500,
+      "min_realized_edge": 0.070,
+      "delayed_entry_fp_max": 0.020,
+      "max_vwap_slip_from_anchor": null,
+      "anchor_repair": "disabled 2026-05-31; top-ups use current full entry gates plus realized edge floor"
+    }
+  }
+}

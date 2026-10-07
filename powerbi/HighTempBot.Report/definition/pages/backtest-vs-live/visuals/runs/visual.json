@@ -1,0 +1,134 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.7.0/schema.json",
+  "name": "runs",
+  "position": {
+    "x": 24,
+    "y": 88,
+    "z": 1000,
+    "width": 760,
+    "height": 248,
+    "tabOrder": 1000
+  },
+  "visual": {
+    "visualType": "tableEx",
+    "query": {
+      "queryState": {
+        "Values": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Backtest Bets"
+                    }
+                  },
+                  "Property": "Run"
+                }
+              },
+              "queryRef": "Backtest Bets.Run",
+              "nativeQueryRef": "Run"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Key Measures"
+                    }
+                  },
+                  "Property": "Backtest Bet Count"
+                }
+              },
+              "queryRef": "Key Measures.Backtest Bet Count",
+              "nativeQueryRef": "Backtest Bet Count"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Key Measures"
+                    }
+                  },
+                  "Property": "Backtest Win Rate"
+                }
+              },
+              "queryRef": "Key Measures.Backtest Win Rate",
+              "nativeQueryRef": "Backtest Win Rate"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Key Measures"
+                    }
+                  },
+                  "Property": "Backtest ROI"
+                }
+              },
+              "queryRef": "Key Measures.Backtest ROI",
+              "nativeQueryRef": "Backtest ROI"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Key Measures"
+                    }
+                  },
+                  "Property": "Backtest P&L"
+                }
+              },
+              "queryRef": "Key Measures.Backtest P&L",
+              "nativeQueryRef": "Backtest P&L"
+            }
+          ]
+        }
+      },
+      "sortDefinition": {
+        "sort": [
+          {
+            "field": {
+              "Measure": {
+                "Expression": {
+                  "SourceRef": {
+                    "Entity": "Key Measures"
+                  }
+                },
+                "Property": "Backtest P&L"
+              }
+            },
+            "direction": "Descending"
+          }
+        ],
+        "isDefaultSort": true
+      }
+    },
+    "visualContainerObjects": {
+      "title": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            },
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'Backtest runs'"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

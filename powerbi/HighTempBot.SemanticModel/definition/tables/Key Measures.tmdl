@@ -1,0 +1,208 @@
+/// All report measures, grouped into display folders.
+table 'Key Measures'
+
+	measure 'Trade Count' = COUNTROWS ( Trades )
+		formatString: #,0
+		displayFolder: Trading
+
+	measure 'Settled Trades' = CALCULATE ( COUNTROWS ( Trades ), Trades[Is Settled] = TRUE () )
+		formatString: #,0
+		displayFolder: Trading
+
+	measure Wins = CALCULATE ( COUNTROWS ( Trades ), Trades[Is Win] = TRUE () )
+		formatString: #,0
+		displayFolder: Trading
+
+	measure 'Win Rate' = DIVIDE ( [Wins], [Settled Trades] )
+		formatString: 0.0%
+		displayFolder: Trading
+
+	measure 'Total P&L' = SUM ( Trades[P&L] )
+		formatString: \$#,0.00;-\$#,0.00;\$#,0.00
+		displayFolder: Trading
+
+	measure 'Amount Staked' = CALCULATE ( SUM ( Trades[Stake] ), Trades[Is Settled] = TRUE () )
+		formatString: \$#,0.00
+		displayFolder: Trading
+
+	measure ROI = DIVIDE ( [Total P&L], [Amount Staked] )
+		formatString: 0.0%
+		displayFolder: Trading
+
+	measure 'Average Edge' = AVERAGE ( Trades[Edge] )
+		formatString: 0.000
+		displayFolder: Trading
+
+	/// Running P&L up to each date. Blank after the last trade so lines stop there.
+	measure 'Cumulative P&L' =
+			VAR CurrentDate = MAX ( 'Date'[Date] )
+			VAR LastTradeDate =
+			    CALCULATE ( MAX ( Trades[Target Date] ), REMOVEFILTERS ( 'Date' ) )
+			RETURN
+			    IF (
+			        CurrentDate <= LastTradeDate,
+			        CALCULATE ( [Total P&L], REMOVEFILTERS ( 'Date' ), 'Date'[Date] <= CurrentDate )
+			    )
+		formatString: \$#,0.00;-\$#,0.00;\$#,0.00
+		displayFolder: Trading
+
+	/// Largest fall from a running peak in cumulative P&L, measured on settled days.
+	measure 'Max Drawdown' =
+			VAR SettledDays =
+			    CALCULATETABLE ( VALUES ( Trades[Target Date] ), Trades[Is Settled] = TRUE () )
+			VAR Equity =
+			    ADDCOLUMNS (
+			        SettledDays,
+			        "@Equity",
+			            VAR Day = Trades[Target Date]
+			            RETURN CALCULATE ( [Total P&L], Trades[Target Date] <= Day )
+			    )
+			VAR Drawdowns =
+			    ADDCOLUMNS (
+			        Equity,
+			        "@Drawdown",
+			            VAR Day = Trades[Target Date]
+			            VAR Peak = MAX ( 0, MAXX ( FILTER ( Equity, Trades[Target Date] <= Day ), [@Equity] ) )
+			            RETURN Peak - [@Equity]
+			    )
+			RETURN
+			    MAXX ( Drawdowns, [@Drawdown] )
+		formatString: \$#,0.00
+		displayFolder: Trading
+
+	measure 'Forecasts Scored' = COUNTROWS ( Forecasts )
+		formatString: #,0
+		displayFolder: Forecast Accuracy
+
+	measure 'MAE (°C)' = AVERAGEX ( Forecasts, ABS ( Forecasts[Error (°C)] ) )
+		formatString: 0.00
+		displayFolder: Forecast Accuracy
+
+	measure 'RMSE (°C)' = SQRT ( AVERAGEX ( Forecasts, Forecasts[Error (°C)] ^ 2 ) )
+		formatString: 0.00
+		displayFolder: Forecast Accuracy
+
+	/// Average signed error. Positive means the model forecasts too warm.
+	measure 'Bias (°C)' = AVERAGE ( Forecasts[Error (°C)] )
+		formatString: +0.00;-0.00;0.00
+		displayFolder: Forecast Accuracy
+
+	measure 'Within 1 °C' =
+			DIVIDE (
+			    CALCULATE ( COUNTROWS ( Forecasts ), ABS ( Forecasts[Error (°C)] ) <= 1 ),
+			    [Forecasts Scored]
+			)
+		formatString: 0.0%
+		displayFolder: Forecast Accuracy
+
+	/// Model with the lowest MAE in the current filter context.
+	measure 'Best Model' =
+			VAR ModelErrors =
+			    ADDCOLUMNS ( VALUES ( Forecasts[Model] ), "@MAE", [MAE (°C)] )
+			RETURN
+			    MAXX ( TOPN ( 1, ModelErrors, [@MAE], ASC ), Forecasts[Model] )
+		displayFolder: Forecast Accuracy
+
+	measure 'Backtest Bet Count' = COUNTROWS ( 'Backtest Bets' )
+		formatString: #,0
+		displayFolder: Backtest
+
+	measure 'Backtest P&L' = SUM ( 'Backtest Bets'[P&L] )
+		formatString: \$#,0.00;-\$#,0.00;\$#,0.00
+		displayFolder: Backtest
+
+	measure 'Backtest Win Rate' =
+			DIVIDE (
+			    CALCULATE ( COUNTROWS ( 'Backtest Bets' ), 'Backtest Bets'[Won] = TRUE () ),
+			    [Backtest Bet Count]
+			)
+		formatString: 0.0%
+		displayFolder: Backtest
+
+	measure 'Backtest ROI' = DIVIDE ( [Backtest P&L], SUM ( 'Backtest Bets'[Stake] ) )
+		formatString: 0.0%
+		displayFolder: Backtest
+
+	/// Running backtest P&L by market date. Use with Run on the legend: runs overlap in time.
+	measure 'Backtest Cumulative P&L' =
+			VAR CurrentDate = MAX ( 'Date'[Date] )
+			VAR LastBetDate =
+			    CALCULATE ( MAX ( 'Backtest Bets'[Market Date] ), REMOVEFILTERS ( 'Date' ) )
+			RETURN
+			    IF (
+			        CurrentDate <= LastBetDate,
+			        CALCULATE ( [Backtest P&L], REMOVEFILTERS ( 'Date' ), 'Date'[Date] <= CurrentDate )
+			    )
+		formatString: \$#,0.00;-\$#,0.00;\$#,0.00
+		displayFolder: Backtest
+
+	measure 'Live Settled Trades' = CALCULATE ( [Settled Trades], Trades[Mode] = "Live" )
+		formatString: #,0
+		displayFolder: Backtest
+
+	measure 'Live Win Rate' = CALCULATE ( [Win Rate], Trades[Mode] = "Live" )
+		formatString: 0.0%
+		displayFolder: Backtest
+
+	measure 'Live ROI' = CALCULATE ( [ROI], Trades[Mode] = "Live" )
+		formatString: 0.0%
+		displayFolder: Backtest
+
+	measure 'Live P&L' = CALCULATE ( [Total P&L], Trades[Mode] = "Live" )
+		formatString: \$#,0.00;-\$#,0.00;\$#,0.00
+		displayFolder: Backtest
+
+	measure 'Records Checked' = COUNTROWS ( Reconciliation )
+		formatString: #,0
+		displayFolder: Reconciliation
+
+	measure 'Reconciliation Exceptions' =
+			CALCULATE ( COUNTROWS ( Reconciliation ), Reconciliation[Result] = "Exception" )
+		formatString: #,0
+		displayFolder: Reconciliation
+
+	/// Share of checked records that matched, ignoring records that were never checked.
+	measure 'Match Rate' =
+			DIVIDE (
+			    CALCULATE ( COUNTROWS ( Reconciliation ), Reconciliation[Result] = "Matched" ),
+			    CALCULATE ( COUNTROWS ( Reconciliation ), Reconciliation[Result] <> "Not checked" )
+			)
+		formatString: 0.00%
+		displayFolder: Reconciliation
+
+	measure 'Rules Checked' = COUNTROWS ( 'Data Quality' )
+		formatString: #,0
+		displayFolder: Data Quality
+
+	measure 'Rules Passed' = CALCULATE ( COUNTROWS ( 'Data Quality' ), 'Data Quality'[Status] = "Pass" )
+		formatString: #,0
+		displayFolder: Data Quality
+
+	measure 'Rule Pass Rate' = DIVIDE ( [Rules Passed], [Rules Checked] )
+		formatString: 0%
+		displayFolder: Data Quality
+
+	measure 'Rows Failed' = SUM ( 'Data Quality'[Rows Failed] )
+		formatString: #,0
+		displayFolder: Data Quality
+
+	/// Font colour for P&L cells: red for a loss, green for a profit, grey when unsettled.
+	measure 'P&L Colour' =
+			VAR Pnl = SUM ( Trades[P&L] )
+			RETURN
+			    SWITCH ( TRUE (), ISBLANK ( Pnl ), "#6B7280", Pnl < 0, "#DC2626", "#16A34A" )
+		displayFolder: Formatting
+
+	measure 'Status Colour' =
+			IF ( SELECTEDVALUE ( 'Data Quality'[Status] ) = "Fail", "#DC2626", "#16A34A" )
+		displayFolder: Formatting
+
+	column Placeholder
+		dataType: string
+		isHidden
+		summarizeBy: none
+		sourceColumn: Placeholder
+
+	partition 'Key Measures' = m
+		mode: import
+		source = #table(type table [Placeholder = text], {})

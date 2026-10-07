@@ -1,0 +1,137 @@
+/// Simulated bets from the backtest harness, one row per bet per run.
+/// Each run is a separate experiment: filter to one run before adding them up.
+table 'Backtest Bets'
+
+	column Run
+		dataType: string
+		summarizeBy: none
+		sourceColumn: run
+
+	column Period
+		dataType: string
+		summarizeBy: none
+		sourceColumn: period
+
+	column Strategy
+		dataType: string
+		summarizeBy: none
+		sourceColumn: strategy
+
+	column Side
+		dataType: string
+		summarizeBy: none
+		sourceColumn: side
+
+	column 'Station ID'
+		dataType: string
+		isHidden
+		summarizeBy: none
+		sourceColumn: station_id
+
+	column 'Market Date'
+		dataType: dateTime
+		formatString: yyyy-mm-dd
+		summarizeBy: none
+		sourceColumn: market_date
+
+	column Bracket
+		dataType: string
+		summarizeBy: none
+		sourceColumn: bracket_label
+
+	column 'Model Probability'
+		dataType: double
+		formatString: 0.0%
+		summarizeBy: none
+		sourceColumn: claimed_p
+
+	column 'Entry Price'
+		dataType: double
+		formatString: 0.000
+		summarizeBy: none
+		sourceColumn: entry_price
+
+	column 'Fill Price'
+		dataType: double
+		formatString: 0.000
+		summarizeBy: none
+		sourceColumn: fill_vwap
+
+	column Stake
+		dataType: double
+		formatString: \$#,0.00
+		summarizeBy: none
+		sourceColumn: stake
+
+	column Won
+		dataType: boolean
+		summarizeBy: none
+		sourceColumn: won
+
+	column 'P&L'
+		dataType: double
+		formatString: \$#,0.00;-\$#,0.00;\$#,0.00
+		summarizeBy: none
+		sourceColumn: pnl
+
+	column 'Entry Time'
+		dataType: dateTime
+		formatString: yyyy-mm-dd hh:nn
+		summarizeBy: none
+		sourceColumn: entry_time
+
+	column 'Exit Reason'
+		dataType: string
+		summarizeBy: none
+		sourceColumn: exit_reason
+
+	partition 'Backtest Bets' = m
+		mode: import
+		source =
+				let
+				    RunNames = [
+				        champion_l2_delayed_oos_bd = "Champion, delayed entry: out-of-sample B-D",
+				        champion_l2_delayed_fixed = "Champion, delayed entry: fixed A-D",
+				        champion_l2_immediate_oos_bd = "Champion, immediate entry: out-of-sample B-D",
+				        champion_l2_immediate_fixed = "Champion, immediate entry: fixed A-D",
+				        candidate_l2_depth_train = "Candidate L2 depth: train",
+				        candidate_l2_depth_test = "Candidate L2 depth: test"
+				    ],
+				    Files = Folder.Files(ProjectFolder & "\backtest\results\bets"),
+				    ParquetFiles = Table.SelectRows(Files, each [Extension] = ".parquet"),
+				    WithRun = Table.AddColumn(
+				        ParquetFiles,
+				        "run",
+				        each Record.FieldOrDefault(RunNames, Text.BeforeDelimiter([Name], "."), [Name]),
+				        type text
+				    ),
+				    WithBets = Table.AddColumn(WithRun, "bets", each Parquet.Document([Content])),
+				    Bets = Table.ExpandTableColumn(
+				        Table.SelectColumns(WithBets, {"run", "bets"}),
+				        "bets",
+				        {
+				            "period", "strategy", "side", "station_id", "market_date", "bracket_label",
+				            "claimed_p", "entry_price", "fill_vwap", "stake", "won", "pnl",
+				            "entry_ts", "exit_reason"
+				        }
+				    ),
+				    WithEntryTime = Table.AddColumn(
+				        Bets,
+				        "entry_time",
+				        each #datetime(1970, 1, 1, 0, 0, 0) + #duration(0, 0, 0, [entry_ts]),
+				        type datetime
+				    ),
+				    Typed = Table.TransformColumnTypes(
+				        Table.RemoveColumns(WithEntryTime, {"entry_ts"}),
+				        {
+				            {"period", type text}, {"strategy", type text}, {"side", type text},
+				            {"station_id", type text}, {"market_date", type date},
+				            {"bracket_label", type text}, {"claimed_p", type number},
+				            {"entry_price", type number}, {"fill_vwap", type number},
+				            {"stake", type number}, {"won", type logical}, {"pnl", type number},
+				            {"exit_reason", type text}
+				        },
+				        "en-US"
+				    )
+				in
+				    Typed

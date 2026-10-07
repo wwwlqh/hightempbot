@@ -1,0 +1,94 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.7.0/schema.json",
+  "name": "kpis",
+  "position": {
+    "x": 24,
+    "y": 88,
+    "z": 3000,
+    "width": 1232,
+    "height": 104,
+    "tabOrder": 3000
+  },
+  "visual": {
+    "visualType": "cardVisual",
+    "query": {
+      "queryState": {
+        "Data": {
+          "projections": [
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Key Measures"
+                    }
+                  },
+                  "Property": "Settled Trades"
+                }
+              },
+              "queryRef": "Key Measures.Settled Trades",
+              "nativeQueryRef": "Settled Trades"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Key Measures"
+                    }
+                  },
+                  "Property": "Win Rate"
+                }
+              },
+              "queryRef": "Key Measures.Win Rate",
+              "nativeQueryRef": "Win Rate"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Key Measures"
+                    }
+                  },
+                  "Property": "Total P&L"
+                }
+              },
+              "queryRef": "Key Measures.Total P&L",
+              "nativeQueryRef": "Total P&L"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Key Measures"
+                    }
+                  },
+                  "Property": "ROI"
+                }
+              },
+              "queryRef": "Key Measures.ROI",
+              "nativeQueryRef": "ROI"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Key Measures"
+                    }
+                  },
+                  "Property": "Max Drawdown"
+                }
+              },
+              "queryRef": "Key Measures.Max Drawdown",
+              "nativeQueryRef": "Max Drawdown"
+            }
+          ]
+        }
+      }
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

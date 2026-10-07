@@ -1,0 +1,58 @@
+/// Wallet records checked against the ledger, one row per record per run.
+table Reconciliation
+
+	column 'Run ID'
+		dataType: int64
+		formatString: 0
+		summarizeBy: none
+		sourceColumn: run_id
+
+	column 'Run At'
+		dataType: dateTime
+		formatString: yyyy-mm-dd hh:nn
+		summarizeBy: none
+		sourceColumn: run_at
+
+	column 'Record Type'
+		dataType: string
+		summarizeBy: none
+		sourceColumn: record_type
+
+	column 'Match Status'
+		dataType: string
+		summarizeBy: none
+		sourceColumn: match_status
+
+	column Result
+		dataType: string
+		summarizeBy: none
+		sourceColumn: result
+
+	column 'Trade ID'
+		dataType: int64
+		formatString: 0
+		summarizeBy: none
+		sourceColumn: trade_id
+
+	column 'Amount (USD)'
+		dataType: decimal
+		formatString: \$#,0.00
+		summarizeBy: none
+		sourceColumn: amount_usd
+
+	partition Reconciliation = m
+		mode: import
+		source =
+				let
+				    Source = LoadCsv("fact_reconciliation.csv"),
+				    Typed = Table.TransformColumnTypes(
+				        Source,
+				        {
+				            {"run_id", Int64.Type}, {"run_at", type datetime}, {"record_type", type text},
+				            {"match_status", type text}, {"result", type text}, {"trade_id", Int64.Type},
+				            {"amount_usd", Currency.Type}
+				        },
+				        "en-US"
+				    )
+				in
+				    Typed

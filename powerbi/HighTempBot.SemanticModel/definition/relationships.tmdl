@@ -1,0 +1,23 @@
+relationship trades_station
+	fromColumn: Trades.'Station ID'
+	toColumn: Stations.'Station ID'
+
+relationship trades_date
+	fromColumn: Trades.'Target Date'
+	toColumn: Date.Date
+
+relationship forecasts_station
+	fromColumn: Forecasts.'Station ID'
+	toColumn: Stations.'Station ID'
+
+relationship forecasts_date
+	fromColumn: Forecasts.'Target Date'
+	toColumn: Date.Date
+
+relationship backtest_station
+	fromColumn: 'Backtest Bets'.'Station ID'
+	toColumn: Stations.'Station ID'
+
+relationship backtest_date
+	fromColumn: 'Backtest Bets'.'Market Date'
+	toColumn: Date.Date

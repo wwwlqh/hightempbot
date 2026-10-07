@@ -1,0 +1,57 @@
+/// Calendar covering every forecast, trade and backtest date.
+table Date
+	dataCategory: Time
+
+	column Date
+		dataType: dateTime
+		isKey
+		formatString: yyyy-mm-dd
+		summarizeBy: none
+		sourceColumn: Date
+
+	column Year
+		dataType: int64
+		formatString: 0
+		summarizeBy: none
+		sourceColumn: Year
+
+	column Month
+		dataType: string
+		summarizeBy: none
+		sourceColumn: Month
+		sortByColumn: 'Month Start'
+
+	column 'Month Start'
+		dataType: dateTime
+		formatString: yyyy-mm-dd
+		summarizeBy: none
+		sourceColumn: Month Start
+
+	column Weekday
+		dataType: string
+		summarizeBy: none
+		sourceColumn: Weekday
+		sortByColumn: 'Weekday Number'
+
+	column 'Weekday Number'
+		dataType: int64
+		isHidden
+		formatString: 0
+		summarizeBy: none
+		sourceColumn: Weekday Number
+
+	partition Date = m
+		mode: import
+		source =
+				let
+				    StartDate = #date(2021, 1, 1),
+				    EndDate = #date(2026, 6, 30),
+				    Dates = List.Dates(StartDate, Duration.Days(EndDate - StartDate) + 1, #duration(1, 0, 0, 0)),
+				    Source = Table.FromList(Dates, Splitter.SplitByNothing(), type table [Date = date]),
+				    AddedYear = Table.AddColumn(Source, "Year", each Date.Year([Date]), Int64.Type),
+				    AddedMonth = Table.AddColumn(AddedYear, "Month", each Date.ToText([Date], [Format = "MMM yyyy", Culture = "en-US"]), type text),
+				    AddedMonthStart = Table.AddColumn(AddedMonth, "Month Start", each Date.StartOfMonth([Date]), type date),
+				    AddedWeekday = Table.AddColumn(AddedMonthStart, "Weekday", each Date.DayOfWeekName([Date], "en-US"), type text),
+				    AddedWeekdayNumber = Table.AddColumn(AddedWeekday, "Weekday Number", each Date.DayOfWeek([Date], Day.Monday) + 1, Int64.Type)
+				in
+				    AddedWeekdayNumber

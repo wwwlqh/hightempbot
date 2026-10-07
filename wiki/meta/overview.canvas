@@ -1,0 +1,42 @@
+{
+  "nodes": [
+    { "id": "n-readme",    "type": "file", "file": "wiki/README.md",                                       "x": 0,    "y": 0,    "width": 260, "height": 120, "color": "1" },
+    { "id": "n-inv",       "type": "file", "file": "wiki/invariants.md",                                   "x": -320, "y": 0,    "width": 260, "height": 120, "color": "6" },
+    { "id": "n-gloss",     "type": "file", "file": "wiki/glossary.md",                                     "x": 320,  "y": 0,    "width": 260, "height": 120, "color": "1" },
+    { "id": "n-map",       "type": "file", "file": "wiki/map.md",                                          "x": 0,    "y": -200, "width": 260, "height": 120, "color": "1" },
+    { "id": "n-optim",     "type": "file", "file": "wiki/concepts/Optimum Strategy.md",                    "x": -160, "y": 220,  "width": 260, "height": 120, "color": "5" },
+    { "id": "n-emos",      "type": "file", "file": "wiki/concepts/EMOS Calibration.md",                    "x": -480, "y": 220,  "width": 260, "height": 120, "color": "3" },
+    { "id": "n-lut",       "type": "file", "file": "wiki/concepts/Walk-forward LUT.md",                    "x": -480, "y": 380,  "width": 260, "height": 120, "color": "3" },
+    { "id": "n-sig",       "type": "file", "file": "wiki/concepts/Signal Flavors.md",                      "x": 160,  "y": 220,  "width": 260, "height": 120, "color": "3" },
+    { "id": "n-edge",      "type": "file", "file": "wiki/concepts/Edge-Preserving Sizing.md",              "x": 160,  "y": 380,  "width": 260, "height": 120, "color": "3" },
+    { "id": "n-backtest",  "type": "file", "file": "wiki/concepts/Backtest Harness.md",                    "x": -160, "y": 540,  "width": 260, "height": 120, "color": "4" },
+    { "id": "n-dt",        "type": "file", "file": "wiki/concepts/Decision Table.md",                      "x": -480, "y": 540,  "width": 260, "height": 120, "color": "4" },
+    { "id": "n-wfcb",      "type": "file", "file": "wiki/concepts/Walk-Forward Calibration Backtest.md",   "x": 160,  "y": 540,  "width": 260, "height": 120, "color": "4" },
+    { "id": "n-wu",        "type": "file", "file": "wiki/concepts/WU Consensus Gate.md",                   "x": 480,  "y": 220,  "width": 260, "height": 120, "color": "2" },
+    { "id": "n-om",        "type": "file", "file": "wiki/entities/Open-Meteo.md",                          "x": -640, "y": 0,    "width": 260, "height": 120, "color": "2" },
+    { "id": "n-wue",       "type": "file", "file": "wiki/entities/Weather Underground.md",                 "x": 640,  "y": 0,    "width": 260, "height": 120, "color": "2" },
+    { "id": "n-srv",       "type": "file", "file": "wiki/entities/Oracle Cloud Server.md",                 "x": 0,    "y": -360, "width": 260, "height": 120, "color": "2" },
+    { "id": "n-htbp",      "type": "file", "file": "wiki/sources/HighTempBot Project.md",                  "x": -800, "y": -200, "width": 280, "height": 120, "color": "1" },
+    { "id": "n-htbs",      "type": "file", "file": "wiki/sources/HighTempBot src module.md",               "x": -800, "y": -40,  "width": 280, "height": 120, "color": "1" },
+    { "id": "n-bvs",       "type": "file", "file": "wiki/sources/Backtest and Validation Suite.md",        "x": -800, "y": 120,  "width": 280, "height": 120, "color": "4" },
+    { "id": "n-pm1",       "type": "file", "file": "wiki/postmortems/Backtest vs Dry-Run Parity Audit.md", "x": 640,  "y": -200, "width": 280, "height": 120, "color": "6" },
+    { "id": "n-pm2",       "type": "file", "file": "wiki/postmortems/Pandas 3 datetime64 Leakage Bug.md",  "x": 640,  "y": -40,  "width": 280, "height": 120, "color": "6" }
+  ],
+  "edges": [
+    { "id": "e1",  "fromNode": "n-readme", "fromSide": "left",   "toNode": "n-inv",      "toSide": "right"  },
+    { "id": "e2",  "fromNode": "n-readme", "fromSide": "right",  "toNode": "n-gloss",    "toSide": "left"   },
+    { "id": "e3",  "fromNode": "n-readme", "fromSide": "top",    "toNode": "n-map",      "toSide": "bottom" },
+    { "id": "e4",  "fromNode": "n-readme", "fromSide": "bottom", "toNode": "n-optim",    "toSide": "top"    },
+    { "id": "e5",  "fromNode": "n-emos",   "fromSide": "bottom", "toNode": "n-lut",      "toSide": "top"    },
+    { "id": "e6",  "fromNode": "n-optim",  "fromSide": "left",   "toNode": "n-emos",     "toSide": "right"  },
+    { "id": "e7",  "fromNode": "n-optim",  "fromSide": "right",  "toNode": "n-sig",      "toSide": "left"   },
+    { "id": "e8",  "fromNode": "n-sig",    "fromSide": "bottom", "toNode": "n-edge",     "toSide": "top"    },
+    { "id": "e9",  "fromNode": "n-optim",  "fromSide": "bottom", "toNode": "n-backtest", "toSide": "top"    },
+    { "id": "e10", "fromNode": "n-backtest","fromSide": "left",  "toNode": "n-dt",       "toSide": "right"  },
+    { "id": "e11", "fromNode": "n-backtest","fromSide": "right", "toNode": "n-wfcb",     "toSide": "left"   },
+    { "id": "e12", "fromNode": "n-wu",     "fromSide": "left",   "toNode": "n-edge",     "toSide": "right"  },
+    { "id": "e13", "fromNode": "n-om",     "fromSide": "right",  "toNode": "n-emos",     "toSide": "left"   },
+    { "id": "e14", "fromNode": "n-wue",    "fromSide": "left",   "toNode": "n-wu",       "toSide": "right"  },
+    { "id": "e15", "fromNode": "n-map",    "fromSide": "top",    "toNode": "n-srv",      "toSide": "bottom" }
+  ]
+}

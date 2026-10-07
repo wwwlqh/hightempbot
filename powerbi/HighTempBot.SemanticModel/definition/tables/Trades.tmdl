@@ -1,0 +1,152 @@
+/// One row per bet. Mode is Live (real order) or Paper (dry run).
+table Trades
+
+	column 'Trade ID'
+		dataType: int64
+		isKey
+		formatString: 0
+		summarizeBy: none
+		sourceColumn: trade_id
+
+	column Mode
+		dataType: string
+		summarizeBy: none
+		sourceColumn: mode
+
+	column 'Placed At'
+		dataType: dateTime
+		formatString: yyyy-mm-dd hh:nn
+		summarizeBy: none
+		sourceColumn: placed_at
+
+	column 'Station ID'
+		dataType: string
+		isHidden
+		summarizeBy: none
+		sourceColumn: station_id
+
+	column 'Target Date'
+		dataType: dateTime
+		formatString: yyyy-mm-dd
+		summarizeBy: none
+		sourceColumn: target_date
+
+	column Strategy
+		dataType: string
+		summarizeBy: none
+		sourceColumn: strategy
+
+	column Side
+		dataType: string
+		summarizeBy: none
+		sourceColumn: side
+
+	column Bracket
+		dataType: string
+		summarizeBy: none
+		sourceColumn: bracket
+
+	column 'Model Probability'
+		dataType: double
+		formatString: 0.0%
+		summarizeBy: none
+		sourceColumn: model_probability
+
+	column 'Market Price'
+		dataType: double
+		formatString: 0.000
+		summarizeBy: none
+		sourceColumn: market_price
+
+	column Edge
+		dataType: double
+		formatString: 0.000
+		summarizeBy: none
+		sourceColumn: edge
+
+	column Stake
+		dataType: decimal
+		formatString: \$#,0.00
+		summarizeBy: none
+		sourceColumn: stake
+
+	column 'Fill Price'
+		dataType: double
+		formatString: 0.000
+		summarizeBy: none
+		sourceColumn: fill_price
+
+	column 'Observed High'
+		dataType: double
+		formatString: 0.0
+		summarizeBy: none
+		sourceColumn: observed_high
+
+	column Outcome
+		dataType: string
+		summarizeBy: none
+		sourceColumn: outcome
+
+	column 'P&L'
+		dataType: decimal
+		formatString: \$#,0.00;-\$#,0.00;\$#,0.00
+		summarizeBy: none
+		sourceColumn: pnl
+
+	column 'Is Settled'
+		dataType: boolean
+		summarizeBy: none
+		sourceColumn: is_settled
+
+	column 'Is Win'
+		dataType: boolean
+		summarizeBy: none
+		sourceColumn: is_win
+
+	partition Trades = m
+		mode: import
+		source =
+				let
+				    Source = LoadCsv("fact_trades.csv"),
+				    Typed = Table.TransformColumnTypes(
+				        Source,
+				        {
+				            {"trade_id", Int64.Type}, {"mode", type text}, {"placed_at", type datetime},
+				            {"station_id", type text}, {"target_date", type date}, {"strategy", type text},
+				            {"side", type text}, {"bracket_low", type number}, {"bracket_high", type number},
+				            {"bracket_unit", type text}, {"model_probability", type number},
+				            {"market_price", type number}, {"edge", type number}, {"stake", Currency.Type},
+				            {"fill_price", type number}, {"observed_high", type number},
+				            {"outcome", type text}, {"pnl", Currency.Type}
+				        },
+				        "en-US"
+				    ),
+				    AddedBracket = Table.AddColumn(
+				        Typed,
+				        "bracket",
+				        each
+				            let
+				                Unit = "°" & [bracket_unit],
+				                Low = Number.ToText([bracket_low], "0.0", "en-US"),
+				                High = Number.ToText([bracket_high], "0.0", "en-US")
+				            in
+				                if [bracket_low] = null then High & Unit & " or below"
+				                else if [bracket_high] = null then Low & Unit & " or higher"
+				                else Low & "–" & High & Unit,
+				        type text
+				    ),
+				    AddedIsSettled = Table.AddColumn(
+				        AddedBracket,
+				        "is_settled",
+				        each List.Contains({"WIN", "LOSS", "CLOSED"}, [outcome]),
+				        type logical
+				    ),
+				    AddedIsWin = Table.AddColumn(
+				        AddedIsSettled,
+				        "is_win",
+				        each [outcome] = "WIN" or ([outcome] = "CLOSED" and [pnl] > 0),
+				        type logical
+				    ),
+				    Removed = Table.RemoveColumns(AddedIsWin, {"bracket_low", "bracket_high", "bracket_unit"})
+				in
+				    Removed

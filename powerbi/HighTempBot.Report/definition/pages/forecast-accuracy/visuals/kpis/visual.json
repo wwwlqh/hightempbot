@@ -1,0 +1,108 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.7.0/schema.json",
+  "name": "kpis",
+  "position": {
+    "x": 24,
+    "y": 88,
+    "z": 3000,
+    "width": 1232,
+    "height": 104,
+    "tabOrder": 3000
+  },
+  "visual": {
+    "visualType": "cardVisual",
+    "query": {
+      "queryState": {
+        "Data": {
+          "projections": [
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Key Measures"
+                    }
+                  },
+                  "Property": "Forecasts Scored"
+                }
+              },
+              "queryRef": "Key Measures.Forecasts Scored",
+              "nativeQueryRef": "Forecasts Scored"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Key Measures"
+                    }
+                  },
+                  "Property": "MAE (°C)"
+                }
+              },
+              "queryRef": "Key Measures.MAE (°C)",
+              "nativeQueryRef": "MAE (°C)"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Key Measures"
+                    }
+                  },
+                  "Property": "RMSE (°C)"
+                }
+              },
+              "queryRef": "Key Measures.RMSE (°C)",
+              "nativeQueryRef": "RMSE (°C)"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Key Measures"
+                    }
+                  },
+                  "Property": "Bias (°C)"
+                }
+              },
+              "queryRef": "Key Measures.Bias (°C)",
+              "nativeQueryRef": "Bias (°C)"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Key Measures"
+                    }
+                  },
+                  "Property": "Within 1 °C"
+                }
+              },
+              "queryRef": "Key Measures.Within 1 °C",
+              "nativeQueryRef": "Within 1 °C"
+            },
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Key Measures"
+                    }
+                  },
+                  "Property": "Best Model"
+                }
+              },
+              "queryRef": "Key Measures.Best Model",
+              "nativeQueryRef": "Best Model"
+            }
+          ]
+        }
+      }
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

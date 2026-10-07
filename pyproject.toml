@@ -1,0 +1,66 @@
+[project]
+name = "hightempbot"
+version = "0.1.0"
+description = "Automated Polymarket daily max temperature betting bot"
+requires-python = ">=3.11"
+dependencies = [
+    # Calibration
+    "properscoring>=0.1",
+    "scipy>=1.12",
+    "numpy>=1.26",
+
+    # Actuals ingestion
+    "requests>=2.31",
+
+    # Scheduling
+    "APScheduler>=3.10,<4.0",
+    "pytz>=2024.1",
+
+    # Dashboard
+    "fastapi>=0.110",
+    "uvicorn>=0.27",
+
+    # Config
+    "pydantic-settings>=2.1",
+
+    # Polymarket CLOB V2 (April 2026 migration)
+    "py-clob-client-v2>=1.0.1",
+    "py-builder-relayer-client>=0.0.2rc1",
+    "python-dotenv>=1.0",
+
+    # Data
+    "pandas>=2.2",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "httpx>=0.27",
+]
+# Research-only deps (backtest/scripts, notebooks/); not needed by the bot.
+research = [
+    "matplotlib>=3.8",
+    "scikit-learn>=1.4",
+]
+
+# ce-code-review P2 #63: expose the 5 operator CLIs as installed entry points
+# so they can be invoked as bare commands (e.g. `htb-live-go-no-go`) instead
+# of `python -m hightempbot.cli.live_go_no_go`. Names use the `htb-` prefix.
+[project.scripts]
+htb-derive-poly-creds = "hightempbot.cli.derive_poly_creds:main"
+htb-env-parity = "hightempbot.cli.env_parity:main"
+htb-live-go-no-go = "hightempbot.cli.live_go_no_go:main"
+htb-operator = "hightempbot.cli.operator:main"
+htb-poly-wallet-diagnostics = "hightempbot.cli.poly_wallet_diagnostics:main"
+htb-resolve-pending-via-wu = "hightempbot.cli.resolve_pending_via_wu:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
