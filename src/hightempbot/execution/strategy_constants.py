@@ -77,7 +77,7 @@ REF_START_DATE = "2024-03-01"
 
 # --- LUT calibration ---
 LUT_STALE_HOURS = 36
-# Wiki-canonical readiness threshold for CalibrationModel.is_ready().
+# Readiness threshold for CalibrationModel.is_ready().
 # Mirror of calibration/model.py::MIN_PAIRS; keep the two in sync.
 MIN_PAIRS = 30
 
@@ -238,7 +238,7 @@ EARLY_RESOLUTION_ENABLED = False
 POLYMARKET_FALLBACK_DAYS = 1
 
 # --- Per-strategy 4-stack (NO / YMID / TAIL / YHIGH) ---
-# Optimum Strategy spec from polybot wiki, locked 2026-05-06; YHIGH added
+# Strategy spec locked 2026-05-06; YHIGH added
 # 2026-05-07 as the 4th strategy from backtest/results/per_strategy_detail.md.
 # Each bracket on every betting tick is evaluated against all four strategies
 # independently; a bracket can produce up to one signal per strategy. See

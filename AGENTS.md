@@ -3,26 +3,6 @@
 This file is the single source of truth for agents (Claude Code, Codex, etc.)
 working in this repo. See `README.md` for product/architecture overview.
 
-## Knowledge wiki (read this before exploring source files)
-
-The agent-orientation knowledge base lives **in-repo** at `wiki/` (the old
-external `polybot/wiki` no longer exists).
-
-**Always read the wiki before reading source files.** It saves tokens and
-preserves context. Reading order (per `wiki/README.md`):
-
-1. `wiki/README.md` — orientation, layout, hard rules
-2. `wiki/invariants.md` — rules that look optional but aren't
-3. `wiki/glossary.md` — domain terms (`p_E`, `p_L_loose`, TAIL, fp_min, …)
-4. `wiki/map.md` — pointer-only index into `src/`
-5. `wiki/concepts/Optimum Strategy.md` — the active production spec
-   (timestamped; the only page authoritative on current strategy parameters)
-
-After those, drill into `wiki/concepts/`, `wiki/decisions/` (why-arcs),
-`wiki/postmortems/`, `wiki/entities/`, and `wiki/sources/` (module
-summaries) as the task demands. The codebase is ground truth: if the wiki
-and `src/` disagree, `src/` wins — fix the wiki, not the code.
-
 ## Deployment
 
 - Server: `opc@<server-ip>` (Oracle Cloud)

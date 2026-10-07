@@ -6,7 +6,6 @@ Working artifacts. Not authoritative.
 - `AGENTS.md` (top-level) — agent workflow, trading invariants, code map
 - `CLAUDE.md` (top-level) — deploy commands, server connection details
 - `src/hightempbot/` — the live code
-- [`../wiki/`](../wiki/README.md) — in-repo knowledge base (start at `wiki/README.md`; always read before exploring source)
 
 **What lives here:**
 

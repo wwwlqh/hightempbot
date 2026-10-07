@@ -81,7 +81,7 @@ WALK_FORWARD_WINDOW_DAYS = 30
 
 # Minimum (pred, actual) pairs required for a walk-forward EMOS fit.
 # Intentionally more permissive than execution/strategy_constants.py::MIN_PAIRS=30:
-# the wiki's EMOS Calibration spec documents this asymmetry — LUT seed fits
+# the asymmetry is deliberate — LUT seed fits
 # at >=20 pairs (best-effort cold-start) while live betting requires >=30
 # pairs via CalibrationModel.is_ready().
 MIN_PAIRS_FOR_FIT = 20

@@ -1,8 +1,8 @@
 """Parity guard: live `_compute_signal_flavors` vs `backtest/sweep_lib.add_signal_flavors`.
 
 Ensures the live decision path produces identical p_model_<flavor> values to
-the backtest harness. A drift here invalidates the wiki's +62% TE backtest
-result as a paper-trade comparison anchor.
+the backtest harness. A drift here invalidates the backtest results as a
+paper-trade comparison anchor.
 
 Tolerance: bit-for-bit (np.allclose with rtol=0, atol=1e-12). Anything looser
 risks accumulating numerical drift that compounds across the 9 flavors.

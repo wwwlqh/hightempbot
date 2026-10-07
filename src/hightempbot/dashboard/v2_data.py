@@ -240,8 +240,7 @@ def _hour_set_display(hours) -> str | None:
 def _serialize_strategy_configs() -> dict[str, dict[str, object]]:
     """Serialize STRATEGY_CONFIGS-backed data for the Strategy dashboard tab.
 
-    Field names mirror the live config attribute names so the wiki's
-    [[Optimum Strategy]] cross-references stay valid.
+    Field names mirror the live config attribute names.
     """
     payload: dict[str, dict[str, object]] = {}
     disabled: list[str] = []

@@ -88,7 +88,6 @@ def parse_bracket(label: str) -> tuple[float, float, str] | None:
     Was "extends-to-next-bracket-lower-edge" semantics (val + 1.0 / val + 2.0) until
     2026-05-09 — produced the same `kind` classification but bounds shifted by
     +0.5°F at every edge vs live. Aligned to live 2026-05-09 after the parity audit.
-    See wiki/meta/parity-report-src-vs-backtest for the analysis.
     """
     if not label:
         return None
@@ -169,7 +168,7 @@ def bucket_low_for(p: float) -> float:
 # Was 0.5°C in this file from creation until 2026-05-09 — diverged from live
 # (which used 0.1°C from its creation), producing a backtest Gaussian that was
 # 5× wider-floored than what the live bot trades against. Aligned to live
-# 2026-05-09 after the parity audit. See wiki/meta/parity-report-src-vs-backtest.
+# 2026-05-09 after the parity audit.
 #
 # Diagnostic finding 2026-05-09: sigma floor accounts for ~$3 of the $121 BR100
 # train PnL shift; the bracket-parser P0-2 fix accounts for the other ~$118.

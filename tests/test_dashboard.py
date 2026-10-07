@@ -10,7 +10,7 @@ Coverage:
 - /api/v2/data returns the documented HTB_DATA shape with the right top-level
   keys, including /strategies (NO/YMID/TAIL) and /halt-related fields
 - Auth still works on the v2 routes (cookie required when password set)
-- The 3-strategy halt thresholds match the wiki Optimum Strategy
+- The 3-strategy halt thresholds match the strategy spec
 """
 
 from __future__ import annotations

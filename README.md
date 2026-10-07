@@ -65,10 +65,9 @@ trading.
 | Path | Contents |
 |---|---|
 | `src/hightempbot/` | The bot: ingestion, calibration, decision, execution, resolution, scheduler, dashboard |
-| `tests/` | 949 pytest tests |
+| `tests/` | pytest suite (944 tests) |
 | `backtest/` | Backtest harness, walk-forward evaluation and research results |
 | `powerbi/` | Power BI report, SQL extracts and data dictionary |
-| `wiki/` | Design notes: concepts, decisions and post-mortems |
 | `docs/` | Runbooks and design material |
 
 ## Tech stack

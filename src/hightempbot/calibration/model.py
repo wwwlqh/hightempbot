@@ -22,8 +22,7 @@ from hightempbot.persistence.actuals import actual_source_clause
 logger = logging.getLogger(__name__)
 
 # Minimum (forecast, actual) pairs before a station/horizon is considered calibrated.
-# 2026-05-14: restored to 30 to match the polybot wiki canonical spec
-# (EMOS Calibration: `is_ready()` requires n_samples >= 30, stricter than the
+# 2026-05-14: restored to 30 (`is_ready()` requires n_samples >= 30, stricter than the
 # LUT's 20). Prior 30 -> 20 lowering was reverted; live stations whose 30-day
 # rolling window yields < 30 pairs will stall on `not is_ready()` and skip
 # the betting pipeline until forecast-archive backfill catches them up.
