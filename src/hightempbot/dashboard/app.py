@@ -1097,6 +1097,34 @@ async def admin_operator_stop(request: Request) -> JSONResponse:
         conn.close()
 
 
+@app.post("/api/v2/admin/operator/wallet/refresh", dependencies=[Depends(_check_auth)])
+async def admin_wallet_refresh() -> JSONResponse:
+    """Refresh the configured POLY_FUNDER snapshot after a direct deposit.
+
+    This is a read-only reconciliation action. It never signs, submits, or
+    redirects a transfer; it only updates the dashboard's wallet-first view.
+    """
+    if _dry_run:
+        raise HTTPException(status_code=409, detail="Process is booted DRY_RUN.")
+
+    from hightempbot.persistence.wallet_reconciliation import refresh_wallet_snapshot
+    from hightempbot.runtime_config import get_config
+
+    conn = _conn()
+    try:
+        try:
+            refresh_wallet_snapshot(conn, config=get_config())
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("wallet snapshot refresh failed from dashboard", exc_info=True)
+            raise HTTPException(
+                status_code=503,
+                detail="Wallet snapshot refresh failed; check the bot logs.",
+            ) from exc
+        return JSONResponse({"ok": True})
+    finally:
+        conn.close()
+
+
 @app.post("/api/v2/admin/operator/start", dependencies=[Depends(_check_auth)])
 async def admin_operator_start(request: Request) -> JSONResponse:
     from hightempbot.execution.operator_control import OperatorControlError, start_processing

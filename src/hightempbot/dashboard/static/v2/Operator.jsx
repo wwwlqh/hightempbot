@@ -120,6 +120,10 @@ function OperatorPage({ d, setData }) {
   const canAttemptLiveAction = !operator.bootDryRun;
   const transferEligible = !!wallet.transferEligible;
   const returnWallet = wallet.returnWallet || "";
+  const funding = wallet.funding || {};
+  const tradingAccount = wallet.tradingAccount || {};
+  const fundingAddress = funding.destination || wallet.primaryWallet || "";
+  const fundingConfigured = funding.destinationConfigured === true && !!fundingAddress;
   const resetPreview = () => {
     setPreview(null);
     previewedRef.current = null;
@@ -275,12 +279,68 @@ function OperatorPage({ d, setData }) {
         )}
       </div>
 
+      <div className="card lg" style={{ marginTop: 14 }}>
+        <div className="card-head">
+          <div>
+            <div className="card-title">Fund trading wallet</div>
+            <div className="operator-sub">Fund once; the bot trades from this wallet</div>
+          </div>
+          {statusPill(fundingConfigured, fundingConfigured ? "ready" : "not configured")}
+        </div>
+        <div className="transfer-destination">
+          <span>Network / asset</span>
+          <div className="operator-value mono">{funding.network || "Polygon"} · {funding.asset || "pUSD"}</div>
+        </div>
+        <div className="transfer-destination" style={{ marginTop: 10 }}>
+          <span>Deposit destination</span>
+          <div className="operator-value mono" style={{ wordBreak: "break-all" }}>{fundingAddress || "POLY_FUNDER not configured"}</div>
+        </div>
+        <div className="transfer-destination" style={{ marginTop: 10 }}>
+          <span>Trading identity</span>
+          <div className="operator-value mono">{tradingAccount.signatureTypeLabel || "Polymarket CLOB"}</div>
+        </div>
+        <div className="operator-note">
+          Send pUSD on Polygon directly to this address. Do not send to Ethereum or to the pUSD token contract.
+          This panel only shows the destination; it never signs or moves funds. All orders use this wallet.
+        </div>
+        <div className="operator-note muted">
+          Return is optional. It only withdraws pUSD from the trading wallet; it is not needed to place trades or show them in Polymarket.
+        </div>
+        <div className="operator-actions">
+          <button
+            className="op-btn"
+            disabled={!fundingAddress}
+            onClick={() => navigator.clipboard && navigator.clipboard.writeText(fundingAddress)}
+          >
+            Copy address
+          </button>
+          {funding.polygonscanUrl && (
+            <a className="op-btn" href={funding.polygonscanUrl} target="_blank" rel="noreferrer">
+              View wallet
+            </a>
+          )}
+          <button
+            className="op-btn"
+            disabled={!!busy || !canAttemptLiveAction}
+            onClick={() => post("/api/v2/admin/operator/wallet/refresh")}
+          >
+            Refresh snapshot
+          </button>
+        </div>
+        {funding.tokenUrl && funding.tokenAddress && (
+          <div className="operator-note muted">
+            pUSD contract reference only (never use as the deposit destination): {" "}
+            <a href={funding.tokenUrl} target="_blank" rel="noreferrer" className="mono">{funding.tokenAddress}</a>
+          </div>
+        )}
+      </div>
+
       <div className="operator-grid" style={{ marginTop: 14 }}>
         <div className="card lg">
           <div className="card-head">
             <div>
               <div className="card-title">Return transfer</div>
-              <div className="operator-sub">pUSD from bot deposit wallet to configured return wallet</div>
+              <div className="operator-sub">Optional withdrawal — not required for trading</div>
             </div>
             {statusPill(transferEligible, transferEligible ? "ready" : "locked")}
           </div>
@@ -299,6 +359,7 @@ function OperatorPage({ d, setData }) {
             <button className="op-btn danger" disabled={!!busy || !amount || !canAttemptLiveAction} onClick={submitTransfer}>Transfer</button>
           </div>
           {wallet.transferBlockedReason && <div className="operator-note">{wallet.transferBlockedReason}</div>}
+          <div className="operator-note muted">Return is optional and removes capital from the wallet used by the bot.</div>
           {preview && (
             <div className={"transfer-preview " + (preview.ok ? "ok" : "bad")}>
               <div><strong>{preview.ok ? "Preview OK" : "Preview refused"}</strong></div>

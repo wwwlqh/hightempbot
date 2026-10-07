@@ -744,6 +744,50 @@ class TestV2DataEndpoint:
         assert body["ok"] is False
         assert any("DRY_RUN" in err for err in body["preview"]["errors"])
 
+    def test_wallet_refresh_is_read_only_and_refuses_dry_run(self, client):
+        resp = client.post("/api/v2/admin/operator/wallet/refresh")
+
+        assert resp.status_code == 409
+        assert "DRY_RUN" in resp.json()["detail"]
+
+    def test_wallet_refresh_route_reconciles_live_funder_without_transfer(self, tmp_path, monkeypatch):
+        from hightempbot.runtime_config import Config, set_config
+
+        wallet = "0x" + "d" * 40
+        db_path = tmp_path / "wallet-refresh.db"
+        init_db(str(db_path))
+        configure(str(db_path), dry_run=False, initial_bankroll=1000.0)
+        set_config(Config(_env_file=None, dry_run=False, poly_funder=wallet))
+        calls = []
+
+        def _fake_refresh(conn, *, config):
+            calls.append((conn, config.poly_funder))
+            return None
+
+        monkeypatch.setattr(
+            "hightempbot.persistence.wallet_reconciliation.refresh_wallet_snapshot",
+            _fake_refresh,
+        )
+        try:
+            resp = TestClient(app).post("/api/v2/admin/operator/wallet/refresh")
+
+            assert resp.status_code == 200
+            assert resp.json() == {"ok": True}
+            assert len(calls) == 1
+            assert calls[0][1] == wallet
+        finally:
+            set_config(None)
+
+    def test_operator_exposes_direct_funding_flow(self, client):
+        resp = client.get("/static/v2/Operator.jsx")
+
+        assert resp.status_code == 200
+        assert "Fund trading wallet" in resp.text
+        assert "Send pUSD on Polygon directly" in resp.text
+        assert "/api/v2/admin/operator/wallet/refresh" in resp.text
+        assert "Return is optional" in resp.text
+        assert "orders use this wallet" in resp.text
+
     def test_unsupported_source_is_not_reported_as_missing_lut(self, db, client):
         _insert_enrolled_station(
             db,

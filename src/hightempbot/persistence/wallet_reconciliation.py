@@ -17,7 +17,12 @@ from hightempbot.db.connection import (
 from hightempbot.execution.live_readiness import redact_operator_text
 from hightempbot.execution.strategy_constants import REDEEMABLE_PAYOUT_VALUE_FRACTION
 from hightempbot.persistence.ledger import decode_event_detail, poly_fee_charge
-from hightempbot.polymarket.primitives import is_address, mask_address
+from hightempbot.polymarket.primitives import (
+    CHAIN_ID,
+    PUSD_ADDRESS,
+    is_address,
+    mask_address,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -1633,7 +1638,41 @@ def wallet_dashboard_payload(
     elif local_pending_usd > 0:
         transfer_blocked_reason = "A local order is still being submitted; wait for submit/cancel before transfer."
     transfer_eligible = actions_enabled and not dry_run and not transfer_blocked_reason
+    try:
+        signature_type = int(getattr(config, "poly_signature_type", 0) or 0)
+    except (TypeError, ValueError):
+        signature_type = -1
+    signature_type_label = {
+        0: "EOA",
+        1: "POLY_PROXY",
+        2: "POLY_GNOSIS_SAFE",
+        3: "POLY_1271",
+    }.get(signature_type, "UNKNOWN")
     return {
+        "funding": {
+            "network": "Polygon",
+            "chainId": CHAIN_ID,
+            "asset": "pUSD",
+            "tokenAddress": PUSD_ADDRESS,
+            "destination": wallet_address,
+            "destinationConfigured": is_address(wallet_address),
+            "polygonscanUrl": (
+                f"https://polygonscan.com/address/{wallet_address}"
+                if is_address(wallet_address)
+                else ""
+            ),
+            "tokenUrl": f"https://polygonscan.com/token/{PUSD_ADDRESS}",
+        },
+        "tradingAccount": {
+            "network": "Polygon",
+            "chainId": CHAIN_ID,
+            "collateral": "pUSD",
+            "signatureType": signature_type,
+            "signatureTypeLabel": signature_type_label,
+            "funder": wallet_address,
+            "funderConfigured": is_address(wallet_address),
+            "ordersUseFunder": bool(wallet_address) and signature_type in {0, 1, 2, 3},
+        },
         "primaryWallet": wallet_address,
         "primaryWalletLabel": mask_address(wallet_address),
         "source": "POLY_FUNDER",

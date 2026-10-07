@@ -23,6 +23,7 @@ from hightempbot.runtime_config import Config, set_config
 
 class _Cfg:
     poly_funder = "0x" + "d" * 40
+    poly_signature_type = 3
     wallet_snapshot_freshness_ttl_s = 300
     live_onchain_verify_enabled = True
     live_balance_tolerance_usd = 0.25
@@ -66,6 +67,46 @@ def test_records_wallet_snapshot_and_marks_it_fresh(tmp_path):
         assert payload["actionsEnabled"] is False
         assert payload["transferEligible"] is False
         assert any("wallet trade" in w for w in payload["warnings"])
+    finally:
+        conn.close()
+
+
+def test_wallet_payload_publishes_direct_polygon_funding_target(tmp_path):
+    conn = init_db(tmp_path / "funding.db")
+    try:
+        payload = wallet_dashboard_payload(conn, config=_Cfg(), dry_run=True)
+
+        funding = payload["funding"]
+        assert funding["network"] == "Polygon"
+        assert funding["chainId"] == 137
+        assert funding["asset"] == "pUSD"
+        assert funding["destination"] == _Cfg.poly_funder
+        assert funding["destinationConfigured"] is True
+        assert funding["polygonscanUrl"].endswith(_Cfg.poly_funder)
+        assert funding["tokenUrl"].endswith("0xC011a7E12a19f7B1f670d46F03B03f3342E82DFB")
+
+        trading = payload["tradingAccount"]
+        assert trading["network"] == "Polygon"
+        assert trading["collateral"] == "pUSD"
+        assert trading["signatureType"] == 3
+        assert trading["signatureTypeLabel"] == "POLY_1271"
+        assert trading["funder"] == _Cfg.poly_funder
+        assert trading["ordersUseFunder"] is True
+    finally:
+        conn.close()
+
+
+def test_wallet_payload_fails_closed_for_unknown_signature_type(tmp_path):
+    class _BadCfg(_Cfg):
+        poly_signature_type = "not-an-int"
+
+    conn = init_db(tmp_path / "unknown-signature.db")
+    try:
+        trading = wallet_dashboard_payload(conn, config=_BadCfg(), dry_run=True)["tradingAccount"]
+
+        assert trading["signatureType"] == -1
+        assert trading["signatureTypeLabel"] == "UNKNOWN"
+        assert trading["ordersUseFunder"] is False
     finally:
         conn.close()
 
