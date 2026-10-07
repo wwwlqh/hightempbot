@@ -1,7 +1,4 @@
-"""Ledger recording — INSERT bets, events, and resolutions.
-
-Source: parent R28-R31, origin R34, R62 (signal logging)
-"""
+"""Ledger writes: bets, signals, resolutions, closes, expiry and pruning."""
 
 from __future__ import annotations
 
@@ -13,37 +10,25 @@ from collections import defaultdict
 from datetime import date, timedelta
 
 from hightempbot.db.connection import utc_now_sql
+from hightempbot.decision.brackets import actual_in_bracket
 from hightempbot.execution.strategy_constants import POLY_FEE_THETA
 from hightempbot.persistence.actuals import actual_source_clause
 from hightempbot.resolution.gamma import winning_bracket_from_gamma
 from hightempbot.execution.types import BetSignal, OrderResult
 
-# Time bound for the resolution-label backfill: ignore resolved-but-unlabeled
-# rows older than this. Bounds the per-tick HTTP cost and stops re-fetching
-# permanently abandoned Polymarket markets every 15 min forever. UMA usually
-# finalizes within hours; anything still ambiguous after 14 days won't change.
+# Resolution-label backfill ignores rows older than this.
 _RESOLUTION_BACKFILL_LOOKBACK_DAYS = 14
 
 logger = logging.getLogger(__name__)
 
 
 def poly_fee_per_share(price: float, *, fee_theta: float = POLY_FEE_THETA) -> float:
-    """Polymarket V2 taker fee per share at ``price``: θ × p × (1 − p).
-
-    Peaks at p=0.50. Callers must ensure ``price`` is a finite float in
-    (0, 1); use ``poly_fee_charge`` if you need defensive coercion.
-    """
+    """Taker fee per share: θ·p·(1−p). ``price`` must be finite in (0, 1)."""
     return fee_theta * price * (1.0 - price)
 
 
 def poly_fee_charge(price: float | None, shares: float | None) -> float:
-    """Polymarket V2 taker fee in USDC for ``shares`` filled at ``price``.
-
-    Formula (weather / economics / culture / other category):
-        fee = shares × θ × p × (1 − p),  with θ = POLY_FEE_THETA = 0.05.
-    Maker rebates are not modeled — taker is the conservative direction.
-    Returns 0.0 on missing/invalid inputs so callers can use it unconditionally.
-    """
+    """Taker fee in USD for ``shares`` at ``price``; 0.0 on invalid input."""
     try:
         p = float(price)
         s = float(shares)
@@ -55,11 +40,7 @@ def poly_fee_charge(price: float | None, shares: float | None) -> float:
 
 
 def _bet_entry_fee(row) -> float:
-    """Recompute the entry-side Polymarket fee for an existing ledger row.
-
-    Falls back to ``fill_price``/``fill_size`` (or ``bet_size/fill_price``) when
-    the historical row has no ``poly_entry_fee`` cached in event_detail.
-    """
+    """Entry fee for a ledger row: cached ``poly_entry_fee`` or recomputed from the fill."""
     detail = decode_event_detail(row["event_detail"]) if "event_detail" in row.keys() else {}
     cached = detail.get("poly_entry_fee")
     if cached is not None:
@@ -104,12 +85,7 @@ def _close_exit_fee(row, detail: dict) -> float:
 
 
 def backfill_fee_adjusted_pnl(conn: sqlite3.Connection) -> int:
-    """Convert historical settled ledger PnL from gross to net-of-fees.
-
-    New resolution/close writes persist ``pnl_gross`` in event_detail, so this
-    migration skips those rows. Historical rows without that marker are treated
-    as gross PnL and adjusted exactly once.
-    """
+    """One-time migration of old settled rows (no ``pnl_gross`` marker) to net-of-fee PnL."""
     rows = conn.execute(
         """SELECT id, outcome, pnl, bet_size, fill_price, fill_size, event_detail
         FROM ledger
@@ -229,20 +205,8 @@ def _merge_execution_detail(
 
 
 def _build_bet_event_detail(signal: BetSignal) -> str | None:
-    """Serialize a BetSignal's gate context + strategy metadata into event_detail JSON.
-
-    Keys written:
-      - All entries from `signal.gate_results` (except internal-prefix keys
-        starting with `_`, which are pulled out for first-class fields below).
-      - bracket_low / bracket_high / bracket_unit
-      - wu_forecast_c / wu_consensus_verdict
-      - strategy / signal_used / signal_value (4-stack router, F-009/F-011 fix)
-      - tail_votes (only when strategy == "TAIL"; carries the 4-component
-        breakdown stashed by `_evaluate_strategy` under gate_results["_tail_votes"]).
-
-    Returns None when the signal has no gate context to record (preserves the
-    legacy single-gate behavior where empty gate_results suppressed event_detail).
-    """
+    """event_detail JSON for a signal: gate results (minus ``_`` keys), bracket,
+    WU, strategy and anchor fields, and TAIL votes. None if there are no gates."""
     if not signal.gate_results and not signal.strategy:
         return None
     public_gates = {k: v for k, v in (signal.gate_results or {}).items() if not k.startswith("_")}
@@ -260,20 +224,11 @@ def _build_bet_event_detail(signal: BetSignal) -> str | None:
         detail["signal_used"] = signal.signal_used
     if signal.signal_value is not None:
         detail["signal_value"] = signal.signal_value
-    # Sticky entry_top_price: persisted on the slot's first fill so subsequent
-    # top-up ticks read it back as the walker's walk_anchor_price. Re-stamped
-    # on every top-up row (same value — idempotent). is-not-None so a 0.0
-    # sentinel never silently drops.
+    # Anchors read back by slot_state for later top-ups (earliest row wins).
     if signal.entry_top_price is not None:
         detail["entry_top_price"] = signal.entry_top_price
-    # Sticky entry_fill_vwap: the slot's first row stamps its decision-time
-    # book-walked VWAP; later top-ups read the EARLIEST row's value back
-    # (slot_state) as the VWAP-slip anchor. Re-stamped on every row (each row's
-    # own walk VWAP — only the earliest is read as the anchor). is-not-None so a
-    # 0.0 sentinel never silently drops. Added 2026-05-29 for the slip guard.
     if signal.entry_fill_vwap is not None:
         detail["entry_fill_vwap"] = signal.entry_fill_vwap
-    # F-009: TAIL components persisted only when the strategy fired.
     tail_votes = (signal.gate_results or {}).get("_tail_votes")
     if signal.strategy == "TAIL" and isinstance(tail_votes, dict) and tail_votes:
         detail["tail_votes"] = tail_votes
@@ -287,27 +242,10 @@ def pending_positions_by_strategy(
     station_id: str | None = None,
     dry_run: bool | None = None,
 ) -> list[sqlite3.Row]:
-    """Return PENDING ledger rows tagged with the given strategy.
+    """PENDING rows for ``strategy`` (rows with no strategy count as NO).
 
-    Used by the YMID TP/SL monitor to find rows that need their current
-    market price checked against TP/SL thresholds. Only `outcome = 'PENDING'`
-    rows are returned; CLOSED / WIN / LOSS / CANCELLED / EXPIRED are excluded.
-
-    `dry_run` filters by the bot's current operating mode:
-    * ``True``  -> only ``event_type='dry_run'`` rows
-    * ``False`` -> only ``event_type='bet'`` rows
-    * ``None``  -> both (default; preserves legacy callers)
-
-    The dry_run filter prevents a critical cross-mode bug: after flipping
-    ``DRY_RUN=False`` and restarting, the live TP/SL monitor would otherwise
-    iterate stale dry_run PENDING rows and call ``order_client.close_position``
-    on token_ids whose actual size on Polymarket is zero — most fail benignly
-    but any token-id collision with a real position triggers an unintended
-    sell.
-
-    Legacy rows (placed before the per-strategy router shipped) have no
-    `strategy` key in event_detail; `COALESCE(...,'NO')` defaults them to
-    'NO' so they do NOT appear in YMID monitor scans.
+    ``dry_run`` True/False limits to dry_run/bet rows so the live monitor never
+    tries to sell dry-run positions; None returns both.
     """
     if dry_run is True:
         event_types: tuple[str, ...] = ("dry_run",)
@@ -342,20 +280,10 @@ def _slot_predicate(
     strategy: str,
     ledger_event_types: tuple[str, ...],
 ) -> tuple[str, tuple[object, ...]]:
-    """Build the WHERE clause + params identifying a slot's non-cancelled rows.
+    """WHERE clause + params for a slot's non-cancelled rows.
 
-    A "slot" is the (station_id, target_date, threshold, side, bracket_low,
-    strategy) tuple — exactly what the legacy ``_strategy_idempotency_count``
-    keyed on. Centralizing the predicate so the consolidated ``slot_state``
-    SUM and anchor reads stay aligned on which rows belong to the slot.
-
-    Preserves one compatibility behavior from the legacy count gate:
-    - Floor-bracket bets carry NULL ``bracket_low``; dispatch on
-      ``bracket_low_val is None`` and use IS NULL explicitly (not a sentinel).
-
-    Legacy NULL-strategy rows (written before the per-strategy router) match
-    only when ``strategy='NO'`` via COALESCE(...,'NO'); they no longer
-    over-match every strategy key.
+    A slot is (station, target_date, threshold, side, bracket_low, strategy).
+    Floor brackets have NULL bracket_low; rows with no strategy count as NO.
     """
     if bracket_low_val is None:
         bracket_clause = "json_extract(event_detail, '$.bracket_low') IS NULL"
@@ -392,29 +320,11 @@ def slot_state(
     strategy: str,
     ledger_event_types: tuple[str, ...],
 ) -> tuple[float, float | None, float | None]:
-    """Return ``(slot_filled_usd, slot_anchor_price, slot_first_fill_vwap)`` in ONE query.
+    """``(filled_usd, entry_top_price, entry_fill_vwap)`` for a slot, in one query.
 
-    Single SELECT against the slot predicate covers the cumulative
-    non-cancelled exposure (USD), the sticky walker price anchor, and the
-    slot's first-fill book-walked VWAP. The decision-time hot path calls this
-    on every bracket; the merge keeps it to one SQL round-trip vs the legacy
-    multi-call pattern removed 2026-05-23.
-
-    Anchor sources, both from the earliest non-cancelled row
-    (``ORDER BY bet_ts ASC, id ASC``):
-      - ``slot_anchor_price`` = ``event_detail.entry_top_price`` — the sticky
-        price leash (YMID/YHIGH) and dedup signal.
-      - ``slot_first_fill_vwap`` = ``event_detail.entry_fill_vwap`` — the
-        VWAP-slip anchor (NO/TAIL top-ups). None for legacy/transition rows
-        written before the 2026-05-29 slip guard; callers must treat None as
-        "no slip cap" rather than re-anchoring to the live book.
-
-    Returns ``(0.0, None, None)`` when the slot has no matching rows.
-
-    Honors ``MAX_PENDING_AGE_MINUTES`` stale-PENDING exclusion. The anchor
-    reads are NOT age-gated: the earliest row's anchors are the slot's sticky
-    references regardless of its current outcome — that's the invariant the
-    top-up plan locks.
+    Exposure skips stale PENDING rows (MAX_PENDING_AGE_MINUTES) when the slot
+    also has a fill. The anchors come from the earliest non-cancelled row.
+    Returns ``(0.0, None, None)`` for an empty slot.
     """
     from hightempbot.execution.strategy_constants import MAX_PENDING_AGE_MINUTES
 
@@ -428,8 +338,6 @@ def slot_state(
         ledger_event_types=ledger_event_types,
     )
     age_minutes = int(max(0, MAX_PENDING_AGE_MINUTES))
-    # One round-trip: aggregate SUM/COUNT alongside a correlated anchor
-    # subquery scoped to the same predicate.
     sql = (
         f"SELECT "
         f"COALESCE(SUM(bet_size), 0) AS filled, "
@@ -442,9 +350,7 @@ def slot_state(
         f" ORDER BY bet_ts ASC, id ASC LIMIT 1) AS first_fill_vwap "
         f"FROM ledger WHERE {where}"
     )
-    # Note: the WHERE clause is reused three times in the SQL string (anchor
-    # subquery, vwap subquery, main FROM — in that order) so the bound-parameter
-    # tuple must be tripled to match.
+    # The WHERE clause appears three times, so the params are repeated.
     row = conn.execute(sql, (*params, *params, *params)).fetchone()
     if row is None:
         return 0.0, None, None
@@ -519,15 +425,15 @@ def record_bet(
             signal.edge,
             signal.bet_size_usd,
             signal.volume_usd or 0.0,
-            signal.bet_size_usd,  # bet_size = kelly_size after caps
+            signal.bet_size_usd,
             signal.limit_price if signal.limit_price > 0 else signal.fill_price,
             order_result.order_id if order_result else None,
             stored_fill_price,
             stored_fill_size,
             stored_fill_ts,
-            "PENDING",  # both live and dry-run use PENDING for capital tracking
-            None,  # pnl computed at resolution
-            None,  # kelly_multiplier (legacy, not used in Phase 2)
+            "PENDING",
+            None,  # pnl
+            None,  # kelly_multiplier (unused)
             event_type,
             event_detail,
             signal.prob_safe_floor,
@@ -546,10 +452,7 @@ def record_signal(
     tick_ts: str,
     outcome_label: str,
 ) -> None:
-    """Write a signal row to the signals table for dashboard display.
-
-    Called for every evaluated bracket — pass or fail.
-    """
+    """Write an evaluated bracket (pass or fail) to the signals table."""
     gates = signal.gate_results
     conn.execute(
         """INSERT INTO signals
@@ -612,18 +515,10 @@ def record_resolution(
     resolution_price: float | None = None,
     extra_detail: dict | None = None,
 ) -> bool:
-    """Update a ledger row with resolution outcome and net-of-fees P&L.
+    """Settle a PENDING row: store gross PnL minus the entry fee.
 
-    The caller passes the gross PnL computed from fill_price and bet_size;
-    this function subtracts the Polymarket entry-side taker fee so the
-    stored ``pnl`` matches what the wallet would actually realise. The fee
-    amount is also persisted to ``event_detail.poly_entry_fee`` so the
-    dashboard can sum it.
-
-    Returns ``True`` iff a row was actually written. Callers must respect
-    this when incrementing counters — a concurrent scheduler/operator race
-    can otherwise double-count the same resolution and lie to pipeline_health
-    (finding #12).
+    Returns True only if a row was written (False if already settled), so
+    concurrent settlers can't double-count.
     """
     row = conn.execute(
         "SELECT outcome, bet_size, fill_price, fill_size, event_detail FROM ledger WHERE id = ?",
@@ -710,9 +605,7 @@ def record_position_close(
     close_price = float(close_price)
     pnl_gross = close_price * held_size - bet_size
 
-    # Polymarket charges taker fees on BOTH the entry buy and the exit sell.
-    # Stops are the only flow that hits both legs (winners redeem at $1
-    # without a second trade), so fold both sides in here.
+    # Early closes pay the taker fee on both legs.
     entry_fee = _bet_entry_fee(row)
     exit_fee = poly_fee_charge(close_price, held_size)
     pnl_net = pnl_gross - entry_fee - exit_fee
@@ -776,10 +669,7 @@ def update_pending_bet_after_execution(
             dry_fill_size = order_result.fill_size
             dry_fill_ts = order_result.fill_ts
             dry_realized_edge = order_result.realized_edge
-        # dry-run paths now also refresh bet_size from
-        # the order_result so dashboards and downstream sims see the realised
-        # notional, not the pre-walker target. COALESCE keeps the original
-        # value when the result didn't carry one.
+        # Store the realized notional, not the pre-walk target.
         conn.execute(
             """UPDATE ledger
             SET order_id = COALESCE(order_id, ?),
@@ -828,12 +718,8 @@ def update_pending_bet_after_execution(
         return
 
     if order_result is not None and order_result.success:
-        # the success branch must NOT wipe real values
-        # with None. The walker anchors fill_price/fill_size to walker output
-        # before declaring success (walker.py: result.fill_price = filled_vwap
-        # if result.fill_price is None), so reaching this point with None is a
-        # contract violation. Refuse to write a half-complete row -- route
-        # through the cancel branch so the operator can reconcile manually.
+        # Success without a fill is a contract violation: cancel instead of
+        # writing a half-complete row.
         if order_result.fill_price is None or order_result.fill_size is None:
             logger.error(
                 "update_pending_bet_after_execution: success=True but "
@@ -990,17 +876,8 @@ def backfill_polymarket_resolution_labels(
     conn: sqlite3.Connection,
     station_id: str | None = None,
 ) -> int:
-    """Backfill ``event_detail.resolution_actual_label`` for resolved bets.
-
-    Terminal-loss settlement paths leave the winning bracket label empty
-    because the per-bet signal only proves the bet's own bracket lost. The
-    dashboard then shows a blank actual column; this function names the
-    winning bracket from Polymarket Gamma close-state once the event is
-    finalised.
-
-    Display-only — never writes ``actual_tmax`` (preserves WU/PROB_API-only
-    invariant for the ``actuals`` table).
-    """
+    """Fill ``event_detail.resolution_actual_label`` with the winning bracket
+    once Gamma shows the event final. Display only; never writes actuals."""
     base_where: list[str] = [
         "event_type IN ('bet', 'dry_run')",
         "outcome IN ('WIN', 'LOSS')",
@@ -1041,10 +918,6 @@ def backfill_polymarket_resolution_labels(
         except (TypeError, ValueError):
             continue
 
-        # winning_bracket_from_gamma applies the safety gate (all closed,
-        # single winner above threshold, parseable bounds). Returns None if
-        # any predicate fails — we leave the row alone and try again next
-        # tick rather than persisting a placeholder label.
         winning = winning_bracket_from_gamma(sid, target_day)
         if winning is None:
             skipped_groups.append((sid, target_date_str))
@@ -1068,9 +941,7 @@ def backfill_polymarket_resolution_labels(
             "resolution_bracket_high": winning_high,
             "resolution_label_backfilled_at": updated_at,
         }
-        # Re-read each row's event_detail inside the per-row UPDATE to shrink
-        # the read-modify-write window across the Gamma HTTP call. Other
-        # writers (fee/wu backfills) may have appended keys since the SELECT.
+        # Re-read event_detail in the UPDATE; it may have changed during the HTTP call.
         for row in group_rows:
             current = conn.execute(
                 "SELECT event_detail FROM ledger WHERE id = ?",
@@ -1084,8 +955,6 @@ def backfill_polymarket_resolution_labels(
                 (event_detail, row["id"]),
             )
             updated_total += 1
-        # Commit per (station, date) so a later-group failure preserves
-        # earlier progress — backfill is idempotent on already-labeled rows.
         conn.commit()
         _log_backfill_health(
             conn, sid, "OK",
@@ -1097,9 +966,6 @@ def backfill_polymarket_resolution_labels(
         )
 
     if skipped_groups and updated_total == 0:
-        # Surface persistent skip groups once per tick so dashboard sees the
-        # backfill ran (not silently broken). Group count is bounded by the
-        # 14-day lookback floor.
         first_skip_sid, first_skip_date = skipped_groups[0]
         _log_backfill_health(
             conn, station_id or first_skip_sid, "SKIP",
@@ -1132,21 +998,6 @@ def _actual_display_value(conn: sqlite3.Connection, station_id: str, actual_c: f
     return float(round(actual_c)), "C"
 
 
-def _actual_matches_market_bracket(
-    actual_display: float,
-    low: float | None,
-    high: float | None,
-) -> bool:
-    """Thin shim: delegates to ``brackets.actual_in_bracket``.
-
-    Single source of truth lives in ``execution.brackets`` so a future
-    boundary-rule change happens in one place. Kept under the existing
-    name so callers in this module read naturally.
-    """
-    from hightempbot.decision.brackets import actual_in_bracket
-    return actual_in_bracket(actual_display, low, high)
-
-
 def _fallback_actual_label(actual_display: float, unit: str) -> str:
     value = int(actual_display) if float(actual_display).is_integer() else actual_display
     return f"{value}\u00b0{unit}"
@@ -1169,7 +1020,7 @@ def _resolution_actual_label(
     for row in rows:
         low = row["bracket_low"]
         high = row["bracket_high"]
-        if _actual_matches_market_bracket(actual_display, low, high):
+        if actual_in_bracket(actual_display, low, high):
             return row["bracket_label"] or _fallback_actual_label(actual_display, unit), actual_display, unit
     return _fallback_actual_label(actual_display, unit), actual_display, unit
 
@@ -1183,7 +1034,7 @@ def _wu_actual_matches_polymarket(
     low = detail.get("resolution_bracket_low")
     high = detail.get("resolution_bracket_high")
     if low is not None or high is not None:
-        return _actual_matches_market_bracket(actual_display, low, high)
+        return actual_in_bracket(actual_display, low, high)
 
     polymarket_label = detail.get("resolution_actual_label")
     if polymarket_label:
@@ -1260,23 +1111,11 @@ def expire_stuck_pending(
     *,
     order_client=None,
 ) -> int:
-    """Expire PENDING bets older than max_age_days.
+    """Expire PENDING bets older than ``max_age_days`` (pnl 0) to free exposure.
 
-    Bets stuck in PENDING state (actuals source failed, market delisted, etc.)
-    permanently consume pending exposure cap. Expiring them releases the cap
-    so the bot can continue placing new bets.
-
-    ce-code-review P1 #14 + adversarial ADV-002 cascade: when an ``order_client``
-    is supplied, ROWS WITH ``order_id`` ARE CLOB-VERIFIED BEFORE EXPIRY.
-    If CLOB reports the order as MATCHED/FILLED, the row is left PENDING
-    (the periodic reconciler will eventually pick it up via get_trades) and
-    a critical pipeline_health row is written so the operator notices.
-    Without this guard, a real fill that the reconciler missed for >7 days
-    (extended CLOB outage, broken get_trades, etc.) would be silently
-    zero-PnL'd and the wallet would over-report realized_capital.
-
-    When ``order_client`` is None (legacy/test/dry-run path), the old
-    unconditional-expire behavior is preserved.
+    With an ``order_client``, rows with an order_id are checked on CLOB first:
+    matched or unverifiable orders stay PENDING and raise an alert. Without
+    one, everything old is expired.
     """
     excluded_outcomes_clause = (
         "outcome = 'PENDING' AND event_type IN ('bet', 'dry_run') "
@@ -1284,7 +1123,6 @@ def expire_stuck_pending(
         "AND DATE(bet_ts) < DATE('now', ? || ' days')"
     )
     if order_client is None:
-        # Legacy path: no CLOB visibility, expire blindly.
         result = conn.execute(
             f"UPDATE ledger SET outcome = 'EXPIRED', pnl = 0.0 "
             f"WHERE {excluded_outcomes_clause}",
@@ -1298,7 +1136,6 @@ def expire_stuck_pending(
             )
         return result.rowcount
 
-    # Order-client-aware path: pre-check each row with an order_id against CLOB.
     rows = conn.execute(
         f"SELECT id, order_id, station_id "
         f"FROM ledger WHERE {excluded_outcomes_clause}",
@@ -1310,7 +1147,7 @@ def expire_stuck_pending(
     for row in rows:
         oid = row["order_id"]
         bet_id = int(row["id"])
-        # Rows without order_id never reached CLOB — safe to expire blindly.
+        # No order_id: never reached CLOB.
         if not oid:
             conn.execute(
                 "UPDATE ledger SET outcome = 'EXPIRED', pnl = 0.0 "
@@ -1319,10 +1156,7 @@ def expire_stuck_pending(
             )
             expired += 1
             continue
-        # Pre-check CLOB. Any failure is fail-closed -- leave the row PENDING
-        # for the next pass rather than silently zero a real fill. Use
-        # reconciliation's bounded get_order so a hung CLOB read can't stall
-        # the expiry sweep (no leaky reach into execution.walker internals).
+        # Any CLOB read failure leaves the row PENDING.
         try:
             from hightempbot.persistence.reconciliation import _bounded_get_order
 
@@ -1355,7 +1189,6 @@ def expire_stuck_pending(
             )
             continue
         if status_up in _MATCHED:
-            # Real fill -- DO NOT EXPIRE. Surface to operator.
             logging.getLogger(__name__).error(
                 "expire_stuck_pending: row %s order_id=%s is MATCHED on CLOB but "
                 "still PENDING in ledger -- LEFT PENDING; manual reconcile needed",
@@ -1369,7 +1202,6 @@ def expire_stuck_pending(
                 f"PENDING; reconcile manually",
             )
             continue
-        # Order is dead on CLOB (CANCELED/EXPIRED/REJECTED/etc) -- safe to expire.
         conn.execute(
             "UPDATE ledger SET outcome = 'EXPIRED', pnl = 0.0 "
             "WHERE id = ? AND outcome = 'PENDING'",
@@ -1386,11 +1218,7 @@ def expire_stuck_pending(
 
 
 def prune_market_tokens(conn: sqlite3.Connection, retention_days: int = 3) -> int:
-    """Delete market_tokens rows for past dates. Returns count deleted.
-
-    Token IDs are only useful for active/upcoming markets. Past-date entries
-    are never queried again — safe to prune aggressively.
-    """
+    """Delete market_tokens rows for past dates. Returns count deleted."""
     result = conn.execute(
         """DELETE FROM market_tokens
         WHERE DATE(market_date) < DATE('now', ? || ' days')
@@ -1409,11 +1237,7 @@ def prune_market_tokens(conn: sqlite3.Connection, retention_days: int = 3) -> in
 
 
 def prune_pipeline_health(conn: sqlite3.Connection, retention_days: int = 7) -> int:
-    """Delete pipeline_health rows older than retention_days. Returns count deleted.
-
-    pipeline_health grows ~36K rows/day (42 stations x 6 stages x ~1 tick/min).
-    Dashboard only uses 6h-48h windows, so 7 days is more than sufficient.
-    """
+    """Delete pipeline_health rows older than retention_days. Returns count deleted."""
     result = conn.execute(
         """DELETE FROM pipeline_health
         WHERE created_at < datetime('now', ? || ' days')""",
@@ -1424,14 +1248,7 @@ def prune_pipeline_health(conn: sqlite3.Connection, retention_days: int = 7) -> 
 
 
 def prune_book_snapshots(conn: sqlite3.Connection, retention_days: int = 180) -> int:
-    """Delete book_snapshots rows older than retention_days. Returns count deleted.
-
-    Retention is intentionally LONG (default 180 days): book_snapshots is the
-    durable history of the CLOB prices each tick acted on, kept for calibration
-    refits and live/backtest parity. Do NOT tie this to the 3-7 day
-    market_tokens / pipeline_health prune windows. snapped_at is written in
-    SQLite canonical UTC form so this lexicographic comparison is correct.
-    """
+    """Delete book_snapshots older than retention_days (long: kept for refits/parity)."""
     result = conn.execute(
         """DELETE FROM book_snapshots
         WHERE snapped_at < datetime('now', ? || ' days')""",
