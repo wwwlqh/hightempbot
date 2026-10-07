@@ -1,20 +1,5 @@
-"""Per-station betting tick — extracted from station_scanner.py (U9).
-
-Runs every 15 min once the latest complete previous-day ensemble is ready.
-Pulls market+CLOB data, fetches the ensemble forecast, and hands off to
-`execution.pipeline.run_betting_cycle` to evaluate strategies and place
-orders.
-
-Imports (post-U11):
-- Shared helpers `_target_date_for_ready_cycle`, `_last_run_ensemble_ready`,
-  `_notify` from `station_scanner.py`.
-- Data helpers `_fetch_market_data`, `_fetch_ensemble` from `market_data.py`.
-- Healing helpers `_attempt_seed_missing_lut`, `_heal_station_unit_if_wrong`
-  from `station_healing.py`.
-
-Preserve the `betting_tick.<symbol>` module-level bindings — the test suite
-patches against these names rather than reaching through to the origin module.
-"""
+"""Per-station betting tick: cheap gates, then market data, then the ensemble,
+then ``run_betting_cycle``. Tests patch the names imported into this module."""
 
 from __future__ import annotations
 
@@ -47,12 +32,7 @@ logger = logging.getLogger(__name__)
 
 
 def _top_ask(book) -> tuple[float | None, float | None]:
-    """Return the best (cheapest) ask ``(price, size)`` from a CLOB book.
-
-    Parses defensively: the attached ``_yes_book`` / ``_no_book`` dicts may be
-    None, empty, or malformed. Returns ``(None, None)`` on anything that isn't
-    a well-formed ask ladder. Never raises.
-    """
+    """Cheapest ask ``(price, size)``, or ``(None, None)`` for a bad book."""
     try:
         if not isinstance(book, dict):
             return (None, None)
@@ -80,13 +60,7 @@ def _top_ask(book) -> tuple[float | None, float | None]:
 
 
 def _persist_book_snapshots(conn, station_id, target_date_iso, mdata, log_health) -> int:
-    """Persist one top-of-book snapshot row per bracket for this tick.
-
-    Best-effort forensic record of the exact CLOB state the tick acted on
-    (needed for calibration refits + live/backtest parity). NEVER raises: a
-    snapshot failure must not break the betting tick. On failure it logs a
-    single pipeline_health row for the whole tick. Returns rows written.
-    """
+    """Save each bracket's top of book for this tick. Never raises. Returns rows written."""
     try:
         snapped_at = utc_now_sql()
         rows: list[tuple] = []
@@ -142,22 +116,16 @@ def run_betting_tick(
     dry_run: bool,
     data_dir: str = "data",
 ) -> None:
-    """Execute one 15-min betting tick for a station.
+    """One betting tick for a station (own DB connection).
 
-    Targets the current UTC market date after the UTC readiness gate confirms
-    every expected Open-Meteo model has published its latest usable run.
-    The exact model set is checked again before scoring.
-
-    Betting window: every 15 min until the station-local cutoff hour on the
-    market's target local date.
-
-    Opens its own DB connection (WAL mode, thread-safe).
+    Bets on the current UTC date's market, only while the station's local
+    date equals it and once every Open-Meteo model has published its run.
     """
     station_id = station.icao
     tz = pytz.timezone(station.timezone)
     local_now = datetime.now(tz)
 
-    # Stagger API calls: random 0-30s delay to avoid OM "too many concurrent requests"
+    # Random delay to avoid Open-Meteo concurrency errors.
     time.sleep(random.uniform(0, 30))
 
     logger.info("Betting tick %s: %s local, fetching data...", station_id, local_now.strftime("%H:%M"))
@@ -170,7 +138,6 @@ def run_betting_tick(
             """Log to pipeline_health for dashboard visibility."""
             log_pipeline_health(conn, station_id, stage, status, msg)
 
-        # Log scan so dashboard Last Scan stays fresh
         _log_health("scan", "OK", f"betting tick {local_now.strftime('%H:%M')} local")
 
         try:
@@ -197,11 +164,7 @@ def run_betting_tick(
             return
         target_date_iso = target_date.isoformat()
         local_date = local_now.date()
-        # Trading window per station = local calendar day of target_date
-        # (00:00 to 24:00). Strict equality closes both ends — before the
-        # window opens (local_date < target_date) AND after it closes
-        # (local_date > target_date). This replaces the old one-sided gate
-        # which left east-of-UTC stations bettable for the WRONG target_date.
+        # Only bet during the station's local target_date.
         if local_date != target_date:
             relation = "before" if local_date < target_date else "past"
             _log_health(
@@ -222,8 +185,7 @@ def run_betting_tick(
             return
 
         from hightempbot.execution.strategy_constants import BETTING_LOCAL_CUTOFF_HOUR, STRATEGY_CONFIGS
-        # BETTING_LOCAL_CUTOFF_HOUR == 0 means "no cutoff" — WU consensus gate
-        # provides per-bet freshness safety, so the coarse time cutoff is opt-in.
+        # BETTING_LOCAL_CUTOFF_HOUR == 0 means no cutoff.
         if (
             BETTING_LOCAL_CUTOFF_HOUR > 0
             and local_date == target_date
@@ -254,16 +216,7 @@ def run_betting_tick(
             logger.debug("Station %s: %s", station_id, msg)
             return
 
-        # --- Latest complete N -> N+1 readiness gate ---
-        # Starting at 00Z on UTC date N+1, the bot polls Open-Meteo metadata
-        # until every model's latest usable UTC-day-N run is available.
-        # Once ready, the ensemble is fetched once for the N+1 target date
-        # and locked for the rest of the UTC cycle. Before
-        # readiness, the tick skips (no ensemble fetch, no market eval, no
-        # bet) and logs which model is still missing.
-        # Market price polling (15-min cadence) resumes after readiness;
-        # the locked ensemble is reused all day until the next UTC midnight
-        # resets the cycle.
+        # --- Readiness: wait until every model's previous-day run is out ---
         ready, missing = _last_run_ensemble_ready(now_utc)
         if not ready:
             _log_health(
@@ -287,8 +240,7 @@ def run_betting_tick(
             logger.debug("Station %s: source %s unsupported for betting", station_id, station.resolution_source)
             return
 
-        # --- Early gates: skip before any API calls ---
-        # 0. Coverage gate (cheap DB query — skip stations below MIN_COVERAGE_PCT coverage)
+        # --- Cheap DB gates before any API call ---
         from hightempbot.execution.strategy_constants import (
             LUT_STALE_HOURS, MIN_COVERAGE_PCT, REF_START_DATE,
         )
@@ -318,10 +270,7 @@ def run_betting_tick(
                              station_id, coverage * 100, MIN_COVERAGE_PCT * 100)
                 return
 
-        # 1. Stale-LUT gate — fires when lut_bucket_stats is empty or too
-        # old. Gate cascade is coverage → stale_lut → max_per_market; the
-        # old BSS and DAILY_MAX_BETS gates were retired in the Phase F
-        # teardown (2026-04-22).
+        # Stale or missing LUT.
         lut_row = conn.execute(
             "SELECT MAX(refreshed_at) AS last FROM lut_bucket_stats WHERE station_id = ?",
             (station_id,),
@@ -359,17 +308,7 @@ def run_betting_tick(
             )
             return
 
-        # --- Actuals freshness gate ---
-        # `is_ready()` only checks `n_samples >= MIN_PAIRS`, which a
-        # bulk-loaded historical import satisfies even when the live
-        # scrape hasn't run in months. Stations with an unsupported
-        # `resolution_source` (e.g., ncei/ims/cwa today) would otherwise
-        # silently bet on calibration that has never been refreshed
-        # against recent data. Fail closed when the freshest actual lags
-        # the station's local "today" by more than ACTUALS_STALE_DAYS.
-        # Runs after the LUT stale gate (cheaper query first) and before
-        # any market/CLOB/ensemble fetch so blocked stations don't burn
-        # rate-limit budget.
+        # --- Actuals freshness (enough samples isn't enough if they're old) ---
         from hightempbot.execution.strategy_constants import ACTUALS_STALE_DAYS
         latest_actual_row = conn.execute(
             "SELECT MAX(local_date) AS latest FROM actuals "
@@ -402,25 +341,7 @@ def run_betting_tick(
             )
             return
 
-        # --- Market-already-resolved gate ---
-        # Once the resolution tick records an event-level Polymarket Gamma
-        # close for this (station, target_date), there is nothing left to do
-        # this cycle: the winning bracket is pinned, no fresh bets can settle
-        # before UTC midnight rotates target_date. Skip before any Gamma /
-        # CLOB / ensemble fetch so a resolved market stops burning the
-        # 15-min scrape budget for the rest of the local day.
-        #
-        # Intentional exclusions:
-        # - outcome='PUSH' — accounting downgrade (NULL fill_price), the
-        #   market itself may still be trading other brackets. (#1)
-        # - polymarket_gamma_closed_bracket — one bracket closing (typically
-        #   a loser when intraday actual passes it) does NOT pin the winner;
-        #   the remaining brackets are still actively trading. (#2)
-        # - wu_actual_fallback — Polymarket may still resolve later, and the
-        #   bot should resume betting next day if the row is rolled back. (#23)
-        # Mode-aware event_type filter mirrors line 507's MAX_PER_MARKET gate
-        # so a stale dry_run row from yesterday's staging test doesn't block
-        # today's live bets (and vice versa). (#11)
+        # --- Skip markets already settled from Gamma's event-level close ---
         gate_event_types = ("bet",) if not dry_run else ("dry_run",)
         gate_placeholders = ",".join("?" * len(gate_event_types))
         resolved_row = conn.execute(
@@ -463,15 +384,10 @@ def run_betting_tick(
 
             _log_health("market", "OK", f"{len(mdata)} brackets ({try_date_iso})")
 
-            # Refresh volume24hr from Gamma API (DB cache doesn't store volume)
             from hightempbot.scheduler.market_data import refresh_market_volume
             refresh_market_volume(station_id, try_date, mdata, conn=conn)
 
-            # CLOB enrichment — check for $0.99 walls.
-            # Run all per-bracket /price + /book fetches concurrently against
-            # the shared CLOB executor. Sequential calls would hold the
-            # APScheduler thread for up to ~660s in worst case (22 calls x
-            # 30s timeout) and miss misfire_grace_time on a slow CLOB.
+            # Fetch CLOB prices and books for every bracket, a few at a time.
             try:
                 reader = ClobReader()
                 clob_ok = 0
@@ -487,11 +403,6 @@ def run_betting_tick(
                     if no_token:
                         tokens_to_fetch.append((bi, "no", no_token))
 
-                # Stage the enrichment so we never submit /price and /book
-                # for every token at once. Each ClobReader call is already
-                # timeout-bounded by the shared CLOB executor; this small
-                # outer pool only gives modest parallelism without flooding
-                # the shared executor with abandoned work during API slowness.
                 price_results: dict[tuple[int, str], float | None] = {}
                 book_results: dict[tuple[int, str], dict | None] = {}
                 if tokens_to_fetch:
@@ -575,17 +486,10 @@ def run_betting_tick(
                             else:
                                 missing_books += 1
 
-                # --- Persist per-bracket top-of-book snapshot (best-effort) ---
-                # First durable record of the exact CLOB prices this tick acts
-                # on; needed for calibration refits + live/backtest parity.
-                # Self-contained try/except inside — a snapshot failure never
-                # breaks the enrichment path or the betting tick.
                 _persist_book_snapshots(
                     conn, station_id, try_date_iso, mdata, _log_health,
                 )
 
-                # Count NO-side valid prices. NO favorites are valid even above
-                # 0.90, because the 4-strategy spec explicitly allows them.
                 no_valid = sum(1 for mkt in mdata.values()
                                if mkt.get("best_bid") is not None and mkt["best_bid"] > 0)
 
@@ -645,7 +549,6 @@ def run_betting_tick(
                 )
                 continue
 
-            # Found a live market
             market_data = mdata
             target_date = try_date
             target_date_iso = try_date_iso
@@ -699,15 +602,10 @@ def run_betting_tick(
             try:
                 from hightempbot.runtime_config import get_config
                 from hightempbot.execution.walker import OrderClient
-                # Process-wide singleton: avoids re-reading .env every tick
-                # (ce-code-review P1 #11). Credential rotation requires
-                # restart_bot.sh per the documented workflow.
                 cfg = get_config()
                 order_client = OrderClient(cfg)
             except Exception:
                 logger.error("Failed to create OrderClient for %s", station_id, exc_info=True)
-                # Surface this in pipeline_health so silent boot-time
-                # credential breakage is operator-visible (ADV-009).
                 _log_health(
                     "order", "ERROR",
                     "OrderClient construction failed -- check POLY_* credentials in .env",
@@ -742,9 +640,7 @@ def run_betting_tick(
                 _log_health("order", "OK", f"{n_placed} orders placed")
                 mode = "DRY-RUN" if dry_run else "LIVE"
                 topup_note = f" ({result.n_topup} top-up)" if result.n_topup > 0 else ""
-                # Split the rate-limit bucket between first-fill and top-up
-                # alerts so a top-up on a freshly opened slot is not silently
-                # swallowed by the 15-min window of the opening alert.
+                # Separate rate-limit keys for new slots and top-ups.
                 bet_stage = "bet_placed_topup" if result.n_topup > 0 else "bet_placed_first"
                 _notify(
                     f"{mode} Bet: {station_id}",

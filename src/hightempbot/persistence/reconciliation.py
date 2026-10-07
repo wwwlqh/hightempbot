@@ -158,11 +158,7 @@ def patch_recovered_orphan(
 
 
 def _bounded_call(order_client: "OrderClient", fn, *args, **kwargs):
-    """Delegates to ``execution.walker._bounded_client_call``.
-
-    Both modules need the same timeout-bounded CLOB call shape; the canonical
-    implementation lives in walker (it predates this one and has more callers).
-    """
+    """``walker._bounded_client_call``, imported lazily to avoid a cycle."""
     from hightempbot.execution.walker import _bounded_client_call
     return _bounded_client_call(order_client, fn, *args, **kwargs)
 
@@ -180,12 +176,7 @@ class ReconciliationResult:
 
 
 def _bounded_get_order(order_client: "OrderClient", order_id: str) -> dict | None:
-    """Run ``order_client._client.get_order`` through the executor timeout.
-
-    Bypassing the timeout wrapper would let a hung CLOB block a scheduler
-    thread indefinitely. Returns None on timeout/error so callers stay
-    fail-closed.
-    """
+    """Timeout-bounded ``get_order``; None on timeout or error."""
     try:
         return _bounded_call(order_client, order_client._client.get_order, order_id)
     except FuturesTimeoutError:
@@ -197,12 +188,7 @@ def _bounded_get_order(order_client: "OrderClient", order_id: str) -> dict | Non
 
 
 def _bounded_get_trades(order_client: "OrderClient", order_id: str) -> list | None:
-    """Run ``order_client._client.get_trades`` through the executor timeout.
-
-    Returns ``None`` when the trades state is unknown because the API call
-    timed out or raised. A real empty response is returned as ``[]`` so callers
-    can distinguish "confirmed no fills" from "could not verify".
-    """
+    """Timeout-bounded ``get_trades``: ``[]`` means no fills, None means unknown."""
     try:
         from hightempbot.execution.walker import _get_trades_for_order
 
@@ -221,19 +207,11 @@ def verify_order_matched(
     poll_interval_s: float = 1.0,
     timeout_s: float = float(VERIFY_POLY_TIMEOUT_S),
 ) -> tuple[bool, str | None]:
-    """Poll CLOB until ``order_id`` reaches a terminal state or the deadline passes.
+    """Poll until the order is terminal or the deadline passes.
 
-    Returns ``(True, transaction_hash)`` only when the order is MATCHED/FILLED
-    **and** the trade record carries a non-null transaction hash. Returns
-    ``(False, None)`` on timeout, terminal failure, or MATCHED-without-tx_hash
-    after the deadline so callers can decide whether to tolerate the downgrade.
-
-    Each ``get_order``/``get_trades`` call is bounded by the OrderClient's
-    executor timeout so a single hung CLOB call cannot exceed the overall
-    deadline silently.
+    ``(True, tx_hash)`` only for MATCHED/FILLED with a transaction hash;
+    otherwise ``(False, None)``.
     """
-    # Canonical tx-hash extractor lives in walker (imported lazily to match
-    # this module's existing walker-import convention and avoid an import cycle).
     from hightempbot.execution.walker import _tx_hash_from_trades
 
     deadline = time.monotonic() + max(0.0, timeout_s)
@@ -259,19 +237,8 @@ def verify_order_matched(
 
 
 def _aggregate_trades(trades) -> tuple[float, float, str | None] | None:
-    """Return ``(vwap_price, total_size, side)`` from one or more trade payloads.
-
-    ``side`` is the unanimous YES/NO across the trade records, or ``None``
-    when no trade carries a resolvable ``outcome`` / ``side`` field. When
-    trades disagree (mixed YES + NO on the same order_id), the function
-    returns ``None`` for ``side`` so the caller can refuse to silently
-    book a phantom open bet on the majority side — a SELL-orphan recovery
-    booked as a BUY would invert the realized PnL on resolution.
-
-    Polymarket trade events typically expose ``side`` ("BUY"/"SELL") and
-    ``outcome`` ("YES"/"NO"); we prefer ``outcome`` when present and fall
-    back to ``side``.
-    """
+    """``(vwap, total_size, side)`` from trades. ``side`` is the unanimous
+    YES/NO outcome, or None if unknown or mixed (caller must not guess)."""
     if not trades:
         return None
 
@@ -296,10 +263,6 @@ def _aggregate_trades(trades) -> tuple[float, float, str | None] | None:
             continue
         total_size += size
         total_notional += price * size
-        # Prefer `outcome` (YES/NO) over `side` (BUY/SELL) — outcome maps
-        # directly to the ledger `side` column, while BUY/SELL needs the
-        # token-id context we don't have here. Skip anything not in the
-        # canonical {YES, NO} set so a stray "MAKER" doesn't poll.
         outcome_raw = str(trade.get("outcome") or "").upper()
         side_raw = str(trade.get("side") or "").upper()
         candidate = outcome_raw if outcome_raw in {"YES", "NO"} else (
@@ -315,9 +278,6 @@ def _aggregate_trades(trades) -> tuple[float, float, str | None] | None:
     if len(side_votes) == 1:
         inferred_side = next(iter(side_votes))
     elif len(side_votes) > 1:
-        # Mixed YES+NO trades on one order_id is anomalous (a single CLOB
-        # order is one-sided); refuse to guess. Caller logs and routes to
-        # manual reconciliation rather than booking the wrong side.
         logger.error(
             "Mixed YES/NO trade payload (votes=%s); refusing to infer side",
             {k: round(v, 4) for k, v in side_votes.items()},
@@ -328,12 +288,7 @@ def _aggregate_trades(trades) -> tuple[float, float, str | None] | None:
 
 
 def _earliest_trade_ts(trades) -> str | None:
-    """Return the earliest CLOB trade timestamp as a SQLite-text UTC stamp.
-
-    Polymarket trades expose `match_time` (ISO) or `matchTime` (epoch
-    seconds string) — try both. Returns None when no trade carries a
-    parseable timestamp; caller falls back to ``utc_now_sql()``.
-    """
+    """Earliest ``match_time``/``matchTime`` as SQLite UTC text, or None."""
     if not trades:
         return None
     candidates: list[float] = []
@@ -382,16 +337,9 @@ def _recover_orphan_with_fill(
     abort_event: threading.Event | None = None,
     require_fill: bool = True,
 ) -> bool:
-    """Insert a recovery PENDING row for an orphan order with real fills.
+    """Insert a PENDING ``RECOVERED`` row for an orphan order that filled.
 
-    Returns True when a recovery row was written. The recovery row carries
-    `event_detail.recovered_orphan = true` so dashboards can surface it for
-    manual review of the bracket linkage.
-
-    When ``abort_event`` is set (by an outer reconcile timeout), the function
-    bails out before the ledger INSERT so the supervisor's forced DRY_RUN
-    downgrade isn't undermined by a worker thread that keeps mutating the
-    ledger after its caller has moved on.
+    Returns True if written. Does nothing once ``abort_event`` is set.
     """
     trades = _bounded_get_trades(order_client, order_id)
     if trades is None:
@@ -424,22 +372,13 @@ def _recover_orphan_with_fill(
         )
         return False
     filled_notional = fill_price * fill_size
-    # Use the earliest CLOB trade timestamp as bet_ts when available so the
-    # recovery row sits in equity-curve order at the actual placement time
-    # rather than the recovery time. Falls back to utc_now_sql() when the
-    # trade payload omits match_time / matchTime.
     recovery_bet_ts = _earliest_trade_ts(trades) or utc_now_sql()
-    # Schema requires every NOT NULL column on `ledger`; the recovery row
-    # carries sentinels for fields the crash erased. `bracket_label` is not
-    # a `ledger` column (it lives on `signals` / `market_tokens`) — store
-    # it inside `event_detail` JSON so the dashboard can still surface it.
+    # Sentinels fill the NOT NULL columns the crash lost.
     recovery_detail = json.dumps({
         "recovered_orphan": True,
         "bracket_label": "RECOVERED",
         "recovered_at": utc_now_sql(),
     })
-    # Build the recovery row as a dict so column → value pairs stay readable
-    # and adding/removing a column doesn't desync a 21-slot positional tuple.
     recovery_row: dict[str, object] = {
         "bet_ts": recovery_bet_ts,
         "station_id": "RECOVERED",
@@ -471,11 +410,7 @@ def _recover_orphan_with_fill(
         )
         return False
     try:
-        # `with conn:` commits on clean exit and rolls back on exception so
-        # the recovery INSERT is atomic with any other pending writes on this
-        # connection (e.g. a half-applied UPDATE from the caller).
-        # UNIQUE INDEX idx_ledger_order_id prevents duplicate recovery on
-        # retry — see migrations/2026_05_13_ledger_order_id_unique.sql
+        # The unique order_id index makes retries no-ops.
         with conn:
             cur = conn.execute(
                 f"INSERT OR IGNORE INTO ledger ({columns}) VALUES ({placeholders})",
@@ -505,20 +440,14 @@ def reconcile_orders(
     *,
     abort_event: threading.Event | None = None,
 ) -> ReconciliationResult:
-    """Reconcile open CLOB orders against ledger.
+    """Bring the ledger in line with CLOB.
 
-    1. Fetch open orders from CLOB.
-    2. Match against ledger by order_id.
-    3. Orphaned (CLOB only): pre-check status; cancel only if not already
-       MATCHED/FILLED. A MATCHED orphan signals a crash between place_order
-       and the ledger UPDATE — recover into a PENDING row instead of cancelling
-       a real fill. A terminally-failed orphan needs no cancel call.
-    4. Missing fills (ledger only): query CLOB, update ledger.
+    - CLOB orders missing from the ledger: recover them if they filled,
+      otherwise cancel.
+    - Ledger PENDING rows: read fills from CLOB.
+    - PENDING rows with no order_id older than 30 min: cancel.
 
-    When ``abort_event`` is set by an outer supervisor (e.g. the 180s boot
-    deadline in ``main._run_startup_reconcile``), the orphan-recovery loop
-    bails out before mutating the ledger and ``result.aborted`` is set so
-    callers can log a partial-reconcile follow-up.
+    Stops writing once ``abort_event`` is set (``result.aborted``).
     """
     result = ReconciliationResult()
 
@@ -551,7 +480,6 @@ def reconcile_orders(
             AND event_type = 'bet'"""
         ).fetchall()
         ledger_order_ids = {r["order_id"] for r in ledger_rows}
-        # oid → (p_market, pre_trade_edge) for realized_edge recomputation below.
         ledger_reconcile_inputs: dict[str, tuple[float | None, float | None]] = {
             r["order_id"]: (r["p_market"], r["edge"]) for r in ledger_rows
         }
@@ -573,10 +501,6 @@ def reconcile_orders(
         orphaned = clob_order_ids - ledger_order_ids
         orphan_list = list(orphaned)
         for i, oid in enumerate(orphan_list):
-            # Honor an outer timeout: if the supervisor has flipped the
-            # abort flag, the parent has already moved on (forced DRY_RUN);
-            # continuing to mutate the ledger here would leave the dry-run
-            # session inheriting pending exposure for orders it didn't place.
             if abort_event is not None and abort_event.is_set():
                 remaining_count = len(orphan_list) - i
                 logger.warning(
@@ -586,9 +510,7 @@ def reconcile_orders(
                 result.aborted = True
                 break
 
-            # Pre-check status: MATCHED/FILLED means a real fill. FAK can also
-            # finish CANCELED/EXPIRED after a partial fill, so terminal orphans
-            # still get one trades lookup before we no-op/cancel.
+            # A FAK can end CANCELED after a partial fill, so check trades too.
             raw = _bounded_get_order(order_client, oid)
             status_up = ""
             if raw is not None:
@@ -606,14 +528,9 @@ def reconcile_orders(
                     result.updated += 1
                     continue
                 if status_up in _TERMINAL_FAILURE_STATUSES:
-                    # Terminal FAK with no positive trades is a true no-fill.
                     continue
                 else:
-                    # Distinguish a true unrecovered orphan from an abort-induced skip:
-                    # only flag failure when the worker wasn't told to stop.
-                    # The top-of-loop abort guard at line 452 covers the next
-                    # iteration; this in-line check fires when the abort raced
-                    # the recovery call between the top-of-loop check and now.
+                    # Not a failure if we were told to abort.
                     if abort_event is not None and abort_event.is_set():
                         result.aborted = True
                         break
@@ -635,8 +552,6 @@ def reconcile_orders(
         matched = clob_order_ids & ledger_order_ids
         result.matched = len(matched)
 
-        # Honor abort signal before entering missing-fills loop: the supervisor
-        # may have flipped DRY_RUN already if we spent the budget on orphans.
         if abort_event is not None and abort_event.is_set():
             result.aborted = True
             logger.warning(
@@ -646,10 +561,6 @@ def reconcile_orders(
 
         missing = ledger_order_ids - clob_order_ids
         for oid in missing:
-            # Per-iteration abort check: long missing-fills loops can outlast
-            # the boot deadline, and continuing to mutate the ledger after the
-            # supervisor flipped to forced DRY_RUN leaves real-money state
-            # racing the new dry-run session.
             if abort_event is not None and abort_event.is_set():
                 result.aborted = True
                 logger.warning(
@@ -681,17 +592,10 @@ def reconcile_orders(
                     if aggregated is None:
                         logger.warning("Trades for order %s had no positive size/price payloads", oid)
                         continue
-                    # Missing-fill branch only updates fill_price/size/realized_edge; the
-                    # ledger row already carries the placement-time `side`, so the
-                    # `inferred_side` from trade aggregation is ignored here.
                     fill_price, fill_size, _missing_inferred_side = aggregated
                     filled_notional = fill_price * fill_size
 
-                    # Recompute realized_edge from the ledger's pre-trade inputs:
-                    #   pre_edge = prob_safe_floor - p_market - fee(p_market)
-                    #   realized_edge = pre_edge + p_market + fee(p_market) - fill_price - fee(fill_price)
-                    # Net out the pre_edge / p_market terms to avoid persisting
-                    # the LUT-calibrated probability separately just for reconciliation.
+                    # realized = pre_edge + p_market + fee(p_market) - fill - fee(fill)
                     p_market, pre_edge = ledger_reconcile_inputs.get(oid, (None, None))
                     realized_edge: float | None = None
                     if (
@@ -705,13 +609,7 @@ def reconcile_orders(
                         new_fee = poly_fee_per_share(fill_price)
                         realized_edge = pre_edge + p_market + old_fee - fill_price - new_fee
 
-                    # Outcome filter prevents resurrecting a terminal row: a
-                    # resolver tick may have already settled this order_id to
-                    # WIN/LOSS/PUSH/CLOSED before reconciler caught up. The
-                    # original UPDATE re-set outcome='PENDING', which would
-                    # reverse the resolution and book pnl=0 on a real win.
-                    # `with conn:` makes the UPDATE atomic with any other
-                    # half-applied write on this connection.
+                    # Only touch rows still PENDING; never un-settle a row.
                     with conn:
                         cur = conn.execute(
                             """UPDATE ledger
@@ -759,8 +657,6 @@ def reconcile_orders(
             except Exception:
                 logger.warning("Failed to reconcile order %s", oid, exc_info=True)
 
-        # Honor abort before the stranded-PENDING UPDATE: another mutation
-        # path that should respect the supervisor's forced-DRY_RUN signal.
         if abort_event is not None and abort_event.is_set():
             result.aborted = True
             logger.warning(
@@ -768,11 +664,7 @@ def reconcile_orders(
             )
             return result
 
-        # Stranded no-order_id PENDING: crashed between record_bet insert
-        # (PENDING-first ledger) and execute_or_log (which sets order_id +
-        # transitions to FILLED/CANCELLED). The row never reached Polymarket.
-        # 30-min threshold leaves headroom for genuinely slow place-order paths
-        # without permanently consuming exposure cap.
+        # PENDING rows with no order_id never reached CLOB (crash before placing).
         stranded_rows = conn.execute(
             """SELECT id, station_id, target_date, threshold
             FROM ledger
