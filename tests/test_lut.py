@@ -13,7 +13,6 @@ import sqlite3
 from datetime import date, timedelta
 from pathlib import Path
 
-import numpy as np
 import pytest
 
 from hightempbot.calibration.emos import EMOSParams

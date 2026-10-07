@@ -5,7 +5,6 @@ Covers F-001 (TTL on close_in_flight flag) and F-007 (None-safe price reads).
 
 from __future__ import annotations
 
-import contextlib
 import json
 import sqlite3
 from dataclasses import dataclass
@@ -17,7 +16,6 @@ import pytest
 
 from hightempbot.execution.strategy_constants import (
     SCAN_INTERVAL_MINUTES,
-    STRATEGY_CONFIGS,
     TP_SL_FLAG_STALE_SECONDS,
     icao_tick_offset,
 )

@@ -13,7 +13,6 @@ from hightempbot.runtime_config import Config, set_config
 from hightempbot.scheduler import jobs as scheduler_jobs
 from hightempbot.scheduler.jobs import schedule_all_jobs
 from hightempbot.stations import StationConfig
-from pathlib import Path
 
 
 # Inline test fixtures — no dependency on hardcoded STATIONS

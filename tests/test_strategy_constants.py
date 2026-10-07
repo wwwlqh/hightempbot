@@ -12,7 +12,6 @@ from hightempbot.execution.strategy_constants import (
     MAX_DD,
     MAX_EDGE,
     MAX_ORDER_RETRIES,
-    MAX_PER_MARKET,
     MIN_BET_USD,
     MIN_BVOL,
     MIN_EDGE,
@@ -27,7 +26,7 @@ from hightempbot.execution.strategy_constants import (
     STRATEGY_CONFIGS,
     VERIFY_POLY_TIMEOUT_S,
 )
-from hightempbot.execution.types import BetSignal, CycleResult, OrderResult
+from hightempbot.execution.types import BetSignal
 from hightempbot.execution.capital import (
     get_capital_snapshot,
     return_transfer_notional,

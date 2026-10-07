@@ -1,24 +1,12 @@
-"""Derive Polymarket CLOB API credentials from POLY_PRIVATE_KEY.
+"""Derive the CLOB API key/secret/passphrase from POLY_PRIVATE_KEY (deterministic)
+and print them for .env. Can also check existing creds and probe which wallet
+type sees the pUSD balance. Prints to stdout only; don't paste into shared logs.
 
-Polymarket signs CLOB orders with HMAC creds derived deterministically from
-your wallet's L2 signer private key. You cannot copy these three values from
-a settings page; they must be generated programmatically (see `.env.example`).
-
-This CLI calls `py_clob_client_v2.ClobClient.create_or_derive_api_key` and
-prints the three credentials in .env-paste format. Idempotent: the derivation
-is deterministic for a given private key, so re-running on the same wallet
-returns the same trio. Use this to bootstrap a wallet, verify the trio already
-in `.env`, and probe which Polymarket wallet topology can see the pUSD balance.
-
-Usage:
     python -m hightempbot.cli.derive_poly_creds
     python -m hightempbot.cli.derive_poly_creds --key 0x...
     python -m hightempbot.cli.derive_poly_creds --check
     python -m hightempbot.cli.derive_poly_creds --signature-type 3 --funder 0x... --sync-balance --probe-balance
     python -m hightempbot.cli.poly_wallet_diagnostics --check-relayer --probe-clob
-
-Never echo the private key or the derived creds to a shared log. Stdout-only
-by design.
 """
 
 from __future__ import annotations
@@ -27,10 +15,6 @@ import argparse
 import sys
 
 
-# reuse the canonical wallet validator from
-# execution.walker rather than maintain a parallel copy here. The CLI wraps the
-# ValueError raised by the shared helper into SystemExit so user-facing exit
-# behaviour is unchanged.
 from hightempbot.execution.walker import (
     _SIGNATURE_TYPE_LABELS,
     _validate_wallet_config as _validate_wallet_config_shared,
@@ -52,9 +36,6 @@ def _validate_wallet_config(
     try:
         return _validate_wallet_config_shared(signature_type, funder)
     except ValueError as exc:
-        # CLI surface: exit non-zero with the same message rather than a
-        # raw Python traceback. Message text from the shared helper is
-        # already operator-readable.
         raise SystemExit(str(exc)) from exc
 
 

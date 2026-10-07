@@ -33,12 +33,7 @@ def supports_actual_scrape(station: StationConfig) -> bool:
 
 
 def _station_local_today(station: StationConfig) -> date:
-    """Return the station's current LOCAL calendar date.
-
-    Mirrors ``scrape_actuals_job``'s ``datetime.now(pytz.timezone(tz))``
-    anchor so the backfill's in-progress-day guard uses the same station-local
-    clock the midnight scrape does.
-    """
+    """The station's current local date."""
     import pytz
 
     return datetime.now(pytz.timezone(station.timezone)).date()
@@ -48,9 +43,7 @@ def _fetch_wu(station: StationConfig, target_date: date, data_dir: Path) -> floa
     """Fetch from Weather Underground."""
     from hightempbot.ingestion.sources.wu import fetch_wu_tmax
 
-    # Thread the station timezone so the WU disk cache can reject a value that
-    # was cached before the station-local target day completed (a partial
-    # daily max would poison calibration).
+    # Pass tz so the cache rejects values saved before the day ended.
     tmax_raw = fetch_wu_tmax(
         station.icao, target_date, data_dir,
         unit=station.unit, tz=station.timezone,
@@ -193,26 +186,8 @@ def backfill_missing_actuals(
     start_date: date,
     end_date: date,
 ) -> int:
-    """Self-heal pass: fetch any missing actuals in ``[start_date, end_date)``.
-
-    Iterates the half-open window day-by-day; for each date not already
-    present in the actuals table for this station, runs the same WU
-    fetch path as the per-station midnight scrape. ``end_date`` is
-    half-open so callers can pass ``date.today()`` without hitting the
-    still-unresolved current day.
-
-    The end bound is additionally clamped to the STATION-LOCAL "today".
-    Callers derive ``end_date`` from UTC ``date.today()``; for a west-of-UTC
-    station that UTC date can point at the station's *in-progress* local day,
-    whose WU ``max(observations)`` is only a partial daily high. Fetching it
-    would store that partial as the day's final actual and poison
-    calibration. Clamping the effective end to the station-local today means
-    the last date iterated is at most station-local *yesterday* (the last
-    complete local day) — matching ``scrape_actuals_job``.
-
-    Returns the number of newly-stored rows. Skips stations whose
-    resolution source is unsupported (treated as zero work, not an error).
-    """
+    """Fetch missing actuals for ``[start_date, end_date)``, never past the
+    station's local yesterday (today's high isn't final). Returns rows stored."""
     if not supports_actual_scrape(station):
         return 0
 

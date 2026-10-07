@@ -7,7 +7,6 @@ from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from threading import Event, Thread
-from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -20,7 +19,6 @@ from hightempbot.resolution.settler import (
     _resolve_station_date,
     run_resolution_tick,
 )
-from hightempbot.scheduler.station_healing import _attempt_seed_missing_lut
 from hightempbot.scheduler.station_scanner import (
     _last_run_ensemble_ready,
     _target_date_for_ready_cycle,
@@ -2568,7 +2566,6 @@ class TestResolutionWuFallback:
         fallback when every polymarket_* path is empty."""
         import json
         from datetime import date, timedelta
-        from unittest.mock import patch
 
         conn = get_connection(db_path)
         self._seed_station(conn, "KDAL", unit="F")
@@ -2637,7 +2634,6 @@ class TestResolutionWuFallback:
         and the safety contract refuses to guess."""
         import json
         from datetime import date, timedelta
-        from unittest.mock import patch
 
         conn = get_connection(db_path)
         self._seed_station(conn, "KDAL", unit="F")
@@ -2678,7 +2674,6 @@ class TestResolutionWuFallback:
         """
         import json
         from datetime import date, timedelta
-        from unittest.mock import patch
 
         conn = get_connection(db_path)
         self._seed_station(conn, "KDAL", unit="F")
@@ -2708,7 +2703,6 @@ class TestResolutionWuFallback:
         """
         import json
         from datetime import date, timedelta
-        from unittest.mock import patch
 
         conn = get_connection(db_path)
         self._seed_station(conn, "EFHK", unit="C")
@@ -2739,7 +2733,6 @@ class TestResolutionWuFallback:
         """
         import json
         from datetime import date, timedelta
-        from unittest.mock import patch
 
         conn = get_connection(db_path)
         self._seed_station(conn, "KDAL", unit="F")
@@ -2786,7 +2779,6 @@ class TestResolutionWuFallback:
         `hightempbot.cli.resolve_pending_via_wu` (finding #14).
         """
         from datetime import date, timedelta
-        from unittest.mock import patch
 
         conn = get_connection(db_path)
         # Empty unit — station enrolled but unit not yet known.
@@ -2818,7 +2810,6 @@ class TestResolutionWuFallback:
         """
         import json
         from datetime import date, timedelta
-        from unittest.mock import patch
 
         conn = get_connection(db_path)
         self._seed_station(conn, "KDAL", unit="F")
@@ -2848,7 +2839,6 @@ class TestResolutionWuFallback:
         (finding #7).
         """
         from datetime import date, timedelta
-        from unittest.mock import patch
 
         conn = get_connection(db_path)
         self._seed_station(conn, "KDAL", unit="F")
@@ -2875,9 +2865,7 @@ class TestResolutionWuFallback:
         """One corrupted bet must not abort resolution for remaining bets in
         the same (station, target_date) group (finding #9).
         """
-        import json
         from datetime import date, timedelta
-        from unittest.mock import patch
 
         conn = get_connection(db_path)
         self._seed_station(conn, "KDAL", unit="F")

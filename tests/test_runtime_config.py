@@ -1,8 +1,4 @@
-import os
-import tempfile
-from pathlib import Path
 
-import pytest
 
 from hightempbot.runtime_config import Config
 from hightempbot.db.connection import get_connection, init_db

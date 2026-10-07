@@ -2,18 +2,16 @@
 
 from __future__ import annotations
 
-import math
 from dataclasses import dataclass
 from unittest.mock import MagicMock
 
 import numpy as np
-import pytest
 
 from hightempbot.decision.brackets import (
     bracket_label,
     bracket_probabilities,
-    build_brackets,
 )
+from hightempbot.stations import celsius_to_fahrenheit
 
 
 @dataclass
@@ -22,36 +20,19 @@ class MockStation:
     unit: str = "C"
 
 
-class TestBuildBrackets:
-    def test_f_station_11_brackets(self):
-        station = MockStation("KDAL", "F")
-        brackets = build_brackets(station, 20.0)  # 20°C ≈ 68°F
-        assert len(brackets) == 11
-        assert brackets[0][0] == "floor"
-        assert brackets[-1][0] == "ceiling"
-        for b in brackets[1:-1]:
-            assert b[0] == "interior"
-
-    def test_f_station_2f_wide(self):
-        station = MockStation("KDAL", "F")
-        brackets = build_brackets(station, 20.0)
-        # Interior brackets should be 2°F wide
-        for b in brackets[1:-1]:
-            assert b[2] - b[1] == 2.0
-
-    def test_c_station_1c_wide(self):
-        station = MockStation("RJTT", "C")
-        brackets = build_brackets(station, 25.0)
-        assert len(brackets) == 11
-        for b in brackets[1:-1]:
-            assert b[2] - b[1] == 1.0
-
-    def test_c_unit_uses_round(self):
-        station = MockStation("RJTT", "C")
-        # 25.7°C → round = 26, center = 26
-        brackets = build_brackets(station, 25.7)
-        interior_lows = [b[1] for b in brackets if b[0] == "interior"]
-        assert 26.0 in interior_lows or 25.0 in interior_lows
+def build_brackets(station, median_c):
+    """11-bracket ladder around ``median_c``: 2°F wide for F stations, 1°C for C."""
+    if station.unit == "F":
+        low = round(celsius_to_fahrenheit(median_c)) - 9
+        low -= low % 2
+        width = 2
+    else:
+        low = round(median_c) - 4
+        width = 1
+    brackets = [("floor", None, float(low))]
+    brackets += [("interior", float(low + i * width), float(low + (i + 1) * width)) for i in range(9)]
+    brackets.append(("ceiling", float(low + 9 * width), None))
+    return brackets
 
 
 class TestBracketLabel:

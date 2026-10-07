@@ -19,7 +19,6 @@ from pathlib import Path
 
 import pytest
 
-from hightempbot.calibration import reliability as rel
 from hightempbot.calibration.reliability import (
     BLEND_MAX_PRICE_WEIGHT,
     CURVE_TYPE_BLEND,

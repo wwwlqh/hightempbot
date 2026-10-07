@@ -1,15 +1,5 @@
-"""Shared live-trading readiness checks.
-
-The live bot has three separate sources of truth that must agree before it is
-allowed to move money:
-
-* boot configuration from .env
-* CLOB wallet/account state
-* on-chain pUSD collateral state
-
-This module keeps those checks in one place so startup, diagnostics, dashboard
-actions, and transfer logic fail closed for the same reasons.
-"""
+"""Live readiness checks shared by startup, CLIs, dashboard and transfers:
+.env config, CLOB wallet state and on-chain pUSD must all agree."""
 
 from __future__ import annotations
 
@@ -214,12 +204,7 @@ def _env_value_for_compare(key: str, value: str | None) -> str | None:
 
 
 def _parse_env_lines(lines: Iterable[str]) -> dict[str, str]:
-    """Parse dotenv-style lines into a {KEY: VALUE} mapping.
-
-    Centralized so load_env_file (path-based) and parse_env_text (string-based)
-    share one parser. Strips comments and blank lines, unwraps a single matched
-    quote pair, and ignores entries without a key.
-    """
+    """Parse dotenv lines into {KEY: VALUE}, skipping comments and unquoting values."""
     values: dict[str, str] = {}
     for raw_line in lines:
         line = raw_line.strip()
@@ -557,9 +542,6 @@ def build_live_readiness_report(
                 deposit=mask_address(topology.deposit),
             )
     except Exception as exc:
-        # primitives now raise ValueError/RuntimeError
-        # (not SystemExit), so Exception is the correct catch — KeyboardInterrupt
-        # and other BaseExceptions propagate as they should.
         _add_check(
             checks,
             "wallet_topology",
@@ -725,8 +707,6 @@ def record_readiness_report(conn: "sqlite3.Connection", report: ReadinessReport)
             ),
         )
     except Exception:
-        # The table is additive. If an older DB has not migrated yet, the
-        # pipeline_health row below still makes readiness visible.
         pass
     failing = [check.name for check in report.checks if check.status == "ERROR"]
     message = (
