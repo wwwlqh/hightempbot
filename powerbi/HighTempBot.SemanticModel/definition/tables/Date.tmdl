@@ -1,22 +1,26 @@
 /// Calendar covering every forecast, trade and backtest date.
 table Date
+	lineageTag: 8b4b1bec-ce92-4e25-8ea0-fe1ba0a47321
 	dataCategory: Time
 
 	column Date
 		dataType: dateTime
 		isKey
 		formatString: yyyy-mm-dd
+		lineageTag: 202a0d63-9591-4c38-8e91-4841c64ebd1e
 		summarizeBy: none
 		sourceColumn: Date
 
 	column Year
 		dataType: int64
 		formatString: 0
+		lineageTag: 543df344-29a2-4fa9-bb7d-b1f67ce7c4f9
 		summarizeBy: none
 		sourceColumn: Year
 
 	column Month
 		dataType: string
+		lineageTag: 0bc86097-411b-46c9-823a-4d55c3c227e6
 		summarizeBy: none
 		sourceColumn: Month
 		sortByColumn: 'Month Start'
@@ -24,11 +28,13 @@ table Date
 	column 'Month Start'
 		dataType: dateTime
 		formatString: yyyy-mm-dd
+		lineageTag: 41ad0f92-8abb-40cd-93e9-f5085ca44055
 		summarizeBy: none
 		sourceColumn: Month Start
 
 	column Weekday
 		dataType: string
+		lineageTag: f6709512-c7d7-4475-8f41-7dca872537b5
 		summarizeBy: none
 		sourceColumn: Weekday
 		sortByColumn: 'Weekday Number'
@@ -37,6 +43,7 @@ table Date
 		dataType: int64
 		isHidden
 		formatString: 0
+		lineageTag: c307a679-e0a0-4158-95d6-8bc3d53143ff
 		summarizeBy: none
 		sourceColumn: Weekday Number
 
@@ -55,3 +62,4 @@ table Date
 				    AddedWeekdayNumber = Table.AddColumn(AddedWeekday, "Weekday Number", each Date.DayOfWeek([Date], Day.Monday) + 1, Int64.Type)
 				in
 				    AddedWeekdayNumber
+

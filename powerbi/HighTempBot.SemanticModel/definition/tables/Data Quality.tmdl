@@ -1,36 +1,43 @@
 /// Results of the data quality rules in powerbi/sql/data_quality_checks.sql.
 table 'Data Quality'
+	lineageTag: 81b0f7df-a2ed-4635-98cd-446b4c125857
 
 	column 'Check ID'
 		dataType: string
 		isKey
+		lineageTag: 53ce2efc-d6dc-4ed1-821c-32272cd98bc3
 		summarizeBy: none
 		sourceColumn: check_id
 
 	column Area
 		dataType: string
+		lineageTag: b031a0b8-aff1-40ed-bb40-530cda760980
 		summarizeBy: none
 		sourceColumn: area
 
 	column Rule
 		dataType: string
+		lineageTag: 2c85c027-6a30-47c2-bbae-2f379755fde3
 		summarizeBy: none
 		sourceColumn: rule
 
 	column 'Rows Checked'
 		dataType: int64
 		formatString: #,0
+		lineageTag: 5b4bb455-89d2-43d0-a617-f330566ea377
 		summarizeBy: none
 		sourceColumn: rows_checked
 
 	column 'Rows Failed'
 		dataType: int64
 		formatString: #,0
+		lineageTag: ed7dce23-2f23-44e9-9f74-8895b0ca0d31
 		summarizeBy: none
 		sourceColumn: rows_failed
 
 	column Status
 		dataType: string
+		lineageTag: b357b2fc-b3b1-4d5a-b861-fcf0f36abaf5
 		summarizeBy: none
 		sourceColumn: status
 
@@ -49,3 +56,4 @@ table 'Data Quality'
 				    )
 				in
 				    Typed
+

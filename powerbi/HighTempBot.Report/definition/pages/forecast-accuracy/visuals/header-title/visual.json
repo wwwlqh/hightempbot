@@ -1,0 +1,49 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.7.0/schema.json",
+  "name": "header-title",
+  "position": {
+    "x": 24,
+    "y": 6,
+    "z": 1000,
+    "width": 520,
+    "height": 54,
+    "tabOrder": 1000
+  },
+  "visual": {
+    "visualType": "textbox",
+    "objects": {
+      "general": [
+        {
+          "properties": {
+            "paragraphs": [
+              {
+                "textRuns": [
+                  {
+                    "value": "HIGHTEMPBOT  ·  WEATHER MARKET ANALYTICS",
+                    "textStyle": {
+                      "fontSize": "8pt",
+                      "color": "#93C5FD",
+                      "fontWeight": "bold"
+                    }
+                  }
+                ]
+              },
+              {
+                "textRuns": [
+                  {
+                    "value": "Forecast Accuracy",
+                    "textStyle": {
+                      "fontSize": "17pt",
+                      "color": "#FFFFFF",
+                      "fontWeight": "bold"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

@@ -1,42 +1,50 @@
 /// Wallet records checked against the ledger, one row per record per run.
 table Reconciliation
+	lineageTag: e9b72178-32c1-4c0f-84e1-6662443be8a5
 
 	column 'Run ID'
 		dataType: int64
 		formatString: 0
+		lineageTag: c1ca6481-9141-49ab-9072-b795812c100b
 		summarizeBy: none
 		sourceColumn: run_id
 
 	column 'Run At'
 		dataType: dateTime
 		formatString: yyyy-mm-dd hh:nn
+		lineageTag: 15fe26b8-51c4-4959-96ae-7c376fe744bb
 		summarizeBy: none
 		sourceColumn: run_at
 
 	column 'Record Type'
 		dataType: string
+		lineageTag: a720d550-3758-4865-a40c-7a1ebd3ff9e3
 		summarizeBy: none
 		sourceColumn: record_type
 
 	column 'Match Status'
 		dataType: string
+		lineageTag: c2766f0e-02f7-4449-b661-b534f6ded0cb
 		summarizeBy: none
 		sourceColumn: match_status
 
 	column Result
 		dataType: string
+		lineageTag: a929cda8-a7ce-49e2-9d5a-a7febad2ede7
 		summarizeBy: none
 		sourceColumn: result
 
 	column 'Trade ID'
 		dataType: int64
 		formatString: 0
+		lineageTag: c0fcf33f-89a3-47e2-8828-8a8318251c3b
 		summarizeBy: none
 		sourceColumn: trade_id
 
 	column 'Amount (USD)'
 		dataType: decimal
 		formatString: \$#,0.00
+		lineageTag: 69ae1ecc-925a-40bb-9d7a-db5498ad1c85
 		summarizeBy: none
 		sourceColumn: amount_usd
 
@@ -56,3 +64,4 @@ table Reconciliation
 				    )
 				in
 				    Typed
+

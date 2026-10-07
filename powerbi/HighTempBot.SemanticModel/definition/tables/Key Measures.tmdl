@@ -1,37 +1,46 @@
 /// All report measures, grouped into display folders.
 table 'Key Measures'
+	lineageTag: 7a5a0cda-059e-4dfc-8f73-636dd94bfbe5
 
 	measure 'Trade Count' = COUNTROWS ( Trades )
 		formatString: #,0
 		displayFolder: Trading
+		lineageTag: 8ce21bdd-ae2b-445c-9463-114733571109
 
 	measure 'Settled Trades' = CALCULATE ( COUNTROWS ( Trades ), Trades[Is Settled] = TRUE () )
 		formatString: #,0
 		displayFolder: Trading
+		lineageTag: 27cb06b7-c7c8-4f51-96da-c98bb50c99a7
 
 	measure Wins = CALCULATE ( COUNTROWS ( Trades ), Trades[Is Win] = TRUE () )
 		formatString: #,0
 		displayFolder: Trading
+		lineageTag: f74355a5-96c3-4fc7-8490-7f6d612b2be7
 
 	measure 'Win Rate' = DIVIDE ( [Wins], [Settled Trades] )
 		formatString: 0.0%
 		displayFolder: Trading
+		lineageTag: 455dbe73-b73e-4649-982e-fedd0f1d845a
 
 	measure 'Total P&L' = SUM ( Trades[P&L] )
 		formatString: \$#,0.00;-\$#,0.00;\$#,0.00
 		displayFolder: Trading
+		lineageTag: 2dfb52fc-10b3-4a21-8a90-47b9bbb18f1d
 
 	measure 'Amount Staked' = CALCULATE ( SUM ( Trades[Stake] ), Trades[Is Settled] = TRUE () )
 		formatString: \$#,0.00
 		displayFolder: Trading
+		lineageTag: f583fd2a-0696-4f12-9957-314314aa5b16
 
 	measure ROI = DIVIDE ( [Total P&L], [Amount Staked] )
 		formatString: 0.0%
 		displayFolder: Trading
+		lineageTag: f6400108-bfa0-4165-b8ef-b0d2f58a6ce3
 
 	measure 'Average Edge' = AVERAGE ( Trades[Edge] )
 		formatString: 0.000
 		displayFolder: Trading
+		lineageTag: 1ac35931-0f32-426f-af10-67f82310bf39
 
 	/// Running P&L up to each date. Blank after the last trade so lines stop there.
 	measure 'Cumulative P&L' =
@@ -45,6 +54,7 @@ table 'Key Measures'
 			    )
 		formatString: \$#,0.00;-\$#,0.00;\$#,0.00
 		displayFolder: Trading
+		lineageTag: 5a545d49-385e-4456-951e-200d66200cc0
 
 	/// Largest fall from a running peak in cumulative P&L, measured on settled days.
 	measure 'Max Drawdown' =
@@ -69,23 +79,28 @@ table 'Key Measures'
 			    MAXX ( Drawdowns, [@Drawdown] )
 		formatString: \$#,0.00
 		displayFolder: Trading
+		lineageTag: f9403467-85dc-4d60-99f4-1415ec441347
 
 	measure 'Forecasts Scored' = COUNTROWS ( Forecasts )
 		formatString: #,0
 		displayFolder: Forecast Accuracy
+		lineageTag: 881a00ad-a064-4d92-808d-0a3ac84404bf
 
 	measure 'MAE (°C)' = AVERAGEX ( Forecasts, ABS ( Forecasts[Error (°C)] ) )
 		formatString: 0.00
 		displayFolder: Forecast Accuracy
+		lineageTag: 8c576035-bb0e-4d67-b893-c391edacecf8
 
 	measure 'RMSE (°C)' = SQRT ( AVERAGEX ( Forecasts, Forecasts[Error (°C)] ^ 2 ) )
 		formatString: 0.00
 		displayFolder: Forecast Accuracy
+		lineageTag: 3213b025-846e-435b-8859-96e2abc46a57
 
 	/// Average signed error. Positive means the model forecasts too warm.
 	measure 'Bias (°C)' = AVERAGE ( Forecasts[Error (°C)] )
 		formatString: +0.00;-0.00;0.00
 		displayFolder: Forecast Accuracy
+		lineageTag: d1cc7d26-b24a-4338-9908-5aec6ddc9467
 
 	measure 'Within 1 °C' =
 			DIVIDE (
@@ -94,6 +109,7 @@ table 'Key Measures'
 			)
 		formatString: 0.0%
 		displayFolder: Forecast Accuracy
+		lineageTag: 8b3c7180-df66-4426-8ae8-4f7753998c0b
 
 	/// Model with the lowest MAE in the current filter context.
 	measure 'Best Model' =
@@ -102,14 +118,17 @@ table 'Key Measures'
 			RETURN
 			    MAXX ( TOPN ( 1, ModelErrors, [@MAE], ASC ), Forecasts[Model] )
 		displayFolder: Forecast Accuracy
+		lineageTag: 65b94476-7e9e-49b5-a81b-47ab6193571a
 
 	measure 'Backtest Bet Count' = COUNTROWS ( 'Backtest Bets' )
 		formatString: #,0
 		displayFolder: Backtest
+		lineageTag: 07739419-9f3f-44e1-8ec3-4535321a39e3
 
 	measure 'Backtest P&L' = SUM ( 'Backtest Bets'[P&L] )
 		formatString: \$#,0.00;-\$#,0.00;\$#,0.00
 		displayFolder: Backtest
+		lineageTag: bc6073b4-96fb-4cc9-bc87-432b8f27ff5e
 
 	measure 'Backtest Win Rate' =
 			DIVIDE (
@@ -118,10 +137,12 @@ table 'Key Measures'
 			)
 		formatString: 0.0%
 		displayFolder: Backtest
+		lineageTag: c224666c-c4b7-45fa-9b98-f328cb03b6a3
 
 	measure 'Backtest ROI' = DIVIDE ( [Backtest P&L], SUM ( 'Backtest Bets'[Stake] ) )
 		formatString: 0.0%
 		displayFolder: Backtest
+		lineageTag: 4c35b8c6-6170-4406-a1cd-198d87dcee41
 
 	/// Running backtest P&L by market date. Use with Run on the legend: runs overlap in time.
 	measure 'Backtest Cumulative P&L' =
@@ -135,31 +156,37 @@ table 'Key Measures'
 			    )
 		formatString: \$#,0.00;-\$#,0.00;\$#,0.00
 		displayFolder: Backtest
+		lineageTag: b3dd5c24-f447-48c1-9f15-3337fbd1d861
 
 	measure 'Live Settled Trades' = CALCULATE ( [Settled Trades], Trades[Mode] = "Live" )
 		formatString: #,0
 		displayFolder: Backtest
+		lineageTag: 40129232-078b-4b16-b6da-f6c9660d7203
 
 	measure 'Live Win Rate' = CALCULATE ( [Win Rate], Trades[Mode] = "Live" )
 		formatString: 0.0%
 		displayFolder: Backtest
+		lineageTag: 7bef33ee-bf94-4297-804d-38b3a8709006
 
 	measure 'Live ROI' = CALCULATE ( [ROI], Trades[Mode] = "Live" )
 		formatString: 0.0%
 		displayFolder: Backtest
+		lineageTag: 5edc2321-d820-4501-96d6-e4d2f8a3449a
 
 	measure 'Live P&L' = CALCULATE ( [Total P&L], Trades[Mode] = "Live" )
 		formatString: \$#,0.00;-\$#,0.00;\$#,0.00
 		displayFolder: Backtest
+		lineageTag: 1de1f3ab-c506-494f-95e6-64fe53227115
 
 	measure 'Records Checked' = COUNTROWS ( Reconciliation )
 		formatString: #,0
 		displayFolder: Reconciliation
+		lineageTag: d2d82f9a-fc22-46fb-9d1a-16ebdb0dcb2a
 
-	measure 'Reconciliation Exceptions' =
-			CALCULATE ( COUNTROWS ( Reconciliation ), Reconciliation[Result] = "Exception" )
+	measure 'Reconciliation Exceptions' = CALCULATE ( COUNTROWS ( Reconciliation ), Reconciliation[Result] = "Exception" )
 		formatString: #,0
 		displayFolder: Reconciliation
+		lineageTag: cdbcd445-bf4a-408f-a0f7-637fb20c9d19
 
 	/// Share of checked records that matched, ignoring records that were never checked.
 	measure 'Match Rate' =
@@ -169,22 +196,27 @@ table 'Key Measures'
 			)
 		formatString: 0.00%
 		displayFolder: Reconciliation
+		lineageTag: 0a0ab854-c35d-42d2-999d-bc7e0f92ad97
 
 	measure 'Rules Checked' = COUNTROWS ( 'Data Quality' )
 		formatString: #,0
 		displayFolder: Data Quality
+		lineageTag: 96f711a7-1e48-419c-97b8-2ae156f4afc9
 
 	measure 'Rules Passed' = CALCULATE ( COUNTROWS ( 'Data Quality' ), 'Data Quality'[Status] = "Pass" )
 		formatString: #,0
 		displayFolder: Data Quality
+		lineageTag: 2f81fd34-21e0-4bf5-9882-e83858f9fb7b
 
 	measure 'Rule Pass Rate' = DIVIDE ( [Rules Passed], [Rules Checked] )
 		formatString: 0%
 		displayFolder: Data Quality
+		lineageTag: 0978e526-ed89-42ba-a158-8008ec681ae8
 
 	measure 'Rows Failed' = SUM ( 'Data Quality'[Rows Failed] )
 		formatString: #,0
 		displayFolder: Data Quality
+		lineageTag: 161d39b0-ae6c-4548-904c-cf17f13e5892
 
 	/// Font colour for P&L cells: red for a loss, green for a profit, grey when unsettled.
 	measure 'P&L Colour' =
@@ -192,17 +224,20 @@ table 'Key Measures'
 			RETURN
 			    SWITCH ( TRUE (), ISBLANK ( Pnl ), "#6B7280", Pnl < 0, "#DC2626", "#16A34A" )
 		displayFolder: Formatting
+		lineageTag: 820158d1-e5c3-4ac6-8758-243337e5fb71
 
-	measure 'Status Colour' =
-			IF ( SELECTEDVALUE ( 'Data Quality'[Status] ) = "Fail", "#DC2626", "#16A34A" )
+	measure 'Status Colour' = IF ( SELECTEDVALUE ( 'Data Quality'[Status] ) = "Fail", "#DC2626", "#16A34A" )
 		displayFolder: Formatting
+		lineageTag: 05b303c6-2ba4-4cf5-8c2f-8fa402615ba5
 
 	column Placeholder
 		dataType: string
 		isHidden
+		lineageTag: 3380dea2-a3ed-4b81-89b6-c0caa63c92e3
 		summarizeBy: none
 		sourceColumn: Placeholder
 
 	partition 'Key Measures' = m
 		mode: import
 		source = #table(type table [Placeholder = text], {})
+

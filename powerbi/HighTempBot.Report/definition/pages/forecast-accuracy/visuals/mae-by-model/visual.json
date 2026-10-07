@@ -3,11 +3,11 @@
   "name": "mae-by-model",
   "position": {
     "x": 24,
-    "y": 208,
-    "z": 4000,
-    "width": 400.0,
-    "height": 488,
-    "tabOrder": 4000
+    "y": 260,
+    "z": 8000,
+    "width": 400,
+    "height": 436,
+    "tabOrder": 8000
   },
   "visual": {
     "visualType": "clusteredBarChart",
@@ -84,7 +84,27 @@
             "text": {
               "expr": {
                 "Literal": {
-                  "Value": "'Mean absolute error by model'"
+                  "Value": "'Error by model'"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "subTitle": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            },
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'Mean absolute error, °C (lower is better)'"
                 }
               }
             }

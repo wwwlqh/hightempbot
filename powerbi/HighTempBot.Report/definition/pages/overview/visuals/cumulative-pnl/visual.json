@@ -3,11 +3,11 @@
   "name": "cumulative-pnl",
   "position": {
     "x": 24,
-    "y": 208,
-    "z": 4000,
-    "width": 768,
-    "height": 488,
-    "tabOrder": 4000
+    "y": 260,
+    "z": 7000,
+    "width": 780,
+    "height": 300,
+    "tabOrder": 7000
   },
   "visual": {
     "visualType": "lineChart",
@@ -85,6 +85,26 @@
               "expr": {
                 "Literal": {
                   "Value": "'Cumulative P&L'"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "subTitle": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            },
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'Running total by settlement date, live vs paper'"
                 }
               }
             }

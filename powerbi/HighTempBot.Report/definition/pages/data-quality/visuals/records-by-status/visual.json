@@ -3,11 +3,11 @@
   "name": "records-by-status",
   "position": {
     "x": 800,
-    "y": 208,
-    "z": 3000,
+    "y": 260,
+    "z": 8000,
     "width": 456,
-    "height": 236.0,
-    "tabOrder": 3000
+    "height": 210,
+    "tabOrder": 8000
   },
   "visual": {
     "visualType": "clusteredBarChart",
@@ -85,6 +85,26 @@
               "expr": {
                 "Literal": {
                   "Value": "'Wallet records by match status'"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "subTitle": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            },
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'Ledger vs exchange wallet, all 301 runs'"
                 }
               }
             }

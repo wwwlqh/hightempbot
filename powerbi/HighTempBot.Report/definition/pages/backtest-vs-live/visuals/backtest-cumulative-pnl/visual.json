@@ -3,11 +3,11 @@
   "name": "backtest-cumulative-pnl",
   "position": {
     "x": 24,
-    "y": 352,
-    "z": 3000,
+    "y": 466,
+    "z": 6000,
     "width": 1232,
-    "height": 344,
-    "tabOrder": 3000
+    "height": 230,
+    "tabOrder": 6000
   },
   "visual": {
     "visualType": "lineChart",
@@ -84,7 +84,27 @@
             "text": {
               "expr": {
                 "Literal": {
-                  "Value": "'Backtest cumulative P&L by run'"
+                  "Value": "'Backtest cumulative P&L'"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "subTitle": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            },
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'Running total by market date, one line per run'"
                 }
               }
             }

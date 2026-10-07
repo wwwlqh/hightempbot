@@ -21,3 +21,4 @@ relationship backtest_station
 relationship backtest_date
 	fromColumn: 'Backtest Bets'.'Market Date'
 	toColumn: Date.Date
+

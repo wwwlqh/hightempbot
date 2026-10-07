@@ -3,11 +3,11 @@
   "name": "rules",
   "position": {
     "x": 24,
-    "y": 208,
-    "z": 2000,
+    "y": 260,
+    "z": 7000,
     "width": 760,
-    "height": 488,
-    "tabOrder": 2000
+    "height": 436,
+    "tabOrder": 7000
   },
   "visual": {
     "visualType": "tableEx",
@@ -27,7 +27,8 @@
                 }
               },
               "queryRef": "Data Quality.Check ID",
-              "nativeQueryRef": "Check ID"
+              "nativeQueryRef": "Check ID",
+              "displayName": "ID"
             },
             {
               "field": {
@@ -136,6 +137,26 @@
               "expr": {
                 "Literal": {
                   "Value": "'Validation rules'"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "subTitle": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            },
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'Failed rows are flagged for review; impossible values are excluded'"
                 }
               }
             }

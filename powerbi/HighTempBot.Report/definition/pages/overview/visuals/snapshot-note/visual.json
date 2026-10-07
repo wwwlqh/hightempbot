@@ -1,0 +1,37 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.7.0/schema.json",
+  "name": "snapshot-note",
+  "position": {
+    "x": 836,
+    "y": 94,
+    "z": 5000,
+    "width": 420,
+    "height": 30,
+    "tabOrder": 5000
+  },
+  "visual": {
+    "visualType": "textbox",
+    "objects": {
+      "general": [
+        {
+          "properties": {
+            "paragraphs": [
+              {
+                "textRuns": [
+                  {
+                    "value": "Data snapshot: 24 May 2026  ·  Live and paper bets, 9–23 May 2026",
+                    "textStyle": {
+                      "fontSize": "9pt",
+                      "color": "#64748B"
+                    }
+                  }
+                ],
+                "horizontalTextAlignment": "right"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

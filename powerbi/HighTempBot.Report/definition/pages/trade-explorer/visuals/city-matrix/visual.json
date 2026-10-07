@@ -3,11 +3,11 @@
   "name": "city-matrix",
   "position": {
     "x": 24,
-    "y": 88,
-    "z": 4000,
-    "width": 400,
-    "height": 608,
-    "tabOrder": 4000
+    "y": 260,
+    "z": 9000,
+    "width": 420,
+    "height": 436,
+    "tabOrder": 9000
   },
   "visual": {
     "visualType": "pivotTable",
@@ -109,7 +109,27 @@
             "text": {
               "expr": {
                 "Literal": {
-                  "Value": "'Results by city and strategy'"
+                  "Value": "'Results by city'"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "subTitle": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            },
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'Expand a city to see each strategy'"
                 }
               }
             }

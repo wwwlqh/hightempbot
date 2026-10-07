@@ -3,11 +3,11 @@
   "name": "runs",
   "position": {
     "x": 24,
-    "y": 88,
-    "z": 1000,
-    "width": 760,
-    "height": 248,
-    "tabOrder": 1000
+    "y": 260,
+    "z": 5000,
+    "width": 1232,
+    "height": 190,
+    "tabOrder": 5000
   },
   "visual": {
     "visualType": "tableEx",
@@ -41,7 +41,8 @@
                 }
               },
               "queryRef": "Key Measures.Backtest Bet Count",
-              "nativeQueryRef": "Backtest Bet Count"
+              "nativeQueryRef": "Backtest Bet Count",
+              "displayName": "Bets"
             },
             {
               "field": {
@@ -55,7 +56,8 @@
                 }
               },
               "queryRef": "Key Measures.Backtest Win Rate",
-              "nativeQueryRef": "Backtest Win Rate"
+              "nativeQueryRef": "Backtest Win Rate",
+              "displayName": "Win rate"
             },
             {
               "field": {
@@ -69,7 +71,8 @@
                 }
               },
               "queryRef": "Key Measures.Backtest ROI",
-              "nativeQueryRef": "Backtest ROI"
+              "nativeQueryRef": "Backtest ROI",
+              "displayName": "ROI"
             },
             {
               "field": {
@@ -83,7 +86,8 @@
                 }
               },
               "queryRef": "Key Measures.Backtest P&L",
-              "nativeQueryRef": "Backtest P&L"
+              "nativeQueryRef": "Backtest P&L",
+              "displayName": "P&L"
             }
           ]
         }
@@ -122,6 +126,26 @@
               "expr": {
                 "Literal": {
                   "Value": "'Backtest runs'"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "subTitle": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            },
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'Each run is a separate experiment on the same markets'"
                 }
               }
             }

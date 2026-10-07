@@ -2,12 +2,12 @@
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.7.0/schema.json",
   "name": "mae-by-month",
   "position": {
-    "x": 856.0,
-    "y": 208,
-    "z": 6000,
-    "width": 400.0,
-    "height": 236.0,
-    "tabOrder": 6000
+    "x": 856,
+    "y": 260,
+    "z": 10000,
+    "width": 400,
+    "height": 210,
+    "tabOrder": 10000
   },
   "visual": {
     "visualType": "lineChart",
@@ -66,7 +66,27 @@
             "text": {
               "expr": {
                 "Literal": {
-                  "Value": "'Mean absolute error by month'"
+                  "Value": "'Error over time'"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "subTitle": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            },
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'Monthly mean absolute error, °C'"
                 }
               }
             }

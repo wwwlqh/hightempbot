@@ -2,12 +2,12 @@
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.7.0/schema.json",
   "name": "pnl-by-city",
   "position": {
-    "x": 808,
-    "y": 208,
-    "z": 5000,
-    "width": 448,
-    "height": 488,
-    "tabOrder": 5000
+    "x": 820,
+    "y": 260,
+    "z": 9000,
+    "width": 436,
+    "height": 436,
+    "tabOrder": 9000
   },
   "visual": {
     "visualType": "clusteredBarChart",
@@ -90,8 +90,61 @@
             }
           }
         }
+      ],
+      "subTitle": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            },
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'Green = profit, red = loss'"
+                }
+              }
+            }
+          }
+        }
       ]
     },
-    "drillFilterOtherVisuals": true
+    "drillFilterOtherVisuals": true,
+    "objects": {
+      "dataPoint": [
+        {
+          "properties": {
+            "fill": {
+              "solid": {
+                "color": {
+                  "expr": {
+                    "Measure": {
+                      "Expression": {
+                        "SourceRef": {
+                          "Entity": "Key Measures"
+                        }
+                      },
+                      "Property": "P&L Colour"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "selector": {
+            "data": [
+              {
+                "dataViewWildcard": {
+                  "matchingOption": 1
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
   }
 }

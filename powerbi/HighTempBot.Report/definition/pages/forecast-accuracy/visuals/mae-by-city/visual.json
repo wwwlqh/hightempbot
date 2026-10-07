@@ -2,12 +2,12 @@
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.7.0/schema.json",
   "name": "mae-by-city",
   "position": {
-    "x": 440.0,
-    "y": 208,
-    "z": 5000,
-    "width": 400.0,
-    "height": 488,
-    "tabOrder": 5000
+    "x": 440,
+    "y": 260,
+    "z": 9000,
+    "width": 400,
+    "height": 436,
+    "tabOrder": 9000
   },
   "visual": {
     "visualType": "clusteredBarChart",
@@ -84,7 +84,27 @@
             "text": {
               "expr": {
                 "Literal": {
-                  "Value": "'Mean absolute error by city'"
+                  "Value": "'Error by city'"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "subTitle": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            },
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'Hardest cities to forecast first'"
                 }
               }
             }

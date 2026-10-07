@@ -1,45 +1,53 @@
 /// Day-ahead forecast of the daily high against the observed high,
 /// one row per station, day and weather model.
 table Forecasts
+	lineageTag: 6425d51f-6b21-461d-a5a1-ddc6e6fd988c
 
 	column 'Station ID'
 		dataType: string
 		isHidden
+		lineageTag: 290aab6d-4121-4223-a071-46b09f16e211
 		summarizeBy: none
 		sourceColumn: station_id
 
 	column 'Target Date'
 		dataType: dateTime
 		formatString: yyyy-mm-dd
+		lineageTag: 5514bdeb-ae3c-4075-b374-b234d06e5b56
 		summarizeBy: none
 		sourceColumn: target_date
 
 	column Model
 		dataType: string
+		lineageTag: c740d753-6883-4ff3-bd2f-bca339ce71c6
 		summarizeBy: none
 		sourceColumn: model
 
 	column 'Ensemble Members'
 		dataType: int64
 		formatString: 0
+		lineageTag: 24710a62-a41e-4d47-8303-7c5f681aa8b2
 		summarizeBy: none
 		sourceColumn: ensemble_members
 
 	column 'Forecast High (°C)'
 		dataType: double
 		formatString: 0.0
+		lineageTag: a45b59b7-e751-4f92-b9a5-4b0c8e1d7bd9
 		summarizeBy: none
 		sourceColumn: forecast_high_c
 
 	column 'Observed High (°C)'
 		dataType: double
 		formatString: 0.0
+		lineageTag: f594bbcb-7c4d-473a-a90a-6b0e85bee178
 		summarizeBy: none
 		sourceColumn: observed_high_c
 
 	column 'Error (°C)'
 		dataType: double
 		formatString: 0.0
+		lineageTag: e71f87d9-85e9-45c2-a89d-a1c9853f0e16
 		summarizeBy: none
 		sourceColumn: error_c
 
@@ -78,3 +86,4 @@ table Forecasts
 				    )
 				in
 				    Renamed
+

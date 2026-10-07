@@ -1,87 +1,103 @@
 /// Simulated bets from the backtest harness, one row per bet per run.
 /// Each run is a separate experiment: filter to one run before adding them up.
 table 'Backtest Bets'
+	lineageTag: 75953be6-4ad3-41d0-abfb-671741d7e75f
 
 	column Run
 		dataType: string
+		lineageTag: 2333b725-9764-483b-90f5-187a9925fde2
 		summarizeBy: none
 		sourceColumn: run
 
 	column Period
 		dataType: string
+		lineageTag: 82768774-8afa-4084-887d-f62042e03c44
 		summarizeBy: none
 		sourceColumn: period
 
 	column Strategy
 		dataType: string
+		lineageTag: 1e15ad7a-95ab-4dc8-88c8-a63907444966
 		summarizeBy: none
 		sourceColumn: strategy
 
 	column Side
 		dataType: string
+		lineageTag: 266f0b08-2947-4b7c-86b5-6a26f980aa02
 		summarizeBy: none
 		sourceColumn: side
 
 	column 'Station ID'
 		dataType: string
 		isHidden
+		lineageTag: ee5d45ec-58f5-412c-a6ce-743a483d865b
 		summarizeBy: none
 		sourceColumn: station_id
 
 	column 'Market Date'
 		dataType: dateTime
 		formatString: yyyy-mm-dd
+		lineageTag: 553fd69f-d8ac-4ccf-bce1-34c1f424f1d1
 		summarizeBy: none
 		sourceColumn: market_date
 
 	column Bracket
 		dataType: string
+		lineageTag: 8d0868b4-3a83-46b5-b158-8c09787b28c9
 		summarizeBy: none
 		sourceColumn: bracket_label
 
 	column 'Model Probability'
 		dataType: double
 		formatString: 0.0%
+		lineageTag: 2094307b-1b28-42ad-85b0-714d02cf3098
 		summarizeBy: none
 		sourceColumn: claimed_p
 
 	column 'Entry Price'
 		dataType: double
 		formatString: 0.000
+		lineageTag: 3348a593-839a-477c-90e1-4c018c45bf06
 		summarizeBy: none
 		sourceColumn: entry_price
 
 	column 'Fill Price'
 		dataType: double
 		formatString: 0.000
+		lineageTag: 8f7892ae-f7e9-4343-9170-d96e47407477
 		summarizeBy: none
 		sourceColumn: fill_vwap
 
 	column Stake
 		dataType: double
 		formatString: \$#,0.00
+		lineageTag: 0b65d8e8-3a31-463d-a708-8e335a0af865
 		summarizeBy: none
 		sourceColumn: stake
 
 	column Won
 		dataType: boolean
+		lineageTag: f2867ba6-7890-4fdc-9b91-a10941e03890
 		summarizeBy: none
 		sourceColumn: won
 
-	column 'P&L'
+	column P&L
 		dataType: double
 		formatString: \$#,0.00;-\$#,0.00;\$#,0.00
+		lineageTag: 46e88ce9-ee9a-4ee7-98db-2d0be741392d
 		summarizeBy: none
 		sourceColumn: pnl
 
 	column 'Entry Time'
 		dataType: dateTime
 		formatString: yyyy-mm-dd hh:nn
+		lineageTag: 211c6f75-6d30-4979-8d01-42a9e1672f0b
 		summarizeBy: none
 		sourceColumn: entry_time
 
 	column 'Exit Reason'
 		dataType: string
+		lineageTag: 79b3c3be-806a-4692-9197-22a1e4b89d1d
 		summarizeBy: none
 		sourceColumn: exit_reason
 
@@ -135,3 +151,4 @@ table 'Backtest Bets'
 				    )
 				in
 				    Typed
+

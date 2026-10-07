@@ -3,11 +3,11 @@
   "name": "exceptions-by-run",
   "position": {
     "x": 800,
-    "y": 460.0,
-    "z": 4000,
+    "y": 486,
+    "z": 9000,
     "width": 456,
-    "height": 236.0,
-    "tabOrder": 4000
+    "height": 210,
+    "tabOrder": 9000
   },
   "visual": {
     "visualType": "lineChart",
@@ -66,7 +66,27 @@
             "text": {
               "expr": {
                 "Literal": {
-                  "Value": "'Reconciliation exceptions per run'"
+                  "Value": "'Mismatches per run'"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "subTitle": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            },
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'None in the last 154 runs (since 23 May 00:11)'"
                 }
               }
             }

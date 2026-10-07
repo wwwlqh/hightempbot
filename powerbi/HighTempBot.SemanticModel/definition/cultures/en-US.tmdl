@@ -1,0 +1,326 @@
+cultureInfo en-US
+
+	linguisticMetadata =
+			{
+			  "Version": "2.0.0",
+			  "Language": "en-US",
+			  "Entities": {
+			    "trades.trade_id": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "Trades",
+			          "ConceptualProperty": "Trade ID"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "ID": {
+			            "State": "Suggested",
+			            "Source": {
+			              "Type": "External",
+			              "Agent": "PowerBI.VisualColumnRename"
+			            },
+			            "Weight": 0.9
+			          }
+			        }
+			      ]
+			    },
+			    "trades.model_probability": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "Trades",
+			          "ConceptualProperty": "Model Probability"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "Model P": {
+			            "State": "Suggested",
+			            "Source": {
+			              "Type": "External",
+			              "Agent": "PowerBI.VisualColumnRename"
+			            },
+			            "Weight": 0.9
+			          }
+			        }
+			      ]
+			    },
+			    "trades.market_price": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "Trades",
+			          "ConceptualProperty": "Market Price"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "Price": {
+			            "State": "Suggested",
+			            "Source": {
+			              "Type": "External",
+			              "Agent": "PowerBI.VisualColumnRename"
+			            },
+			            "Weight": 0.9
+			          }
+			        }
+			      ]
+			    },
+			    "key_measures.live_settled_trades": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "Key Measures",
+			          "ConceptualProperty": "Live Settled Trades"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "Live bets settled": {
+			            "State": "Suggested",
+			            "Source": {
+			              "Type": "External",
+			              "Agent": "PowerBI.VisualColumnRename"
+			            },
+			            "Weight": 0.9
+			          }
+			        }
+			      ]
+			    },
+			    "key_measures.live_win_rate": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "Key Measures",
+			          "ConceptualProperty": "Live Win Rate"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "Live win rate": {
+			            "State": "Suggested",
+			            "Source": {
+			              "Type": "External",
+			              "Agent": "PowerBI.VisualColumnRename"
+			            },
+			            "Weight": 0.9
+			          }
+			        }
+			      ]
+			    },
+			    "key_measures.live_roi": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "Key Measures",
+			          "ConceptualProperty": "Live ROI"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "Live ROI": {
+			            "State": "Suggested",
+			            "Source": {
+			              "Type": "External",
+			              "Agent": "PowerBI.VisualColumnRename"
+			            },
+			            "Weight": 0.9
+			          }
+			        }
+			      ]
+			    },
+			    "key_measures.live_pl": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "Key Measures",
+			          "ConceptualProperty": "Live P&L"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "Live P&L": {
+			            "State": "Suggested",
+			            "Source": {
+			              "Type": "External",
+			              "Agent": "PowerBI.VisualColumnRename"
+			            },
+			            "Weight": 0.9
+			          }
+			        }
+			      ]
+			    },
+			    "key_measures.backtest_bet_count": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "Key Measures",
+			          "ConceptualProperty": "Backtest Bet Count"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "Bets": {
+			            "State": "Suggested",
+			            "Source": {
+			              "Type": "External",
+			              "Agent": "PowerBI.VisualColumnRename"
+			            },
+			            "Weight": 0.9
+			          }
+			        }
+			      ]
+			    },
+			    "key_measures.backtest_win_rate": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "Key Measures",
+			          "ConceptualProperty": "Backtest Win Rate"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "Win rate": {
+			            "State": "Suggested",
+			            "Source": {
+			              "Type": "External",
+			              "Agent": "PowerBI.VisualColumnRename"
+			            },
+			            "Weight": 0.9
+			          }
+			        }
+			      ]
+			    },
+			    "key_measures.backtest_roi": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "Key Measures",
+			          "ConceptualProperty": "Backtest ROI"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "ROI": {
+			            "State": "Suggested",
+			            "Source": {
+			              "Type": "External",
+			              "Agent": "PowerBI.VisualColumnRename"
+			            },
+			            "Weight": 0.9
+			          }
+			        }
+			      ]
+			    },
+			    "key_measures.backtest_pl": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "Key Measures",
+			          "ConceptualProperty": "Backtest P&L"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "P&L": {
+			            "State": "Suggested",
+			            "Source": {
+			              "Type": "External",
+			              "Agent": "PowerBI.VisualColumnRename"
+			            },
+			            "Weight": 0.9
+			          }
+			        }
+			      ]
+			    },
+			    "key_measures.records_checked": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "Key Measures",
+			          "ConceptualProperty": "Records Checked"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "Wallet records checked": {
+			            "State": "Suggested",
+			            "Source": {
+			              "Type": "External",
+			              "Agent": "PowerBI.VisualColumnRename"
+			            },
+			            "Weight": 0.9
+			          }
+			        }
+			      ]
+			    },
+			    "key_measures.reconciliation_exceptions": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "Key Measures",
+			          "ConceptualProperty": "Reconciliation Exceptions"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "Wallet mismatches": {
+			            "State": "Suggested",
+			            "Source": {
+			              "Type": "External",
+			              "Agent": "PowerBI.VisualColumnRename"
+			            },
+			            "Weight": 0.9
+			          }
+			        }
+			      ]
+			    },
+			    "key_measures.match_rate": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "Key Measures",
+			          "ConceptualProperty": "Match Rate"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "Wallet match rate": {
+			            "State": "Suggested",
+			            "Source": {
+			              "Type": "External",
+			              "Agent": "PowerBI.VisualColumnRename"
+			            },
+			            "Weight": 0.9
+			          }
+			        }
+			      ]
+			    },
+			    "data_quality.check_id": {
+			      "Definition": {
+			        "Binding": {
+			          "ConceptualEntity": "Data Quality",
+			          "ConceptualProperty": "Check ID"
+			        }
+			      },
+			      "State": "Generated",
+			      "Terms": [
+			        {
+			          "ID": {
+			            "State": "Suggested",
+			            "Source": {
+			              "Type": "External",
+			              "Agent": "PowerBI.VisualColumnRename"
+			            },
+			            "Weight": 0.9
+			          }
+			        }
+			      ]
+			    }
+			  }
+			}
+		contentType: json
+

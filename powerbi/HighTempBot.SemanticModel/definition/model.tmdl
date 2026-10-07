@@ -13,6 +13,8 @@ queryGroup Functions
 
 annotation __PBI_TimeIntelligenceEnabled = 0
 
+annotation PBI_ProTooling = ["DevMode"]
+
 ref table 'Key Measures'
 ref table Date
 ref table Stations
@@ -21,3 +23,6 @@ ref table Forecasts
 ref table 'Backtest Bets'
 ref table Reconciliation
 ref table 'Data Quality'
+
+ref cultureInfo en-US
+

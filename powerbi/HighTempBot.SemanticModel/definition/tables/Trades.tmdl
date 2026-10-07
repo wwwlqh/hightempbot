@@ -1,105 +1,124 @@
 /// One row per bet. Mode is Live (real order) or Paper (dry run).
 table Trades
+	lineageTag: 910c24aa-04aa-48c1-a2a9-f6d8f138429d
 
 	column 'Trade ID'
 		dataType: int64
 		isKey
 		formatString: 0
+		lineageTag: f3fcea14-ff51-472b-84d5-567ff001310c
 		summarizeBy: none
 		sourceColumn: trade_id
 
 	column Mode
 		dataType: string
+		lineageTag: ada034ef-be76-4189-bb99-ca6d9544fe3b
 		summarizeBy: none
 		sourceColumn: mode
 
 	column 'Placed At'
 		dataType: dateTime
 		formatString: yyyy-mm-dd hh:nn
+		lineageTag: 5f06e887-e811-4ee1-97d9-214d2d81d642
 		summarizeBy: none
 		sourceColumn: placed_at
 
 	column 'Station ID'
 		dataType: string
 		isHidden
+		lineageTag: 00a23f8a-260d-4c73-8871-24fbfbcffa06
 		summarizeBy: none
 		sourceColumn: station_id
 
 	column 'Target Date'
 		dataType: dateTime
 		formatString: yyyy-mm-dd
+		lineageTag: e1b32b37-416b-4c9a-9b52-7ec821014c51
 		summarizeBy: none
 		sourceColumn: target_date
 
 	column Strategy
 		dataType: string
+		lineageTag: 5ec1b3de-8408-41ab-8073-05cdc49db102
 		summarizeBy: none
 		sourceColumn: strategy
 
 	column Side
 		dataType: string
+		lineageTag: f7188cb4-9ed7-4d02-a9cc-ad39293f332d
 		summarizeBy: none
 		sourceColumn: side
 
 	column Bracket
 		dataType: string
+		lineageTag: ab3f834c-d30b-4556-998f-13b8eb4bb60c
 		summarizeBy: none
 		sourceColumn: bracket
 
 	column 'Model Probability'
 		dataType: double
 		formatString: 0.0%
+		lineageTag: b7b6c1aa-1048-4891-85d2-e1b0ab9d5ab7
 		summarizeBy: none
 		sourceColumn: model_probability
 
 	column 'Market Price'
 		dataType: double
 		formatString: 0.000
+		lineageTag: 550be4df-2334-4b60-a8e3-b9c00936730c
 		summarizeBy: none
 		sourceColumn: market_price
 
 	column Edge
 		dataType: double
 		formatString: 0.000
+		lineageTag: f87047ec-4ee6-43fe-9f05-ff4a41ed4f42
 		summarizeBy: none
 		sourceColumn: edge
 
 	column Stake
 		dataType: decimal
 		formatString: \$#,0.00
+		lineageTag: 85745837-c037-4ade-9f18-a8db3b558c4b
 		summarizeBy: none
 		sourceColumn: stake
 
 	column 'Fill Price'
 		dataType: double
 		formatString: 0.000
+		lineageTag: 971565fe-17b8-43c7-80a5-a72ce8859b37
 		summarizeBy: none
 		sourceColumn: fill_price
 
 	column 'Observed High'
 		dataType: double
 		formatString: 0.0
+		lineageTag: d1d260d6-8bde-42e7-afe0-bc74ebf817c4
 		summarizeBy: none
 		sourceColumn: observed_high
 
 	column Outcome
 		dataType: string
+		lineageTag: 7deca293-3013-4f6d-a4de-2533c9f4c7c2
 		summarizeBy: none
 		sourceColumn: outcome
 
-	column 'P&L'
+	column P&L
 		dataType: decimal
 		formatString: \$#,0.00;-\$#,0.00;\$#,0.00
+		lineageTag: 004fe4c9-9b29-4c71-9752-f2434067b0ec
 		summarizeBy: none
 		sourceColumn: pnl
 
 	column 'Is Settled'
 		dataType: boolean
+		lineageTag: 42557bca-0141-4b64-b8c3-e5e55c2b6858
 		summarizeBy: none
 		sourceColumn: is_settled
 
 	column 'Is Win'
 		dataType: boolean
+		lineageTag: 169d7c41-3e85-419c-abe5-d6ff9f44d0f3
 		summarizeBy: none
 		sourceColumn: is_win
 
@@ -150,3 +169,4 @@ table Trades
 				    Removed = Table.RemoveColumns(AddedIsWin, {"bracket_low", "bracket_high", "bracket_unit"})
 				in
 				    Removed
+

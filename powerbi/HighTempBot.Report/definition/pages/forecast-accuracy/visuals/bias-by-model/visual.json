@@ -2,12 +2,12 @@
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.7.0/schema.json",
   "name": "bias-by-model",
   "position": {
-    "x": 856.0,
-    "y": 460.0,
-    "z": 7000,
-    "width": 400.0,
-    "height": 236.0,
-    "tabOrder": 7000
+    "x": 856,
+    "y": 486,
+    "z": 11000,
+    "width": 400,
+    "height": 210,
+    "tabOrder": 11000
   },
   "visual": {
     "visualType": "clusteredBarChart",
@@ -84,7 +84,27 @@
             "text": {
               "expr": {
                 "Literal": {
-                  "Value": "'Bias by model (positive = too warm)'"
+                  "Value": "'Bias by model'"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "subTitle": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            },
+            "text": {
+              "expr": {
+                "Literal": {
+                  "Value": "'Below zero = forecasts too cold'"
                 }
               }
             }

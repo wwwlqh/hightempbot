@@ -1,46 +1,55 @@
 /// One row per weather station the bot trades.
 table Stations
+	lineageTag: ac2dcdf9-0668-4e39-a2a7-8a71634becbe
 
 	column 'Station ID'
 		dataType: string
 		isKey
+		lineageTag: d62f94db-9dce-4073-9faf-86a8567d319d
 		summarizeBy: none
 		sourceColumn: station_id
 
 	column City
 		dataType: string
+		lineageTag: ec03456d-d98d-4a74-bd83-59d3ec43ebd9
 		summarizeBy: none
 		sourceColumn: city
 
 	column Latitude
 		dataType: double
+		lineageTag: e17ca333-abe0-4c02-8042-1b589de24f61
 		dataCategory: Latitude
 		summarizeBy: none
 		sourceColumn: latitude
 
 	column Longitude
 		dataType: double
+		lineageTag: bec54b7c-e52f-41dd-9dfa-6c91b91f753d
 		dataCategory: Longitude
 		summarizeBy: none
 		sourceColumn: longitude
 
 	column Timezone
 		dataType: string
+		lineageTag: e5530785-5fff-4233-b195-17682029c977
 		summarizeBy: none
 		sourceColumn: timezone
 
 	column 'Market Unit'
 		dataType: string
+		lineageTag: 870f559a-6434-4b38-9f54-cb22ac6e1eb7
 		summarizeBy: none
 		sourceColumn: market_unit
 
 	column 'Resolution Source'
 		dataType: string
+		lineageTag: cc062370-a760-48f2-8761-e621872891ca
 		summarizeBy: none
 		sourceColumn: resolution_source
 
 	column Status
 		dataType: string
+		lineageTag: 86b6dfd3-e42f-4968-bcd0-ef238a42adf9
 		summarizeBy: none
 		sourceColumn: status
 
@@ -61,3 +70,4 @@ table Stations
 				    )
 				in
 				    Typed
+

@@ -1,0 +1,126 @@
+{
+  "version": "1.1.0",
+  "diagrams": [
+    {
+      "ordinal": 0,
+      "scrollPosition": {
+        "x": 0,
+        "y": 0
+      },
+      "nodes": [
+        {
+          "location": {
+            "x": 1018.0411573743049,
+            "y": 277.9887031023361
+          },
+          "nodeIndex": "Key Measures",
+          "nodeLineageTag": "7a5a0cda-059e-4dfc-8f73-636dd94bfbe5",
+          "size": {
+            "height": 300,
+            "width": 234
+          },
+          "zIndex": 0
+        },
+        {
+          "location": {
+            "x": 50,
+            "y": 251.2243046402678
+          },
+          "nodeIndex": "Backtest Bets",
+          "nodeLineageTag": "75953be6-4ad3-41d0-abfb-671741d7e75f",
+          "size": {
+            "height": 300,
+            "width": 234
+          },
+          "zIndex": 0
+        },
+        {
+          "location": {
+            "x": 1302.0411573743049,
+            "y": 315.9887031023361
+          },
+          "nodeIndex": "Data Quality",
+          "nodeLineageTag": "81b0f7df-a2ed-4635-98cd-446b4c125857",
+          "size": {
+            "height": 224,
+            "width": 234
+          },
+          "zIndex": 0
+        },
+        {
+          "location": {
+            "x": 494.19318646692909,
+            "y": 253.86984751965707
+          },
+          "nodeIndex": "Date",
+          "nodeLineageTag": "8b4b1bec-ce92-4e25-8ea0-fe1ba0a47321",
+          "size": {
+            "height": 224,
+            "width": 234
+          },
+          "zIndex": 0
+        },
+        {
+          "location": {
+            "x": 217.828179184627,
+            "y": -50
+          },
+          "nodeIndex": "Forecasts",
+          "nodeLineageTag": "6425d51f-6b21-461d-a5a1-ddc6e6fd988c",
+          "size": {
+            "height": 248,
+            "width": 234
+          },
+          "zIndex": 0
+        },
+        {
+          "location": {
+            "x": 1586.0411573743049,
+            "y": 303.9887031023361
+          },
+          "nodeIndex": "Reconciliation",
+          "nodeLineageTag": "e9b72178-32c1-4c0f-84e1-6662443be8a5",
+          "size": {
+            "height": 248,
+            "width": 234
+          },
+          "zIndex": 0
+        },
+        {
+          "location": {
+            "x": 340.45899811167175,
+            "y": 533.97740620467243
+          },
+          "nodeIndex": "Stations",
+          "nodeLineageTag": "ac2dcdf9-0668-4e39-a2a7-8a71634becbe",
+          "size": {
+            "height": 272,
+            "width": 234
+          },
+          "zIndex": 0
+        },
+        {
+          "location": {
+            "x": 784.041157374305,
+            "y": 486.556657760137
+          },
+          "nodeIndex": "Trades",
+          "nodeLineageTag": "910c24aa-04aa-48c1-a2a9-f6d8f138429d",
+          "size": {
+            "height": 300,
+            "width": 234
+          },
+          "zIndex": 0
+        }
+      ],
+      "name": "All tables",
+      "zoomValue": 100,
+      "pinKeyFieldsToTop": false,
+      "showExtraHeaderInfo": false,
+      "hideKeyFieldsWhenCollapsed": false,
+      "tablesLocked": false
+    }
+  ],
+  "selectedDiagram": "All tables",
+  "defaultDiagram": "All tables"
+}
