@@ -23,9 +23,6 @@ logger = logging.getLogger(__name__)
 
 
 if TYPE_CHECKING:
-    # type the public `config` parameter so the runtime
-    # contract is visible to static analyzers. Import is TYPE_CHECKING-only to
-    # keep runtime_config out of the load graph for module-level callers.
     from hightempbot.runtime_config import Config
 
 DATA_API_BASE = "https://data-api.polymarket.com"
@@ -62,10 +59,7 @@ class WalletSnapshot:
     chain_balance_usd: float | None = None
     open_orders_count: int = 0
     open_positions_count: int = 0
-    # Split open-positions count into the Data API unresolved-position view +
-    # optional on-chain CTF token count. Data API release/redeemability drives
-    # the dashboard count; chain token balances may still contain already
-    # released zero-payout shares until they are burned.
+    # Data API count drives the dashboard; chain counts can include released zero-payout shares.
     data_api_open_positions_count: int = 0
     chain_open_positions_count: int | None = None
     data_api_open_positions_value_usd: float = 0.0
@@ -95,7 +89,6 @@ class WalletSnapshot:
             "chainBalanceUsd": self.chain_balance_usd,
             "openOrdersCount": self.open_orders_count,
             "openPositionsCount": self.open_positions_count,
-            # diagnostics — see field comment above.
             "dataApiOpenPositionsCount": self.data_api_open_positions_count,
             "chainOpenPositionsCount": self.chain_open_positions_count,
             "dataApiOpenPositionsValueUsd": round(self.data_api_open_positions_value_usd, 6),
@@ -126,13 +119,7 @@ class WalletSnapshot:
 
 
 def ensure_wallet_schema(conn: sqlite3.Connection) -> None:
-    """Assert wallet_reconciliation tables exist; schema.sql is authoritative.
-
-    ce-code-review P1 #25: previously this duplicated the DDL from db/schema.sql.
-    schema.sql is now the single source of truth (applied by db.connection.
-    init_db, which also wires ON DELETE CASCADE for the records→runs FK). This
-    helper is a NO-OP safety check at every public-function call site.
-    """
+    """Check the wallet tables exist (created by schema.sql)."""
     required = ("wallet_reconciliation_runs", "wallet_reconciliation_records")
     for table in required:
         row = conn.execute(
@@ -185,13 +172,7 @@ def _ledger_index(
     *,
     need_orders: bool = True,
 ) -> tuple[dict[str, int], dict[str, int], list[sqlite3.Row]]:
-    """Build ledger lookup indexes used by wallet reconciliation.
-
-    ce-code-review P2 #49: ``need_orders`` lets callers that only care about
-    transaction-hash matching and the fill_rows scan skip the order_id dict
-    (used in wallet records building, where it was immediately discarded with
-    ``del order_to_id``).
-    """
+    """Ledger lookup indexes; ``need_orders=False`` skips the order_id index."""
     order_to_id: dict[str, int] = {}
     tx_to_id: dict[str, int] = {}
     fill_rows: list[sqlite3.Row] = []
@@ -239,10 +220,7 @@ def _ledger_fill_match(trade: dict[str, Any], fill_rows: Iterable[sqlite3.Row]) 
         ledger_price = _safe_float(row["fill_price"])
         ledger_size = _safe_float(row["fill_size"])
         ledger_amount = _safe_float(row["bet_size"]) or ledger_price * ledger_size
-        # The Data API can report VWAP-ish prices with more precision than the
-        # rounded CLOB fill persisted in the ledger. Keep token/side/size/time
-        # strict, but allow small price/amount drift so real fills do not look
-        # like orphan wallet trades.
+        # Allow small price/amount drift: the Data API is more precise than the ledger.
         price_tolerance = max(
             WALLET_TRADE_PRICE_TOLERANCE_ABS,
             ledger_price * WALLET_TRADE_PRICE_TOLERANCE_FRAC,
@@ -507,15 +485,8 @@ def _backfill_no_order_pending_from_data_api(
     conn: sqlite3.Connection,
     trades: Iterable[dict[str, Any]],
 ) -> int:
-    """Stamp real wallet fills onto PENDING-first rows interrupted after submit.
-
-    If the process restarts between ``record_bet`` and
-    ``update_pending_bet_after_execution``, the wallet can hold a real fill while
-    the ledger row still has ``order_id/fill_price/fill_size = NULL``. The Data
-    API has enough information to recover that row by token, side, notional, and
-    timestamp. This keeps transfer eligibility from confusing a real open
-    position with an in-flight local order.
-    """
+    """Fill in PENDING rows left without order/fill data by a restart, matching
+    Data API trades on token, side, notional and time."""
     updated = 0
     used_ids: set[int] = set()
     for trade in trades:
@@ -679,14 +650,8 @@ def _reconcile_open_rows_from_data_api_positions(
     *,
     wallet_address: str = "",
 ) -> int:
-    """Align open ledger cost basis to trusted Data API position aggregates.
-
-    Exact token/condition/side identity is mandatory. The 5% rule remains a
-    reconciliation guard: once the API aggregate and local fills are close
-    enough to be the same position, we copy the Data API initial value into the
-    ledger so dashboard display, open capital, and future settlement use one
-    basis.
-    """
+    """Copy the Data API cost basis into open ledger rows when token/side match
+    exactly and the amounts agree within 5%."""
     updated = 0
     seen_keys: set[tuple[str, str, str]] = set()
     for position in positions:
@@ -865,15 +830,8 @@ def _reconcile_filled_rows_from_data_api_trades(
     conn: sqlite3.Connection,
     trades: Iterable[dict[str, Any]],
 ) -> int:
-    """Correct filled ledger cost basis from exact Data API BUY trades.
-
-    The CLOB execution path can persist the final walked limit as ``fill_price``
-    while the Data API reports the true trade VWAP. For live dashboard/capital
-    we trust the Data API, but keeping ledger cost stale creates false
-    position-mismatch reminders and later PnL drift. Only correct rows when the
-    wallet trade already matches the ledger fill by tx hash or the strict
-    token/side/size/time matcher.
-    """
+    """Replace a filled row's limit-price cost with the Data API trade VWAP,
+    when the trade matches by tx hash or strict token/side/size/time."""
     _, tx_to_id, fill_rows = _ledger_index(conn, need_orders=False)
     updated = 0
     used_ids: set[int] = set()
@@ -997,8 +955,6 @@ def _records_from_data_api(
     trades: Iterable[dict[str, Any]] = (),
     positions: Iterable[dict[str, Any]] = (),
 ) -> list[WalletRecord]:
-    # caller doesn't need order_id matching here, so
-    # skip building that dict entirely.
     _, tx_to_id, fill_rows = _ledger_index(conn, need_orders=False)
     position_groups = _ledger_position_groups(conn)
     resolved_position_groups = _ledger_position_groups(
@@ -1153,9 +1109,6 @@ def build_wallet_snapshot(
             data_api_reconciliation_warnings.append(message)
             if counts_as_open:
                 data_api_transfer_blocking_warnings.append(message)
-    # Data API tells us whether a wallet position is still unresolved or has
-    # been released/redeemable. Do not let a lingering chain token balance make
-    # an already-released zero-payout position look open on the dashboard.
     if data_api_positions is not None:
         open_positions_count = data_api_open_positions_count
         if (
@@ -1167,12 +1120,7 @@ def build_wallet_snapshot(
                 f"(api={data_api_open_positions_count}, chain={int(chain_open_positions_count)})."
             )
     elif chain_open_positions_count is None:
-        # Chain CTF balance is not wired in this build. Keep behaviour identical
-        # to pre-#20: use the Data API count for the transfer-eligibility gate.
-        # The diagnostic surfaces in `sources_checked.chainOpenPositions=False`
-        # (see above) rather than as a hard warning, so an unchecked chain leg
-        # doesn't permanently block transfers (warnings flip transfer-eligible
-        # to False in execution.polymarket_transfer.preview_return_transfer).
+        # Chain position counts aren't wired; use the Data API count.
         open_positions_count = data_api_open_positions_count
     else:
         open_positions_count = int(chain_open_positions_count)
@@ -1198,9 +1146,7 @@ def build_wallet_snapshot(
     if orphan_trades:
         warnings.append(f"{len(orphan_trades)} wallet trade(s) have no matching local ledger row.")
     warnings.extend(str(w) for w in extra_warnings if str(w))
-    # Redact secrets from any warning text before the snapshot leaves this
-    # function (ce-code-review P2 #34). Applies uniformly to upstream-supplied
-    # `extra_warnings` (exception text) and locally appended human strings.
+    # Redact secrets from warning text.
     warnings = [redact_operator_text(w) for w in warnings]
     data_api_reconciliation_warnings = [
         redact_operator_text(w) for w in data_api_reconciliation_warnings
@@ -1245,11 +1191,7 @@ def build_wallet_snapshot(
 
 
 def _snapshot_state_key(raw: object) -> str | None:
-    """Canonical state identity of a stored ``snapshot_json`` (``sampledAt`` dropped).
-
-    Returns ``None`` for missing/malformed payloads so callers fall through to a
-    plain INSERT instead of raising on a corrupt legacy row.
-    """
+    """Stored snapshot without ``sampledAt``, for comparison; None if unreadable."""
     if not isinstance(raw, str) or not raw:
         return None
     try:
@@ -1268,20 +1210,8 @@ def _snapshot_state_key(raw: object) -> str | None:
 
 
 def record_wallet_snapshot(conn: sqlite3.Connection, snapshot: WalletSnapshot) -> int:
-    """Persist a wallet snapshot: one row per distinct wallet state.
-
-    Operator directive 2026-08-09 — the reconciliation audit trail must stop
-    growing. Consecutive refreshes are byte-identical apart from the sample
-    timestamp, so when the newest stored row for this wallet carries the same
-    state (the full payload minus ``sampledAt``) it is refreshed **in place**:
-    ``sampled_at`` and the stored payload are rewritten and that row's id is
-    returned. Any genuine state change still INSERTs a new row.
-
-    Every consumer reads the newest row only (``latest_wallet_snapshot``, and
-    through it the capital/halt gate and the pUSD transfer gate) and judges
-    freshness off the ``sampled_at`` column, so an in-place refresh looks exactly
-    as fresh as an insert.
-    """
+    """Save a wallet snapshot. If the state is unchanged from the newest row,
+    update that row's timestamp instead of inserting. Returns the row id."""
     ensure_wallet_schema(conn)
     payload = snapshot.to_dict()
     state_key = json.dumps(
@@ -1291,11 +1221,7 @@ def record_wallet_snapshot(conn: sqlite3.Connection, snapshot: WalletSnapshot) -
     snapshot_json = json.dumps(payload, sort_keys=True)
     warnings_json = json.dumps(snapshot.warnings)
 
-    # Serialize the read-modify-write below: the scheduler tick and a
-    # dashboard-triggered refresh can race, and the SELECT..UPDATE/INSERT pair
-    # must not interleave. BEGIN IMMEDIATE takes the write lock up front
-    # (bounded by the connection's busy_timeout); skipped when the caller
-    # already owns a transaction — its own commit is the boundary then.
+    # Lock for the read-modify-write unless the caller already has a transaction.
     own_txn = not conn.in_transaction
     try:
         if own_txn:
@@ -1312,9 +1238,6 @@ def record_wallet_snapshot(conn: sqlite3.Connection, snapshot: WalletSnapshot) -
         ).fetchone()
         if previous is not None and _snapshot_state_key(previous["snapshot_json"]) == state_key:
             run_id = int(previous["id"])
-            # Same state, newer sample: refresh the row rather than append a
-            # duplicate. snapshot_json is rewritten with the FULL new payload so
-            # the inner sampledAt the Operator panel renders stays current.
             conn.execute(
                 """
                 UPDATE wallet_reconciliation_runs
@@ -1364,10 +1287,7 @@ def record_wallet_snapshot(conn: sqlite3.Connection, snapshot: WalletSnapshot) -
             ),
         )
         run_id = int(cur.lastrowid)
-        # wallet_reconciliation_records was write-only audit data with no reader
-        # in src; per operator directive 2026-08-09 it is no longer persisted
-        # (the table, its schema check, and the prune DELETE stay for legacy
-        # rows).
+        # Per-record rows are no longer written (nothing read them).
         conn.commit()
         return run_id
     except Exception:
@@ -1415,13 +1335,9 @@ def refresh_wallet_snapshot(
     data_api_fetcher=None,
     chain_balance_reader=None,
 ) -> WalletSnapshot:
-    """Fetch a transfer-grade wallet snapshot and persist it.
-
-    This is read-only against external systems. A snapshot is only marked
-    complete when CLOB balance, CLOB open orders, and Data API positions were
-    checked; on-chain balance is also required when live on-chain verification
-    is enabled.
-    """
+    """Fetch and save a wallet snapshot (read-only externally). It is complete
+    only if CLOB balance, open orders, Data API positions (and on-chain balance,
+    when enabled) were all checked."""
     wallet_address = (getattr(config, "poly_funder", "") or "").strip()
     if not is_address(wallet_address):
         snapshot = build_wallet_snapshot(
@@ -1547,9 +1463,7 @@ def latest_wallet_snapshot(
     wallet_address: str = "",
     freshness_ttl_s: int = 300,
 ) -> dict[str, Any] | None:
-    # ensure_wallet_schema now asserts schema is present.
-    # Read paths (dashboards, go/no-go offline) must tolerate missing tables on
-    # never-initialized DBs by returning None instead of raising.
+    # Readers return None on a DB without the tables.
     try:
         ensure_wallet_schema(conn)
     except RuntimeError:

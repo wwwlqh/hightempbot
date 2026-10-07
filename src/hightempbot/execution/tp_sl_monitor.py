@@ -1,25 +1,9 @@
-"""Take-profit / stop-loss monitor (per strategy).
+"""Take-profit / stop-loss monitor for strategies with ``tp``/``sl`` set.
 
-Runs as a per-station scheduled job (5-min cadence, offset 3 min from the
-betting tick — see scheduler/jobs.py). For each PENDING row of the requested
-strategy, fetches the current YES bid book and fires a close when the full-size
-executable bid-walk VWAP crosses the strategy's configured TP / SL threshold.
-
-Strategies the monitor handles are exactly the ones whose StrategyConfig has a
-non-None ``tp`` or ``sl``:
-  * YMID  — TP=0.15
-  * TAIL  — TP=0.20
-
-NO and YHIGH set both to None and hold positions to resolution; the monitor
-never touches them.
-
-Crash-safety: writes ``event_detail.close_in_flight`` BEFORE invoking
-``OrderClient.close_position`` so a crash between the order and the local
-ledger flip doesn't double-sell on retry. The flag carries a 10-min age-out
-(``TP_SL_FLAG_STALE_SECONDS``) — stale flags are cleared and the row reattempts
-on the next tick. Retry-safe non-success results clear the flag in the same
-call; ambiguous submit outcomes keep the flag so the next tick does not
-double-sell while the close state is unknown.
+Closes a PENDING position when the full-size bid-walk VWAP has moved past the
+threshold. ``event_detail.close_in_flight`` is written before selling so a
+crash can't cause a double sell; flags older than TP_SL_FLAG_STALE_SECONDS are
+cleared and retried. An ambiguous submit keeps the flag.
 """
 
 from __future__ import annotations
@@ -66,18 +50,13 @@ def _flag_started_at(cif: dict) -> datetime | None:
     if not val:
         return None
     try:
-        # utc_now_sql returns "YYYY-MM-DD HH:MM:SS" (UTC, no tz suffix).
         return datetime.strptime(val, "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
     except ValueError:
         return None
 
 
 def _set_close_in_flight(conn: sqlite3.Connection, bet_id: int, started_at: str) -> None:
-    """Atomically merge close_in_flight into event_detail.
-
-    json_patch on SQLite (3.34+) merges keys; we use json_set as a simpler form
-    that works across the live server's 3.34.1 build.
-    """
+    """Set event_detail.close_in_flight."""
     conn.execute(
         "UPDATE ledger SET event_detail = json_set("
         "  COALESCE(event_detail, '{}'), "
@@ -142,13 +121,7 @@ def _evaluate_row(
     tp: float | None,
     sl: float | None,
 ) -> str | None:
-    """Return 'tp' if TP fires, 'sl' if SL fires, else None.
-
-    Move is computed in absolute price units (YES side):
-      move = bid - fill_price
-    TP fires when configured and move >= tp (favorable). SL fires when
-    configured and move <= -sl (adverse).
-    """
+    """'tp' if bid − fill_price ≥ tp, 'sl' if ≤ −sl, else None."""
     move = bid - fill_price
     if tp is not None and move >= tp - _PRICE_EPSILON:
         return "tp"
@@ -168,31 +141,12 @@ def run_tp_sl_monitor(
     notify=None,
     local_now_minute: int | None = None,
 ) -> dict[str, int]:
-    """Run one TP/SL monitor pass for ``station`` against one strategy.
+    """One TP/SL pass over ``station``'s PENDING rows for ``strategy``.
 
-    Args:
-        station: StationConfig (uses .icao only).
-        db_path: Per-thread DB path; opens its own connection.
-        strategy: Strategy key in STRATEGY_CONFIGS (e.g. "YMID", "TAIL"). The
-            monitor reads only PENDING rows tagged with this strategy and
-            evaluates them against the strategy's tp/sl. Defaults to "YMID"
-            for backward compatibility with legacy callers.
-        order_client: Live OrderClient. Required when dry_run=False.
-        reader: ClobReader for price reads. When None and dry_run=True, a
-            no-op pass runs (no monitor action). Production callers always
-            provide either reader or order_client (which subclasses ClobReader).
-        dry_run: When True, simulates the close at the full-size executable
-            bid-walk VWAP instead of submitting a sell order. Records CLOSED with the
-            simulated fill price + ``reason='<strategy>_tp_dry'`` etc.
-        notify: Optional callable(title, body) for push notifications.
-        local_now_minute: Station-local current minute. When set, the
-            hourly-first-tick gate is enforced: NEW closes fire only at
-            tick 0 (minutes 0-9 of the station local hour). A stale-cleared
-            close_in_flight retry is allowed at any tick. When None, the
-            gate is skipped (back-compat for tests).
-
-    Returns: dict of counters: {"tp_fired": N, "sl_fired": M, "skipped": K,
-    "stale_cleared": J, "errors": E}.
+    Live needs ``order_client``; dry-run simulates the close at the bid-walk
+    VWAP using ``reader``. With ``local_now_minute``, new closes fire only on
+    the hour's first tick. Returns counters: tp_fired, sl_fired, skipped,
+    stale_cleared, errors.
     """
     try:
         cfg = STRATEGY_CONFIGS[strategy]
@@ -226,11 +180,7 @@ def run_tp_sl_monitor(
             log_pipeline_health(conn, station_id, "operator", "SKIP", block_reason[:500])
             return counters
 
-        # Mode-scope the scan: in live mode skip stale dry_run rows so the
-        # monitor never calls close_position on a token whose actual size on
-        # Polymarket is zero. In dry_run mode skip live rows for symmetry —
-        # a paper-trading session shouldn't touch real positions even if the
-        # ledger somehow contains them.
+        # Only rows of the current mode (never sell dry-run positions live).
         rows = pending_positions_by_strategy(
             conn,
             strategy,
@@ -243,12 +193,7 @@ def run_tp_sl_monitor(
         now_utc = datetime.now(timezone.utc)
         stale_threshold = timedelta(seconds=TP_SL_FLAG_STALE_SECONDS)
 
-        # Group pending rows by token_id so each unique CLOB book is fetched
-        # once per tick instead of once per row. Multi-row TAIL/YMID slots
-        # (cross-tick top-up) commonly share a token_id; dedup here avoids
-        # the 3-7x book-fetch fan-out per slot.
-        # Books are cached in this dict: token_id → book (or None on miss).
-        # ``best_bid_cache`` follows the same shape for the bid extraction.
+        # Per-token caches so rows sharing a token fetch one book.
         _book_cache: dict[str, object] = {}
         _bid_cache: dict[str, object] = {}
         _MISSING = object()
@@ -272,9 +217,7 @@ def run_tp_sl_monitor(
             return cached
 
         for row in rows:
-            # re-check operator-control gate per row.
-            # TRANSFER_LOCK or Stop pressed mid-monitor must halt remaining
-            # closes, not just the next tick.
+            # Re-check operator control so Stop takes effect mid-pass.
             try:
                 from hightempbot.execution.operator_control import (
                     processing_block_reason as _block,
@@ -298,8 +241,7 @@ def run_tp_sl_monitor(
                     counters["skipped"] += 1
                     continue
 
-                # F-001: stale-flag age-out. If a previous tick set the flag
-                # but never reached close+record, clear and reattempt.
+                # Clear a stale in-flight flag and retry.
                 cif = _parse_close_in_flight(row["event_detail"])
                 was_retry = False
                 if cif is not None:
@@ -314,18 +256,10 @@ def run_tp_sl_monitor(
                         counters["stale_cleared"] += 1
                         was_retry = True
                     else:
-                        # Flag is fresh — another tick is mid-flight. Skip.
                         counters["skipped"] += 1
                         continue
 
-                # --- Hourly-first-tick gate (2026-05-16) ---
-                # Mirror the betting-side gate (decision.py): NEW close
-                # decisions fire only at tick 0 of the station's local hour.
-                # Later ticks skip new TP/SL fires so we don't chase
-                # intra-hour bid spikes. Stale-flag retries are exempt — a
-                # close that failed mid-attempt at tick 0 must still be
-                # allowed to complete on tick 1+ regardless of the gate.
-                # ``tick_index_for`` is offset-aware (see config.py).
+                # New closes only on the hour's first tick; stale retries are exempt.
                 if (
                     local_now_minute is not None
                     and tick_index_for(station.icao, local_now_minute) >= 1
@@ -334,9 +268,6 @@ def run_tp_sl_monitor(
                     counters["skipped"] += 1
                     continue
 
-                # Fetch current bid book (F-007: None-safe). Book, top bid,
-                # and executable close quote are cached/derived per token_id
-                # within this tick so multi-row slots share one CLOB call.
                 if price_source is None:
                     counters["skipped"] += 1
                     continue
@@ -380,13 +311,11 @@ def run_tp_sl_monitor(
                     fill_price - cfg.sl if fired == "sl" and cfg.sl is not None else None
                 )
 
-                # F-001: set in-flight flag BEFORE the close call, with
-                # a started_at timestamp for the age-out path.
+                # Set the in-flight flag before closing.
                 started_at = utc_now_sql()
                 _set_close_in_flight(conn, bet_id, started_at)
 
                 if dry_run:
-                    # Simulated close: record CLOSED at executable full-size VWAP.
                     reason = f"{reason_prefix}_{fired}_dry"
                     try:
                         record_position_close(
@@ -403,11 +332,6 @@ def run_tp_sl_monitor(
                                 "close_limit_price": close_limit_price,
                             },
                         )
-                        # Strip the in-flight flag from event_detail on
-                        # success so CLOSED rows don't carry stale state
-                        # forever (ce-review correctness #22 + adversarial
-                        # ADV-006). _merge_event_detail filters out None
-                        # values, so an explicit json_remove is required.
                         _clear_close_in_flight(conn, bet_id)
                     except Exception:
                         logger.error("dry-run close failed for row %s", bet_id, exc_info=True)
@@ -427,7 +351,7 @@ def run_tp_sl_monitor(
                         max_acceptable_vwap=max_acceptable_vwap,
                     )
                     if not result.success:
-                        # F-001 (b): clear flag on non-success so next tick retries.
+                        # Clear the flag so the next tick retries.
                         if getattr(result, "error_kind", None) == "stale_quote":
                             logger.info(
                                 "close_position quote stale for row %s: %s — clearing flag",
@@ -462,15 +386,8 @@ def run_tp_sl_monitor(
                         )
                         counters["errors"] += 1
                         continue
-                    # Orphan-close recovery (ce-review reliability rel-005 +
-                    # kieran-python #7): the exchange has already filled the
-                    # close. If record_position_close raises, the ledger row
-                    # is stranded as PENDING. Retry the LEDGER WRITE only
-                    # (with bounded backoff) — never re-submit the close,
-                    # that would attempt to sell a position we no longer
-                    # hold and loop forever. If all retries fail, write an
-                    # orphan_close marker so an operator can reconcile from
-                    # the order_id + fill_price, and notify.
+                    # The sell filled. If recording it fails, retry only the
+                    # ledger write (never the sell), then mark ORPHAN_CLOSED.
                     close_price = float(result.fill_price or executable_vwap)
                     close_size = float(result.fill_size or fill_size)
                     record_kwargs = {
@@ -498,7 +415,6 @@ def run_tp_sl_monitor(
                             if attempt < 2:
                                 time.sleep(0.5 * (2 ** attempt))
                     if record_ok:
-                        # Same flag-clearing rationale as the dry-run path.
                         _clear_close_in_flight(conn, bet_id)
                     else:
                         logger.error(
@@ -508,20 +424,8 @@ def run_tp_sl_monitor(
                             bet_id, result.order_id, result.fill_price,
                             exc_info=last_err,
                         )
-                        # transition the row to the
-                        # ORPHAN_CLOSED terminal state. Without this the row
-                        # stays PENDING and the next monitor tick re-fires
-                        # close_position against a wallet that holds zero
-                        # shares (rel-005 cascade). Both TP/SL monitor
-                        # (pending_positions_by_strategy filters on outcome=
-                        # 'PENDING') and resolution settler ignore non-
-                        # PENDING rows, so ORPHAN_CLOSED is fully inert.
-                        # previously a single-shot UPDATE
-                        # that silently dropped the orphan marker on a transient
-                        # OperationalError (busy lock, IO timeout). Bounded retry
-                        # at 100/250/500ms backoff; if all 3 fail the row stays
-                        # PENDING and an operator must reconcile manually using
-                        # the order_id + fill_price logged at WARNING.
+                        # ORPHAN_CLOSED is terminal, so nothing re-sells it.
+                        # If this write also fails, an operator must reconcile.
                         orphan_marker_ok = False
                         orphan_last_err: Exception | None = None
                         for orphan_attempt, backoff_ms in enumerate((100, 250, 500)):
@@ -559,7 +463,6 @@ def run_tp_sl_monitor(
                                 if orphan_attempt < 2:
                                     time.sleep(backoff_ms / 1000.0)
                             except Exception as exc:
-                                # Non-transient (programmer error, schema): no retry.
                                 orphan_last_err = exc
                                 break
                         if not orphan_marker_ok:
@@ -570,8 +473,6 @@ def run_tp_sl_monitor(
                                 bet_id, result.order_id, result.fill_price,
                                 exc_info=orphan_last_err,
                             )
-                        # pipeline_health row so the dashboard surfaces this
-                        # even when the Telegram path is broken.
                         from hightempbot.db.connection import log_pipeline_health
                         log_pipeline_health(
                             conn, station_id, "order", "ERROR",
