@@ -1,24 +1,7 @@
-"""Data shaping for the v2 trading-journal dashboard.
+"""Builds the HTB_DATA payload the v2 dashboard SPA renders (`/api/v2/data`).
 
-`build_htb_data(conn, ...)` returns a dict that mirrors the schema of
-`docs/design/project/ui_kits/dashboard_v2/data.js::HTB_DATA`. The React UI
-fetches it via `/api/v2/data` and renders without a build step.
-
-Wiring status (2026-05-06 first pass):
-- LIVE / wired to real DB: capital, totalPnl, realizedPnl, fees, resolved/wins/losses counts,
-  open + resolved positions list, ddPct, equityCurve from ledger, performance by
-  station, strategies (NO/YMID/TAIL/YHIGH) breakdown, ymidExits (TP fire stats),
-  funnel, stations list (eligibility), uptime, lastScanAgo, mode (LIVE/DRY-RUN),
-  calendar (per target_date P&L), top3 winners/losers, station sparklines.
-- PLACEHOLDER (computed cheaply with simple defaults — flagged in JSON with
-  `_synthetic_<key>: true`): ratios.sharpe / sortino / calmar,
-  calibrationByStation per-bucket observed/predicted from the LUT bucket grid
-  (computed from lut_bucket_stats — real but coarse), ensembleByStation
-  per-model 30d accuracy (placeholder until per-model ledger is added).
-
-Update incrementally: add real wirings to replace placeholders one at a time.
-The React UI tolerates missing/empty arrays — pages render with the real keys
-and fall back to "No data" text where the placeholder is empty.
+Placeholder fields are flagged with `_synthetic_<key>: true`; the SPA shows
+"No data" for empty arrays.
 """
 
 from __future__ import annotations
@@ -54,20 +37,10 @@ from hightempbot.stations import supports_live_resolution_source
 
 logger = logging.getLogger(__name__)
 
-# Halt at MAX_DD — 2026-05-20 operator switch from the prior "halve at
-# MAX_DD" rule. The React component expects ``ddHaltThreshold`` in PERCENT
-# (currently 40). ``reducedSizeThreshold`` is still emitted at 100 (the no-op value
-# equivalent to "no reduced band") so older bundled UI builds don't fall over
-# on a missing key; the field is now unused and will be removed once the
-# bundled JS no longer references it. A lower value would lie to the
-# operator: dashboard says "half-sized" while the bot is in fact halted.
 DEFAULT_HALT_THRESHOLD_PCT = int(round(MAX_DD * 100))
-DEFAULT_REDUCED_AT_PCT_OF_HALT = 100  # legacy field; halt-on-DD has no reduced band
+DEFAULT_REDUCED_AT_PCT_OF_HALT = 100  # unused legacy UI key; there is no reduced-size band
 
 
-# ICAO -> country/flag helpers — single source of truth in _geo.py so the
-# prefix table doesn't drift between v2_data.py and app.py (ce-review
-# maintainability + kieran-python finding #18).
 from hightempbot.dashboard._geo import _icao_to_flag  # noqa: F401
 
 
@@ -238,10 +211,7 @@ def _hour_set_display(hours) -> str | None:
 
 
 def _serialize_strategy_configs() -> dict[str, dict[str, object]]:
-    """Serialize STRATEGY_CONFIGS-backed data for the Strategy dashboard tab.
-
-    Field names mirror the live config attribute names.
-    """
+    """STRATEGY_CONFIGS for the Strategy tab, using the config's field names."""
     payload: dict[str, dict[str, object]] = {}
     disabled: list[str] = []
     for name, cfg in STRATEGY_CONFIGS.items():
@@ -281,10 +251,7 @@ def _serialize_strategy_configs() -> dict[str, dict[str, object]]:
         "min_bet_usd": float(MIN_BET_USD),
         "poly_fee_theta": float(POLY_FEE_THETA),
     }
-    # Operator 2026-08-09: the Strategy tab shows only the live sleeve(s)
-    # (FLIP under FLIP_MODE=1; NO otherwise). Disabled sleeves stay in
-    # STRATEGY_CONFIGS for the TP/SL monitor and parity tests but are not
-    # rendered — the key keeps its shape for the JSX/test contract.
+    # Only enabled strategies are shown.
     del disabled
     payload["__disabled"] = {"value": []}
     return payload
@@ -297,18 +264,13 @@ def _target_size_for_group(rows: list[dict[str, object]], stake_basis_capital: f
     if cfg is None:
         return None
     actual_size = sum((_finite_float(row.get("bet_size")) or 0.0) for row in rows)
-    # Target is an operator display value. Round upward to cents so tiny cash
-    # dust/fees do not turn a 5% BR100 target into a confusing "$4.99 target".
+    # Round up so 5% of $100 shows as $5.00, not $4.99.
     target = math.ceil(float(stake_basis_capital) * float(cfg.capital_frac) * 100.0) / 100.0
     return max(actual_size, target)
 
 
 def _actual_display_for_v2(row: dict[str, object], *, resolved: bool) -> str | None:
-    # Prefer the Polymarket bracket-bin label (e.g. "68-69°F", "≥27°F") over
-    # the raw observed temperature so the trade journal matches how the market
-    # itself reported the outcome. Fall back to "{actual_display}°{unit}" only
-    # when no bracket label is available (e.g. resolution driven by our own
-    # WU/NOAA actuals, which clears resolution_actual_label upstream).
+    # Prefer the market's winning bracket label; fall back to the observed temperature.
     label = row.get("actual_label")
     if label:
         return str(label)
@@ -322,14 +284,7 @@ def _actual_display_for_v2(row: dict[str, object], *, resolved: bool) -> str | N
 
 
 def _fill_levels_for_v2(row: dict[str, object]) -> list[dict[str, float]]:
-    """Return per-price fill depth captured at execution time.
-
-    `volume_cap` is intentionally not used here: that column is the broader
-    market/strategy volume gate, not the amount available or filled at the
-    displayed price. When older reconciliation paths only recorded the fill
-    VWAP/size, synthesize a one-level VWAP ladder so known fills do not render
-    as missing depth.
-    """
+    """Per-price fill ladder recorded at execution, or a one-level VWAP ladder for old rows."""
     levels = _event_detail(row).get("fill_levels")
     out: list[dict[str, float]] = []
     if isinstance(levels, list):
@@ -379,11 +334,7 @@ def _fill_detail_for_v2(row: dict[str, object], *, resolved: bool) -> dict[str, 
     fill_price = _finite_float(row.get("fill_price"))
     edge = _finite_float(row.get("edge"))
     realized_edge = _finite_float(row.get("realized_edge"))
-    # Dry-run rows historically did not persist realized_edge (the ledger
-    # UPDATE path skipped that column for event_type='dry_run'). The pre-trade
-    # `edge` is the best available approximation — dry-run has no slippage,
-    # so realized_edge ≈ edge. Without this fallback every dry-run row shows
-    # an empty Realized column on the Trade Journal.
+    # Old dry-run rows lack realized_edge; the pre-trade edge is close enough.
     if realized_edge is None and row.get("event_type") == "dry_run" and edge is not None:
         realized_edge = edge
     bet_size = _finite_float(row.get("bet_size")) or 0.0
@@ -558,12 +509,7 @@ def _equity_curve_from_ledger(
     initial_bankroll: float,
     days: int = 30,
 ) -> list[dict[str, object]]:
-    """Cumulative P&L from resolved bets, bucketed by UTC date. Starts at 0.
-
-    Returns list of {x: 'MM-DD', y: cumulative P&L} for the last `days` UTC
-    days that have resolved bets, prefixed with one zero-point on the day
-    before the first resolution.
-    """
+    """Cumulative resolved P&L per UTC day as [{x: 'MM-DD', y}], starting from 0."""
     rows = conn.execute(
         """
         SELECT substr(bet_ts, 1, 10) AS d, COALESCE(SUM(pnl), 0) AS pnl
@@ -580,7 +526,6 @@ def _equity_curve_from_ledger(
         return []
     cum = 0.0
     out: list[dict[str, object]] = []
-    # Prefix a zero-point so the chart starts from 0.
     first_day = _date.fromisoformat(rows[0]["d"])
     prefix_day = first_day - timedelta(days=1)
     out.append({"x": prefix_day.strftime("%m-%d"), "y": 0.0})
@@ -650,12 +595,8 @@ def _account_equity_curve(
     initial_bankroll: float,
     days: int = 30,
 ) -> list[dict[str, object]]:
-    """Trading P&L minus operator withdrawals, bucketed by UTC date.
-
-    The trading curve remains the drawdown source. This account curve makes
-    withdrawals visually obvious without turning them into strategy losses.
-    """
-    del initial_bankroll  # curve is plotted as cumulative P&L delta, not bankroll.
+    """Trading P&L minus withdrawals per UTC day (display only; not used for drawdown)."""
+    del initial_bankroll
     pnl_rows = conn.execute(
         """
         SELECT substr(bet_ts, 1, 10) AS d, COALESCE(SUM(pnl), 0) AS pnl
@@ -703,11 +644,7 @@ def _account_equity_curve(
 
 
 def _weekly_pnl(conn: sqlite3.Connection, cutoff_utc: str, n_weeks: int = 8) -> list[dict[str, object]]:
-    """Last `n_weeks` ISO-week bucketed P&L from resolved bets.
-
-    One GROUP BY rather than one query per week: every dashboard render hits
-    this path, and the previous loop issued ``n_weeks`` separate aggregates.
-    """
+    """Resolved P&L for the last ``n_weeks`` weeks."""
     today = _dt.now(timezone.utc).date()
     earliest_week_end = today - timedelta(days=today.weekday()) + timedelta(days=6) - timedelta(weeks=n_weeks - 1)
     earliest_week_start = earliest_week_end - timedelta(days=6)
@@ -771,8 +708,7 @@ def _terminal_trade_groups(
                 "target_date": terminal_rows[0].get("target_date"),
             })
         else:
-            # Mixed terminal states inside one slot are rare and usually mean
-            # manual repair. Count each fill so the dashboard does not hide it.
+            # Mixed outcomes in one slot (manual repair): count each fill.
             for row in terminal_rows:
                 out.append({
                     "rows": [row],
@@ -832,7 +768,6 @@ def _pnl_distribution(conn: sqlite3.Connection, cutoff_utc: str) -> list[dict[st
     counts = {b: 0 for b in bins}
     for trade in _terminal_trade_groups(rows, outcomes=_PNL_OUTCOMES):
         pnl = float(trade["pnl"] or 0.0)
-        # bin lower edge: floor((pnl + 17.5) / 5) * 5 - 17.5 — simpler:
         b = max(min(round(pnl / 5.0) * 5, 25), -15)
         counts[b] = counts.get(b, 0) + 1
     return [{"bin": ("+" if b > 0 else "") + str(b), "n": counts[b]} for b in bins]
@@ -934,18 +869,14 @@ def _ratios(
         "calmar": round(calmar, 2),
         "expectancy": round(expectancy, 2),
         "profitFactor": round(profit_factor, 2),
-        "kellyFrac": 0.0,  # Legacy UI key; Kelly sizing is retired.
+        "kellyFrac": 0.0,  # legacy UI key
     }
 
 
 @dataclass
 class _WinLossAccumulator:
-    """W/L/CLOSED tally used by both _strategies_breakdown and the per-station
-    perf rollup (ce-code-review P2 #61 — was duplicated as two ~60-line
-    dict-of-mixed-types blocks). CLOSED + positive pnl = TP-exit win;
-    CLOSED + non-positive pnl = held-to-loss. MIXED (rare: trade groups with
-    multiple terminal outcomes) is resolved per-row instead of group-summed.
-    """
+    """Win/loss tally. CLOSED with positive P&L counts as a win; groups with
+    mixed outcomes are counted per row."""
 
     n_resolved: int = 0
     wins: int = 0
@@ -979,17 +910,7 @@ class _WinLossAccumulator:
 
 
 def _strategies_breakdown(conn: sqlite3.Connection, cutoff_utc: str) -> list[dict[str, object]]:
-    """NO / YMID / TAIL / YHIGH stats from resolved event_detail.strategy rows.
-
-    Single GROUP BY query — gross_win and gross_loss are folded into the
-    outer aggregation as conditional sums, eliminating the previous N+1
-    pattern that issued 12 extra ledger scans per dashboard request
-    (ce-review performance perf-001 + maintainability + kieran-python #25).
-    """
-    # WIN/LOSS semantics: a CLOSED outcome with positive PnL is a TP exit
-    # (TAIL strategy takes profit and exits before resolution). It is a real
-    # win, so it counts toward `wins`/`gross_win`. Held-to-resolution losses
-    # and CLOSED-with-non-positive PnL go to the loss bucket.
+    """Per-strategy stats from resolved rows."""
     rows = _row_dicts(conn.execute(
         """
         SELECT *
@@ -1000,9 +921,6 @@ def _strategies_breakdown(conn: sqlite3.Connection, cutoff_utc: str) -> list[dic
         """,
         (cutoff_utc,),
     ).fetchall())
-    # shared W/L tally via _WinLossAccumulator. Extra
-    # per-strategy fields (n_bets, gross_stake, edges, stakes, total_pnl) stay
-    # inline here because the per-station rollup below doesn't need them.
     grouped: dict[tuple[str, str], dict[str, object]] = {}
     for group_rows in _group_rows_by_trade(rows).values():
         first = group_rows[0]
@@ -1206,11 +1124,7 @@ def _open_positions_for_v2(
 
 
 def _resolved_positions_for_v2(resolved_positions: list[dict]) -> list[dict[str, object]]:
-    # No row cap: the resolved-bets table is the operator's trade journal and
-    # must show every resolved bet in the queried window. The earlier limit=50
-    # truncated the latest 50 trade-groups, which (with ~15-20 unique groups
-    # per day) made the table appear to span only the last 3 days even when
-    # range="All" was selected.
+    # No row cap: the trade journal shows every resolved bet in the window.
     return _group_positions_for_v2(resolved_positions, resolved=True)
 
 
@@ -1246,7 +1160,6 @@ def build_htb_data(
     dry_run: bool,
     boot_time: _dt,
     cutoff_utc: str,
-    # Helpers from app.py — passed in to avoid circular imports.
     session_baseline_capital,
     dashboard_peak_capital,
     dashboard_realized_capital,
@@ -1262,13 +1175,7 @@ def build_htb_data(
     active_target_date: str = "",
     range_days: int | None = None,
 ) -> dict[str, object]:
-    """Build the HTB_DATA dict shape consumed by the v2 dashboard SPA.
-
-    Helpers from app.py are passed in as keyword arguments rather than
-    imported, because v2_data is imported by app.py — pulling the helpers
-    in via a normal import would create a cycle. The DI shape is the cost
-    of the no-cycle constraint.
-    """
+    """Build HTB_DATA. app.py helpers are passed in to avoid an import cycle."""
     from hightempbot.stations import get_all_stations
 
     runtime_st = get_all_stations(conn)
@@ -1277,39 +1184,19 @@ def build_htb_data(
 
     baseline = session_baseline_capital(conn, initial_bankroll)
 
-    # `range_days` (when set) tightens realized/audit rows and charts to the
-    # last N days. Visible Net P&L and Capital are realized-only; Data API
-    # open-position marks remain wallet/detail data and are not included in
-    # the main account cards. Two values are NOT windowed and always reflect
-    # the current session state:
-    #
-    #   * ``capital`` — the operator's current account balance. A brokerage
-    #     UI doesn't change your balance when you toggle the time range;
-    #     neither should this one.
-    #   * ``totalPnl`` / ``realizedPnl`` — the visible Net P&L number. This
-    #     intentionally excludes unrealized Data API marks.
-    #   * ``peak`` / ``dd_pct`` — labeled "Max DD · current peak-to-trough"
-    #     in the UI. The word ``current`` is load-bearing: this is the
-    #     realized drawdown right now, not a windowed slice. Windowing would
-    #     hide the very drawdown the halt gate is comparing against.
-    #
-    # Both are computed from the session floor regardless of the selected
-    # range, so the user can compare windowed performance against their
-    # actual current capital.
+    # `range_days` narrows rows and charts. Capital, P&L and peak/drawdown are
+    # never windowed: they always cover the whole session, so the drawdown
+    # matches what the halt gate sees. Unrealized marks are excluded.
     if range_days is not None and range_days > 0:
         range_floor_utc = (
             (_dt.now(timezone.utc) - timedelta(days=range_days))
             .strftime("%Y-%m-%d %H:%M:%S")
         )
         kpi_cutoff_utc = max(cutoff_utc, range_floor_utc)
-        # Resolved-bets table follows the same window as KPI cards so the
-        # 7d/30d buttons on Trade Journal narrow the table contents.
         resolved_cutoff_utc = range_floor_utc
     else:
         kpi_cutoff_utc = cutoff_utc
-        # "All" honors the session-floor anchor (same as KPI cards) — the
-        # operator-anchored cutover defines the dashboard's universe, so the
-        # trade journal cannot surface pre-cutover history.
+        # "All" still starts at the session floor.
         resolved_cutoff_utc = cutoff_utc
 
     open_cost_basis_row = conn.execute(
@@ -1324,10 +1211,7 @@ def build_htb_data(
     ).fetchone()
     open_cost_basis = float(open_cost_basis_row["x"] or 0.0) if open_cost_basis_row else 0.0
 
-    # Session-scoped (operator zero-reset 2026-08-10): the Withdrawal tile and
-    # the ledger-fallback capital math count only return transfers made after
-    # the session epoch, so pre-session withdrawals (e.g. the 2026-07-27
-    # $84.05) no longer appear anywhere on a fresh session.
+    # Only withdrawals after the session start count.
     return_transfer_outflow = return_transfer_notional(conn, since_utc=cutoff_utc)
     adjusted_baseline = max(0.0, baseline - return_transfer_outflow)
     ledger_realized_capital = max(
@@ -1342,9 +1226,6 @@ def build_htb_data(
     capital = ledger_realized_capital
     peak = ledger_peak
 
-    # Wallet-derived display. Data API values are retained for wallet detail
-    # and reconciliation only; they do not override the realized P&L/Capital
-    # cards in the main dashboard.
     wallet_balance: float | None = None
     wallet_peak: float | None = None
     wallet_sampled_at: str | None = None
@@ -1382,8 +1263,7 @@ def build_htb_data(
                     wallet_balance = float(wrow["wallet_balance"])
                     wallet_sampled_at = wrow["sampled_at"]
             except Exception:
-                # bankroll_peak table might not exist on a freshly migrated DB
-                # before the first tick. Silently fall through to ledger math.
+                # bankroll_peak may not exist yet on a fresh DB.
                 pass
 
     if wallet_balance is not None:
@@ -1399,17 +1279,9 @@ def build_htb_data(
         )
         if fresh_api_positions:
             open_cost_basis = data_api_position_initial_value
-        # Capital/peak mirror the live halt gate (wallet basis floored at
-        # ledger realized), not the session-ledger walk above: operator
-        # deposits reach the wallet without any ledger row, so after a full
-        # withdrawal + re-fund the ledger walk reports $0 capital and a fake
-        # 100% drawdown while the gate itself trades normally off the wallet.
-        # api_position_value stays None here even when the Data API snapshot
-        # is fresh: visible Capital excludes unrealized open-position marks
-        # (product decision above; pinned by
-        # test_data_api_marks_do_not_change_visible_capital_or_pnl), so the
-        # display uses wallet + ledger open COST, accepting a small fork from
-        # the gate's mark-inclusive basis while positions are open.
+        # Use the halt gate's wallet-based capital/peak: deposits never hit the
+        # ledger, so ledger math alone would show fake drawdowns after a re-fund.
+        # Open positions count at cost, not at their unrealized mark.
         capital, peak = live_gate_capital_view(
             conn,
             initial_bankroll,
@@ -1422,13 +1294,7 @@ def build_htb_data(
     dd_pct = ((peak - capital) / peak * 100) if peak > 0 else 0.0
     dd_color = "green" if dd_pct < 15 else ("yellow" if dd_pct < 25 else "red")
 
-    # Aggregate ledger totals
-    # `pending_exposure` excludes station_id='RECOVERED' — recovery sentinel
-    # rows persist indefinitely (operator must `patch_recovered_orphan` to
-    # relink) and would otherwise inflate the dashboard pending number with
-    # every crash. Capital module's `get_capital_snapshot` does the same.
-    # WIN/LOSS semantics mirror _strategies_breakdown: CLOSED+positive PnL is
-    # counted as a win (TAIL TP exit); CLOSED+non-positive as a loss.
+    # pending_exposure excludes RECOVERED sentinel rows, as get_capital_snapshot does.
     kpi_row = conn.execute(
         """
         SELECT
@@ -1469,25 +1335,10 @@ def build_htb_data(
     account_pnl = realized_pnl
     account_pnl_pct = (account_pnl / adjusted_baseline * 100.0) if adjusted_baseline > 0 else 0.0
     total_pnl = realized_pnl
-    # Average edge across resolved bets in window.
-    #
-    # Semantics: edge percent (×100), AVG over outcomes in
-    # {WIN,LOSS,PUSH,CLOSED} — INCLUDING PUSH rows. PUSH bets have no
-    # realized PnL but their pre-trade edge stays meaningful as a
-    # signal-quality measure.
-    #
-    # Note: `strategies[*].avg_edge` (line ~322) uses a different scope:
-    # raw fraction (no ×100), no outcome filter (PENDING included),
-    # because it's the per-strategy signal-quality picture rather than
-    # a window-realized KPI. Don't compare top-level `avgEdge` against
-    # per-strategy `avg_edge` directly — the units differ by 100×.
+    # Average edge in percent over resolved bets (incl. PUSH). Note
+    # strategies[*].avg_edge is a fraction and includes PENDING.
     avg_edge_pct = float(kpi_row["avg_edge_resolved"] or 0.0) * 100.0
 
-    # Today's bets / signals: scoped to the scanner's current UTC target_date.
-    # Cumulative views above keep using `bet_ts >= cutoff` so resolved history
-    # doesn't disappear at UTC midnight.
-    # (Removed three station-local "today" helper calls whose return values
-    # were assigned to locals but never read — ce-review maintainability #30.)
     if active_target_date:
         today_rows_raw = conn.execute(
             """
@@ -1525,23 +1376,14 @@ def build_htb_data(
     lut_m = lut_by_station(conn)
     funnel = eligibility_funnel(dashboard_st, cov_m, lut_m, active_ids=set(runtime_st))
 
-    # Stations list — coarse stage classification mirrors the live dashboard.
     stations_list: list[dict[str, object]] = []
     for icao, cfg in sorted(dashboard_st.items()):
         cov = cov_m.get(icao)
         lut = lut_m.get(icao) or {}
-        # `lut_total_n` displayed in the Stations table = seeded days, not the
-        # summed per-bucket triple count. Each station-day inserts ~3 bucket
-        # rows into pred_bucket_history; summing `n` across buckets inflates
-        # the count by ~3x and gives operators a misleading 1.5–2k number when
-        # they expect ~600 days.
+        # Seeded days, not summed bucket rows (~3 per day).
         lut_total_n = int(lut.get("seeded_days") or 0)
-        # `bucket_rows` is the canonical key from _lut_by_station (count of
-        # distinct lut_bucket_stats rows). Earlier we read `n_buckets` which
-        # the producer never emits, so the column was permanently 0/8.
         lut_buckets = int(lut.get("bucket_rows") or 0)
         lut_age = lut.get("age_hours")
-        # Round to integer hours so the UI shows "4h" not "4.328383939h".
         if isinstance(lut_age, (int, float)):
             lut_age = int(round(float(lut_age)))
         lut_stale = bool(lut.get("stale"))
@@ -1575,12 +1417,7 @@ def build_htb_data(
             "lut_stale": lut_stale,
         })
 
-    # Performance by station — cutoff-scoped so the v2 dashboard respects the
-    # session boundary. The legacy `_performance_stats(conn)` (deleted
-    # 2026-08-09) returned all-time stats and would have leaked pre-cutoff bets
-    # into the v2 perStation/Top3 tables.
-    # WIN/LOSS semantics match the rest of the dashboard: CLOSED+positive pnl
-    # is a TP-exit win, CLOSED+non-positive is a loss.
+    # Performance by station since the session start.
     city_map = {icao: getattr(cfg, "city", "") for icao, cfg in dashboard_st.items()}
     perf_source_rows = _row_dicts(conn.execute(
         """
@@ -1593,9 +1430,6 @@ def build_htb_data(
         """,
         (cutoff_utc,),
     ).fetchall())
-    # shared W/L tally via _WinLossAccumulator (see
-    # _strategies_breakdown for the other call site). Per-station rollup only
-    # needs n_bets + total_pnl in addition to the W/L counters.
     grouped_perf: dict[str, dict[str, object]] = {}
     for group_rows in _group_rows_by_trade(perf_source_rows).values():
         first = group_rows[0]
@@ -1613,8 +1447,6 @@ def build_htb_data(
         station_perf["total_pnl"] = float(station_perf["total_pnl"]) + pnl  # type: ignore[arg-type]
         station_perf["wl"].add_trade(group_rows, pnl)  # type: ignore[union-attr]
 
-    # Flatten the accumulator back to the legacy dict shape the downstream
-    # block reads (n_resolved / wins / losses / gross_win / gross_loss).
     flat_perf_rows: list[dict[str, object]] = []
     for sp in grouped_perf.values():
         wl: _WinLossAccumulator = sp["wl"]  # type: ignore[assignment]
@@ -1634,18 +1466,10 @@ def build_htb_data(
         reverse=True,
     )
 
-    # Latest EMOS (mu, sigma) per station for the per-station detail panels.
-    # Compute from the most recent horizon=1 forecast_archive ensemble + the
-    # current calibration_params snapshot. predict_emos uses:
-    #   mu    = a + b * ens_mean
-    #   sigma = sqrt(exp(c) + exp(d) * ens_var)
+    # Latest EMOS (mu, sigma) per station from the newest horizon-1 ensemble.
     emos_latest_by_station: dict[str, tuple[float, float]] = {}
     try:
-        # Latest target_date per station with a horizon=1 ensemble of >=4
-        # distinct centres. Filtered to source='openmeteo' (live-eval rows
-        # would otherwise double-count) and deduped by (station, centre) on
-        # latest ingested_at — mirrors the live evaluator in lut.py so the
-        # dashboard's μ/σ matches what the bot used to score.
+        # Newest date with ≥4 Open-Meteo centres, deduped as in lut.py.
         ens_rows = conn.execute(
             """
             SELECT fa.station_id, fa.centre, fa.tmax_celsius
@@ -1683,8 +1507,6 @@ def build_htb_data(
             members = ensembles.get(sid)
             if not members or len(members) < 4:
                 continue
-            # Per-station try/except: a single bad params_blob or
-            # predict_emos failure must not wipe other stations' results.
             try:
                 p = json.loads(cal["params_blob"])
                 params = EMOSParams(
@@ -1700,9 +1522,6 @@ def build_htb_data(
                 logger.exception("EMOS predict failed for station %s", sid)
                 continue
     except Exception:
-        # Outer except: SQL / schema failures. Inner per-station failures
-        # are already isolated above, so reaching here means the whole
-        # block didn't run.
         logger.exception("EMOS dashboard computation failed")
         emos_latest_by_station = {}
     perf_rows = []
@@ -1777,8 +1596,6 @@ def build_htb_data(
             p["city"] = cfg.city
     resolved_positions_list = _resolved_positions_for_v2(enriched_resolved)
 
-    # Overview-tab realized/history surfaces use kpi_cutoff_utc.
-    # Calendar stays on cutoff_utc — its per-day grid is its own range surface.
     equity_curve = _equity_curve_from_ledger(conn, kpi_cutoff_utc, initial_bankroll)
     account_equity_curve = _account_equity_curve(conn, kpi_cutoff_utc, initial_bankroll)
     withdrawal_events = _withdrawal_events(conn, kpi_cutoff_utc)
@@ -1813,7 +1630,6 @@ def build_htb_data(
             "predicted": round(agg["p"] / agg["n"], 3),
             "observed": round(agg["o"] / agg["n"], 3),
         })
-    # Sort by bucket lower bound for chart x-axis
     def _bucket_order(b):
         try:
             return int(b["bucket"].split("-")[0])
@@ -1847,15 +1663,9 @@ def build_htb_data(
     else:
         last_scan_ago = "no scans yet"
 
-    # Per-station 9-model ensemble — wires real per-model latest tmax from
-    # forecast_archive. Per-model 30-day accuracy is left None (pending ledger
-    # tracking); the React UI renders "—" when accuracy is null.
+    # Latest per-model forecast per station; accuracy is not tracked (None).
     from hightempbot.execution.strategy_constants import EXPECTED_MODELS
 
-    # Pick the latest forecast per (station, centre) within a 14-day window. On
-    # a live bot this resolves to today's forecast for tomorrow's target_date;
-    # on a snapshot DB the window keeps the lookup robust against a few days
-    # of stale data.
     fc_window_start = (_dt.now(timezone.utc).date() - timedelta(days=14)).isoformat()
     fc_rows = conn.execute(
         f"""
@@ -1893,16 +1703,9 @@ def build_htb_data(
         ]
 
     return {
-        # contract-version stamp on the v2 dashboard
-        # payload. Documentation only — bump when the public field shape
-        # changes (add/rename/remove top-level keys). The SPA can refuse to
-        # render against an unexpected version.
-        "schemaVersion": 2,
-        # Top-level metrics
+        "schemaVersion": 2,  # bump when top-level keys change
         "capital": round(capital, 2),
-        # Wallet-derived snapshot fields (live mode only). The SPA can label
-        # the capital card "Wallet: $X (CLOB pUSD)" when walletBalance is
-        # present, and fall back to "Ledger" when None.
+        # Wallet fields (live only; None means the ledger is the source).
         "walletBalance": round(wallet_balance, 2) if wallet_balance is not None else None,
         "walletPeak": round(wallet_peak, 2) if wallet_peak is not None else None,
         "walletSampledAt": wallet_sampled_at,
@@ -1924,9 +1727,7 @@ def build_htb_data(
         "wins": wins,
         "losses": losses,
         "avgEdge": round(avg_edge_pct, 1),
-        # Cutoff-scoped today counters: the v2 session reset means "today" is
-        # "all bets/signals since the cutoff" rather than "today in any
-        # station's local calendar day." A clean session starts at zero.
+        # "Today" counters count everything since the session start.
         "todaySignals": cutoff_signals_n,
         "todayWouldBet": cutoff_would_bet,
         "todayBets": cutoff_today_n,
@@ -1978,7 +1779,6 @@ def build_htb_data(
         "calendar": calendar,
         "calibration": overall_calibration,
         "calibrationByStation": calibration_by_station,
-        # 9-model ensemble (placeholder — see comment above)
         "ensembleByStation": ensemble_by_station,
-        "_synthetic_ensemble": True,  # frontend can show a "placeholder" badge
+        "_synthetic_ensemble": True,
     }

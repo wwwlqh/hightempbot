@@ -1,8 +1,4 @@
-"""APScheduler job definitions for per-station scans and monthly jobs.
-
-Per-station jobs: midnight actuals, betting scan, and resolution scan.
-Monthly jobs: DB housekeeping, historical retrain, and cleanup.
-"""
+"""APScheduler jobs: per-station ticks plus global backfill, retrain and housekeeping."""
 
 from __future__ import annotations
 
@@ -127,14 +123,7 @@ def _alert_scheduler_failure(event, db_path: str) -> None:
 
 
 def _scan_minute_slots(extra_offset: int = 0) -> list[int]:
-    """Return the per-cycle minute offsets derived from ``SCAN_INTERVAL_MINUTES``.
-
-    ``SCAN_INTERVAL_MINUTES`` is the canonical scanner cadence. With the
-    default (10 min) this returns ``[0, 10, 20, 30, 40, 50]`` (or
-    ``[5, 15, ...]`` when ``extra_offset`` is 5). Lifting the slot list out
-    of jobs.py's hardcoded literals lets a future operator change cadence
-    via the config knob without editing scheduler internals.
-    """
+    """Minutes of the hour to scan at, e.g. [0, 10, ..., 50] (+ ``extra_offset``)."""
     interval = max(1, int(SCAN_INTERVAL_MINUTES))
     return [(m + extra_offset) % 60 for m in range(0, 60, interval)]
 
@@ -143,15 +132,8 @@ def _run_forecast_backfill(
     db_path: str, start: date, end: date, label: str,
     *, max_workers: int = 1,
 ) -> None:
-    """Shared backfill driver for the weekly + daily Open-Meteo cron jobs.
-
-    Opens its own DB connection (per worker when ``max_workers > 1``).
-    With ``max_workers > 1`` the active station map is sharded across
-    worker threads, each holding its own connection — SQLite WAL handles
-    concurrent writes safely, and Open-Meteo's per-IP rate limit is
-    respected because each worker still observes the
-    ``ingestion.openmeteo_forecast._RATE_DELAY`` between its own requests.
-    """
+    """Open-Meteo backfill for the daily and weekly jobs, optionally sharded
+    across workers (one DB connection each; each respects the rate delay)."""
     from hightempbot.ingestion.openmeteo_forecast import backfill_openmeteo
     from hightempbot.stations import get_all_stations
 
@@ -181,9 +163,6 @@ def _run_forecast_backfill(
         logger.info("%s backfill complete", label)
         return
 
-    # Shard the station map deterministically so each worker owns a
-    # disjoint slice; one DB connection per worker keeps SQLite WAL
-    # contention bounded.
     icaos = sorted(all_stations.keys())
     shards: list[dict[str, StationConfig]] = [
         {} for _ in range(max_workers)
@@ -222,20 +201,8 @@ def materialize_actual_tmax_into_ledger(
     tmax_celsius: float,
     source: str,
 ) -> int:
-    """Retroactively write ``actual_tmax`` onto any resolved ledger row for the
-    given (station, target_date) that's still NULL.
-
-    Closes the asymmetry between the resolution-time write path (settler.py,
-    fires for WIN/LOSS/PUSH at resolution time) and CLOSED rows from TAIL
-    TP-exit, which close intraday before the daily high is observable. The
-    dashboard's query-time COALESCE already covers this at display time, but
-    materializing the value into the row keeps the ledger auditable for
-    downstream consumers that don't COALESCE.
-
-    Gated on the source being a supported live source (mirrors the defense
-    in ``resolution/settler.py`` finding #25). Returns the number of rows
-    updated (0 if no eligible rows).
-    """
+    """Fill NULL ``actual_tmax`` on resolved rows for this station/date (e.g.
+    TP exits that closed before the high was known). Returns rows updated."""
     from hightempbot.stations import SUPPORTED_LIVE_SOURCES
 
     if source not in SUPPORTED_LIVE_SOURCES:
@@ -266,10 +233,7 @@ def materialize_actual_tmax_into_ledger(
 
 
 def scrape_actuals_job(station_id: str, db_path: str, data_dir: Path) -> None:
-    """Scrape yesterday's actual for a station, retrain calibration if new data.
-
-    Each job opens its own DB connection (thread-safe with WAL mode).
-    """
+    """Scrape yesterday's actual for a station and retrain if it's new."""
     from hightempbot.ingestion.actuals import fetch_and_store, supports_actual_scrape
     from hightempbot.stations import get_all_stations
 
@@ -306,11 +270,7 @@ def scrape_actuals_job(station_id: str, db_path: str, data_dir: Path) -> None:
             )
             from hightempbot.calibration.model import retrain
             retrain(station_id, 1, conn)
-            # Incremental LUT update: append the newly-resolved day's triple
-            # using walk-forward EMOS params valid AS OF that date, then
-            # re-aggregate Wilson bounds. Skipped silently if prerequisites
-            # (brackets / params) are missing — monthly_retrain's seed path
-            # will catch up later.
+            # Add the new day to the LUT; the monthly retrain catches up if this can't.
             try:
                 from hightempbot.calibration.lut import (
                     append_triples_for_date, rebuild_lut,
@@ -351,24 +311,11 @@ def scrape_actuals_job(station_id: str, db_path: str, data_dir: Path) -> None:
 
 
 def rolling_actuals_backfill_job(db_path: str, data_dir: Path) -> None:
-    """Daily self-heal: backfill missing actuals + force-retrain weak models.
+    """Daily (and at boot): refetch missing actuals from the last 35 days and
+    retrain stations that got new data or have fewer than MIN_PAIRS samples.
 
-    Per-station midnight scrapes can fail silently (WU rate-limit, network,
-    bot down). Without recovery the actuals table accumulates holes that
-    silently disqualify EMOS retrain once the rolling window slides over
-    them — ``n_samples < MIN_PAIRS`` makes ``CalibrationModel.is_ready()``
-    return False and the betting pipeline exits before evaluating any
-    bracket, producing the "No signals evaluated" pattern in pipeline_health
-    with zero new bets.
-
-    This job runs once per UTC day plus once at every bot startup:
-      1. For every enrolled station, fetch any missing actuals in the
-         last 35 days (rolling window + buffer for late resolutions).
-      2. Force-retrain stations whose latest stored EMOS ``n_samples`` is
-         below MIN_PAIRS, or which just received new actuals from (1).
-
-    Logs to pipeline_health stage='actuals_backfill' so the dashboard
-    reflects gap-filling activity.
+    Missed midnight scrapes otherwise leave holes that drop stations below
+    MIN_PAIRS and silently stop betting.
     """
     from hightempbot.calibration.model import MIN_PAIRS
     from hightempbot.calibration.model import retrain as do_retrain
@@ -413,11 +360,6 @@ def rolling_actuals_backfill_job(db_path: str, data_dir: Path) -> None:
         else:
             logger.info("Rolling actuals backfill: no gaps found")
 
-        # Force-retrain stations that are either (a) below the MIN_PAIRS
-        # readiness floor in their latest stored params, or (b) freshly
-        # backfilled. Use a correlated subquery to pick the row with the
-        # latest trained_at per station rather than a GROUP BY (which
-        # collapses n_samples ambiguously).
         latest_n: dict[str, int] = {}
         for r in bf_conn.execute(
             "SELECT cp.station_id, cp.n_samples FROM calibration_params cp "
@@ -471,25 +413,13 @@ def rolling_actuals_backfill_job(db_path: str, data_dir: Path) -> None:
 
 
 def _run_tp_sl_monitor_job(station: StationConfig, db_path: str, dry_run: bool) -> None:
-    """Wrapper around tp_sl_monitor.run_tp_sl_monitor for APScheduler.
-
-    Builds the live OrderClient (or its read-only ClobReader subclass) per the
-    dry_run flag, then invokes the monitor for every strategy that has a
-    non-None tp/sl (currently YMID and TAIL). Exceptions are logged but never
-    re-raised so a single bad tick doesn't kill the scheduler.
-
-    The schedule-time ``dry_run`` argument is the boot mode shared by the
-    betting pipeline. Keep it boot-scoped: a mid-process ``.env`` edit must
-    not make TP/SL switch modes independently of the scanner/reconciliation
-    safety path.
-    """
+    """Run the TP/SL monitor for every strategy with a tp/sl. Never raises.
+    ``dry_run`` is the boot mode, shared with the betting pipeline."""
     try:
         from hightempbot.execution.strategy_constants import STRATEGY_CONFIGS
         from hightempbot.execution.tp_sl_monitor import run_tp_sl_monitor
 
-        # Include disabled strategies too: a strategy can be turned off but
-        # still hold open PENDING rows from before the disable; those need
-        # the monitor to honor their tp/sl until they close or resolve.
+        # Include disabled strategies: they may still hold open positions.
         eligible = [
             name for name, cfg in STRATEGY_CONFIGS.items()
             if cfg.tp is not None or cfg.sl is not None
@@ -521,17 +451,11 @@ def _run_tp_sl_monitor_job(station: StationConfig, db_path: str, dry_run: bool) 
                 )
                 return
 
-        # Wire push notifications so TP/SL fires + orphan-close events
-        # surface to the operator instead of going silent (ce-review
-        # reliability rel-003). _notify takes more positional args than
-        # tp_sl_monitor's `notify(title, body)` contract — wrap it.
         from hightempbot.scheduler.station_scanner import _notify
 
         def _tp_sl_notify(title: str, body: str) -> None:
             _notify(title, body, stage="tp_sl", station_id=station.icao)
 
-        # Station-local minute for the hourly-first-tick gate. Matches the
-        # betting scanner's behavior; mirrors the gate in decision.py.
         local_now_minute = datetime.now(pytz.timezone(station.timezone)).minute
         for strat_name in eligible:
             run_tp_sl_monitor(
@@ -634,18 +558,12 @@ def schedule_all_jobs(
     dry_run: bool = True,
     stations: dict[str, StationConfig] | None = None,
 ) -> None:
-    """Register all cron + interval jobs on the scheduler.
+    """Register all jobs.
 
-    Per-station:
-    - midnight actuals scrape (00:05 local)
-    - betting scan (every 15 min, self-skips after station-local cutoff)
-    - resolution scan (every 15 min, 24/7)
-
-    Global:
-    - monthly DB housekeeping (1st of month, 02:00 UTC)
-    - monthly historical retrain (1st of month, 03:00 UTC)
-    - periodic retrain (daily 04:00 UTC, if >30 days stale)
-    - enrollment scan (every 6 hours)
+    Per station: actuals scrape (00:05 local), betting and resolution ticks
+    (every SCAN_INTERVAL_MINUTES), TP/SL monitor (offset +5).
+    Global: forecast/actuals backfills, retrains, housekeeping, enrollment
+    scan, health check, and live-only reconcile/wallet/redeem jobs.
     """
     if stations is None:
         logger.warning("schedule_all_jobs called without stations - no per-station jobs")
@@ -655,7 +573,6 @@ def schedule_all_jobs(
     from hightempbot.scheduler.betting_tick import run_betting_tick
     from hightempbot.resolution.settler import run_resolution_tick
 
-    # Register error listener so job failures are logged prominently
     if not getattr(scheduler, "_hightempbot_error_listener_registered", False):
         def _job_error_listener(event):
             _alert_scheduler_failure(event, db_path)
@@ -663,18 +580,13 @@ def schedule_all_jobs(
         scheduler.add_listener(_job_error_listener, EVENT_JOB_ERROR)
         setattr(scheduler, "_hightempbot_error_listener_registered", True)
 
-    # Remove any existing jobs from previous schedule_all_jobs() call
     for job in scheduler.get_jobs():
         job.remove()
 
     def _schedule_station_jobs(station: StationConfig) -> None:
         icao = station.icao
 
-        # Validate station.timezone up front. Without this, a malformed
-        # timezone string raises pytz.UnknownTimeZoneError deep inside
-        # CronTrigger / datetime.now(pytz.timezone(...)) at job-run time,
-        # caught by a generic try/except that silently disables the
-        # station's TP/SL monitor (ce-review reliability finding 2026-05-16).
+        # Fail fast on a bad timezone instead of silently at job run time.
         try:
             pytz.timezone(station.timezone)
         except pytz.UnknownTimeZoneError:
@@ -703,31 +615,15 @@ def schedule_all_jobs(
                 max_instances=1,
             )
 
-        # Per-station minute offset to spread the :00 thunder-herd across
-        # the worker pool. With 50+ stations all firing at minute 0, the
-        # 20-thread executor backlogs and Open-Meteo + CLOB hit
-        # rate-limits (per memory `feedback_wu_concurrency_limit`: >10
-        # concurrent caused SSL EOF). A deterministic ICAO-derived offset
-        # (mod SCAN_INTERVAL_MINUTES) gives every station the same cadence
-        # but on a different minute slot within the cycle. The helper is
-        # shared with the betting/TP-SL gates so the gate can recover the
-        # same tick index the scheduler uses.
+        # Spread stations across minutes so they don't all hit the APIs at :00.
         offset = icao_tick_offset(icao)
 
-        def _slots(*minutes: int) -> str:
-            # Backwards-compat wrapper: callers still pass explicit slot
-            # literals so cadence shifts are obvious in the diff. Slots
-            # are computed centrally via _scan_minute_slots so the cadence
-            # constant stays the single source of truth.
-            del minutes  # unused — slots come from SCAN_INTERVAL_MINUTES
+        def _slots() -> str:
             return ",".join(
                 str((m + offset) % 60) for m in _scan_minute_slots()
             )
 
         def _slots_offset(extra: int) -> str:
-            """Same cadence as ``_slots`` but shifted by ``extra`` minutes
-            (used by TP/SL monitor to land between the betting/resolution
-            ticks)."""
             return ",".join(
                 str((m + offset) % 60)
                 for m in _scan_minute_slots(extra_offset=extra)
@@ -742,12 +638,10 @@ def schedule_all_jobs(
         else:
             scheduler.add_job(
                 run_betting_tick,
-                CronTrigger(minute=_slots(0, 10, 20, 30, 40, 50), timezone=station.timezone),
+                CronTrigger(minute=_slots(), timezone=station.timezone),
                 args=[station, db_path, initial_bankroll, dry_run],
                 id=f"betting_{icao}",
                 replace_existing=True,
-                # 900s (1.5x cadence) leaves headroom for slow scans without
-                # silently dropping the next slot (per ce-review rel-001).
                 misfire_grace_time=900,
                 name=f"Betting scan: {icao} ({station.city})",
                 max_instances=1,
@@ -755,7 +649,7 @@ def schedule_all_jobs(
 
         scheduler.add_job(
             run_resolution_tick,
-            CronTrigger(minute=_slots(0, 10, 20, 30, 40, 50), timezone=station.timezone),
+            CronTrigger(minute=_slots(), timezone=station.timezone),
             args=[station, db_path],
             id=f"resolution_{icao}",
             replace_existing=True,
@@ -764,12 +658,7 @@ def schedule_all_jobs(
             max_instances=1,
         )
 
-        # TP/SL monitor: 10-min cadence offset 5 min from betting tick to
-        # avoid colliding with the betting/resolution slots, then further
-        # offset by the per-station value. Stale-flag age-out (TP_SL_FLAG_
-        # STALE_SECONDS=600) plus 600s grace = up to 20 min lag tolerance.
-        # The job loops over every strategy with non-None tp/sl (currently
-        # YMID and TAIL) — see _run_tp_sl_monitor_job.
+        # TP/SL monitor runs 5 minutes after the betting tick.
         scheduler.add_job(
             _run_tp_sl_monitor_job,
             CronTrigger(
@@ -785,26 +674,17 @@ def schedule_all_jobs(
         )
 
 
-    # --- Per-station midnight actuals / betting / resolution jobs ---
-    # Jobs stay scheduled around the clock; betting ticks self-skip after the
-    # station-local cutoff so scan health remains fresh.
     for station in stations.values():
         _schedule_station_jobs(station)
 
-    # --- Monthly DB housekeeping (1st of month, 02:00 UTC) ---
-    # Was "monthly_bss" before Phase F (2026-04-22). The BSS recalc step was
-    # removed along with bss.py; housekeeping (expire stuck pendings, prune
-    # pipeline_health / market_tokens) still needs a monthly cadence.
+    # --- Monthly housekeeping (1st, 02:00 UTC): expire stuck PENDING, prune tables ---
     def _monthly_housekeeping_job():
         from hightempbot.persistence.ledger import (
             expire_stuck_pending, prune_book_snapshots,
             prune_market_tokens, prune_pipeline_health,
         )
         hk_conn = get_connection(db_path)
-        # In live mode, hand expire_stuck_pending an OrderClient so it can
-        # CLOB-verify each row with an order_id before zeroing PnL. If the
-        # client cannot be built, skip expiry entirely; blind live expiry can
-        # zero real fills during credential/RPC outages.
+        # Live expiry must CLOB-verify each order; skip it if no client can be built.
         hk_client = None
         can_expire_pending = True
         if not dry_run:
@@ -837,12 +717,7 @@ def schedule_all_jobs(
             )
             n_health = prune_pipeline_health(hk_conn)
             n_tokens = prune_market_tokens(hk_conn)
-            # book_snapshots keeps LONG history (180d) for calibration refits +
-            # backtest parity — pruned here only to bound unbounded growth.
             n_snapshots = prune_book_snapshots(hk_conn)
-            # ce-code-review P2 #31/#50: prune wallet/bankroll/operator audit
-            # tables on the same monthly schedule. 30-day window preserves
-            # multi-week drawdown history without unbounded growth.
             try:
                 from hightempbot.execution.capital import prune_bankroll_peak
                 from hightempbot.execution.operator_control import prune_audit_tables
@@ -876,8 +751,7 @@ def schedule_all_jobs(
         name="Monthly DB housekeeping",
     )
 
-    # --- Monthly historical retrain (1st of month) ---
-    # Backfills last month's true day-ahead forecasts from Open-Meteo Previous Runs API,
+    # --- Monthly historical retrain (1st, 03:00 UTC) ---
     def _monthly_historical_retrain_job():
         from hightempbot.calibration.monthly_retrain import run_monthly_retrain
         rt_conn = get_connection(db_path)
@@ -891,16 +765,13 @@ def schedule_all_jobs(
         CronTrigger(day=1, hour=3, minute=0, timezone="UTC"),
         id="monthly_historical_retrain",
         replace_existing=True,
-        misfire_grace_time=86400,  # 24h grace - can run late
+        misfire_grace_time=86400,
         name="Monthly historical retrain",
         max_instances=1,
     )
 
-    # --- Weekly forecast backfill (every Sunday 05:00 UTC) ---
-    # Keeps forecast_archive fresh for calibration/BSS between monthly retrains.
+    # --- Weekly forecast backfill (Sunday 05:00 UTC); patches missed daily runs ---
     def _weekly_forecast_backfill_job():
-        # Sequential — weekly backfill spans 7 days × N stations and is
-        # already long-running; rate-limit safety beats wall-clock here.
         week_end = date.today() - timedelta(days=1)
         week_start = week_end - timedelta(days=6)
         _run_forecast_backfill(db_path, week_start, week_end, "Weekly forecast")
@@ -915,20 +786,8 @@ def schedule_all_jobs(
         max_instances=1,
     )
 
-    # --- Daily forecast backfill (every day 00:30 UTC) ---
-    # The weekly Sunday backfill alone leaves forecast_archive up to 6 days
-    # stale during the week, which gates calibration n_samples below MIN_PAIRS
-    # for stations that just entered the 9-member Open-Meteo regime. Run the
-    # same backfill daily, scoped to "yesterday only", so the archive tracks
-    # the live ingest cadence. 00:30 UTC gives Open-Meteo's `previous_runs`
-    # endpoint time to publish the previous calendar day. The weekly job is
-    # left in place as a self-healing safety net (it backfills the full last
-    # 7 days, so it patches any single failed daily run).
+    # --- Daily forecast backfill (00:30 UTC), yesterday only ---
     def _daily_forecast_backfill_job():
-        # Daily window is 1 day per station, so parallelism (max_workers=4)
-        # cuts wall-clock at ~50 stations from ~75s to ~20s without
-        # exceeding Open-Meteo's per-IP rate ceiling — each worker still
-        # honors the 0.3s ingestion._RATE_DELAY between its own calls.
         yesterday = date.today() - timedelta(days=1)
         _run_forecast_backfill(
             db_path, yesterday, yesterday, "Daily forecast",
@@ -940,22 +799,12 @@ def schedule_all_jobs(
         CronTrigger(hour=0, minute=30, timezone="UTC"),
         id="daily_forecast_backfill",
         replace_existing=True,
-        # 1h grace (was 12h): a bot restart at 11:59 UTC re-triggered the
-        # 00:30 cron under the larger window, which surprised operators
-        # and double-ran backfill. Weekly Sunday job is the self-healing
-        # safety net for any single missed daily run.
         misfire_grace_time=3600,
         name="Daily forecast backfill",
         max_instances=1,
     )
 
-    # --- Daily rolling actuals backfill (every day 00:15 UTC) ---
-    # Self-heals gaps in the 35-day rolling window per station so the EMOS
-    # retrain never silently falls below MIN_PAIRS just because a single
-    # midnight scrape failed weeks ago. Also force-retrains any station
-    # whose latest stored params are below the readiness floor. Scheduled
-    # 15 min before _daily_forecast_backfill_job so freshly filled actuals
-    # join the same UTC cycle's forecast backfill.
+    # --- Daily rolling actuals backfill (00:15 UTC) ---
     scheduler.add_job(
         rolling_actuals_backfill_job,
         CronTrigger(hour=0, minute=15, timezone="UTC"),
@@ -967,21 +816,12 @@ def schedule_all_jobs(
         max_instances=1,
     )
 
-    # --- Periodic retrain (daily check, retrain if >30 days stale) ---
-    # If retrain fails (no new data), retries next day up to 3 consecutive attempts.
+    # --- Periodic retrain (daily; stations older than 30 days, up to 3 failed tries) ---
     def _periodic_retrain_job():
-        """Retrain stations whose calibration is >30 days old.
-
-        Logs to pipeline_health stage='retrain' for dashboard visibility.
-        Retry logic: if retrain returns None (insufficient data), increment
-        a failure counter via pipeline_health. After 3 consecutive failures,
-        stop retrying until the next 30-day cycle.
-        """
+        """Retrain stations whose calibration is over 30 days old."""
         from hightempbot.calibration.model import retrain as do_retrain
         from hightempbot.stations import get_all_stations
 
-        # Hoist the per-station retrain closure outside the inner loop so
-        # Python doesn't rebuild a fresh closure for every iteration.
         def _retrain_in_thread(sid: str):
             _conn = get_connection(db_path)
             try:
@@ -998,8 +838,6 @@ def schedule_all_jobs(
 
             all_st = get_all_stations(rt_conn)
 
-            # Batch the three per-station gate queries into three group-by
-            # aggregates so the loop is O(1) per station instead of 3 × O(N).
             actuals_count: dict[str, int] = {
                 r["station_id"]: int(r["n"] or 0)
                 for r in rt_conn.execute(
@@ -1026,27 +864,19 @@ def schedule_all_jobs(
                 ).fetchall()
             }
 
-            # Daemon-thread timeout avoids holding the APS worker if a model
-            # fit ignores the timeout and keeps running in the background.
             for icao in sorted(all_st.keys()):
-                # Decouple "LUT data freshness" from "table-update freshness":
-                # stamp refreshed_at on every station the job touches so idle
-                # weekends/holidays don't spuriously fire the stale-LUT gate.
-                # Only no-ops for stations that have no lut_bucket_stats rows yet.
+                # Touch refreshed_at so quiet periods don't trip the stale-LUT gate.
                 try:
                     stamp_refreshed(rt_conn, icao)
                 except Exception:
                     logger.warning("stamp_refreshed failed for %s", icao, exc_info=True)
-                # Coverage gate: skip retrain for stations below MIN_COVERAGE_PCT coverage
                 if expected_days > 0:
                     actuals_n = actuals_count.get(icao, 0)
                     if actuals_n / expected_days < MIN_COVERAGE_PCT:
                         continue
 
-                # Last trained_at for h=1
                 last_trained = last_trained_by.get(icao)
 
-                # Determine days since last retrain
                 if last_trained:
                     from datetime import datetime as _dt3, timezone as _tz3
                     try:
@@ -1066,8 +896,6 @@ def schedule_all_jobs(
                 if recent_fails >= 3:
                     continue  # exhausted retries, wait for next 30-day cycle
 
-                # Attempt retrain with a timeout per station. The worker
-                # opens its own DB connection to avoid cross-thread sqlite use.
                 from hightempbot.db.connection import log_pipeline_health
                 try:
                     model = _run_callable_with_timeout(
@@ -1117,14 +945,9 @@ def schedule_all_jobs(
         max_instances=1,
     )
 
-    # --- Auto-enrollment scan (every 6 hours) ---
+    # --- Enrollment scan (00:30/06:30/12:30/18:30 UTC) ---
     def _enrollment_scan_job():
-        """Check for new Polymarket temperature cities and trigger enrollment.
-
-        Lightweight scan: fetches top 100 markets by volume from Gamma,
-        filters for temperature markets, extracts city names, compares
-        against enrolled_stations DB to find new cities.
-        """
+        """Enroll new cities found in the top 100 Gamma markets by volume."""
         from hightempbot.ingestion.polymarket_prices import GAMMA_API, _CITY_TO_ICAO, gamma_event_slug
         from hightempbot.stations import _city_to_slug
 
@@ -1260,22 +1083,7 @@ def schedule_all_jobs(
         max_instances=1,
     )
 
-    # --- Periodic reconciler (live only) ---
-    # PENDING-first ledger writes mean a successful CLOB place_order can lag
-    # the ledger UPDATE; the reconciler watches for that gap and reconciles
-    # CLOB state back into the ledger. In live mode we run it on a 5-min
-    # cadence (RECONCILE_INTERVAL_MINUTES) alongside the existing tp_sl /
-    # betting cycles so PENDING-only slot lockup self-clears.
-    #
-    # the stranded-PENDING sweep inside
-    # `reconcile_orders` (persistence/reconciliation.py) caps the
-    # crash-between-PENDING-write-and-place_order window at this interval.
-    # Combined with the startup reconcile invocation in main.py, the window
-    # is bounded by max(boot_recon_runtime, RECONCILE_INTERVAL_MINUTES).
-    #
-    # max_instances=1 guards against the rare slow CLOB pass taking longer
-    # than the interval — the next firing skips rather than queues so we
-    # don't double-reconcile concurrently.
+    # --- Periodic reconciler (live only): sync CLOB state into the ledger ---
     if not dry_run:
         from hightempbot.execution.strategy_constants import RECONCILE_INTERVAL_MINUTES
         from hightempbot.runtime_config import get_config
@@ -1344,17 +1152,10 @@ def schedule_all_jobs(
                 coalesce=True,
             )
 
-    # --- System health check (every 15 min, offset from betting ticks) ---
+    # --- System health check (every 15 min) ---
     def _system_health_check():
-        """Detect systemic failures and send Telegram alert.
-
-        Checks:
-        1. All stations erroring in the last 15 min (import crash, API down, etc.)
-        2. Zero forecasts in 2 hours despite active stations (silent failure)
-        3. Persistent calibration unhealthy: ≥ CALIBRATION_HEALTH_ALERT_THRESHOLD
-           active stations with n_samples < MIN_PAIRS OR actuals stale
-           > ACTUALS_STALE_DAYS (auto-heal pipeline degraded).
-        """
+        """Alert when every station errored in 15 min, no forecasts were stored
+        in 2h, or too many stations have unhealthy calibration."""
         hc_conn = get_connection(db_path)
         try:
             # 1. All ticks failing in last 15 min
@@ -1383,11 +1184,7 @@ def schedule_all_jobs(
                     logger.error("Failed to send system_health alert", exc_info=True)
                 logger.critical("SYSTEM HEALTH: all %d scanned stations errored in last 15m", errors_15m)
 
-            # 2. Zero forecasts in 2 hours after forecast-eligible work
-            # reached market/CLOB or forecast stages. Quiet windows with only
-            # gate skips are expected when the UTC target date has not rolled
-            # for east-of-UTC stations, or no enabled strategy entry hour is
-            # active.
+            # 2. No forecasts in 2 hours, counting only ticks that got past the gates
             from hightempbot.persistence.pipeline_health import (
                 forecast_activity_counts,
                 forecast_stall_detected,
@@ -1425,14 +1222,7 @@ def schedule_all_jobs(
                     forecast_counts["forecast_upstream_ok"],
                 )
 
-            # 3. Persistent calibration unhealthy
-            # Today's "no bets for 21h" outage (44 stations stuck at n=29
-            # after the 2026-04-26 actuals gap entered the rolling window)
-            # was invisible to checks 1 and 2 — scans were "OK", forecasts
-            # were "OK". The only symptom was n_samples falling below
-            # MIN_PAIRS in calibration_params. Page on either a low
-            # n_samples OR stale actuals (>ACTUALS_STALE_DAYS) so the
-            # auto-heal pipeline can't silently break again.
+            # 3. Too few samples or stale actuals (invisible to checks 1 and 2)
             try:
                 from hightempbot.calibration.model import MIN_PAIRS
                 from hightempbot.execution.strategy_constants import (
@@ -1540,11 +1330,7 @@ def schedule_all_jobs(
         n_stations, n_stations, n_stations, n_stations * 3 + 6,
     )
 
-    # Boot-time rolling actuals self-heal. Restarts should not have to wait
-    # until 00:15 UTC for gap recovery — kick the same job on a daemon
-    # thread so the betting pipeline can become healthy mid-day after a
-    # deploy. Errors are swallowed by the job itself; the daemon thread
-    # never blocks scheduler startup.
+    # Also run the actuals backfill once at boot, in the background.
     threading.Thread(
         target=rolling_actuals_backfill_job,
         args=(db_path, data_dir),
