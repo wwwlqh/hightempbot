@@ -68,7 +68,7 @@ trading.
 | `tests/` | pytest suite (944 tests) |
 | `backtest/` | Backtest harness, walk-forward evaluation and research results |
 | `powerbi/` | Power BI report, SQL extracts and data dictionary |
-| `docs/` | Runbooks and design material |
+| `docs/` | Go-live runbook and codebase guide |
 
 ## Tech stack
 
