@@ -1,11 +1,4 @@
-"""Tests for the WU forecast consensus gate.
-
-Exercises bracket math, °F→°C conversion, tail brackets, and the fail-closed
-handling when WU is unavailable. Buffer = 1.0°C (production default): for
-1°C-wide interior brackets, YES candidates always reject (no point in the
-interior is 1°C clear of both edges); NO candidates need ≥1°C clearance from
-either edge. Tail brackets retain enough room for both sides.
-"""
+"""Tests for the WU forecast consensus gate."""
 
 from __future__ import annotations
 

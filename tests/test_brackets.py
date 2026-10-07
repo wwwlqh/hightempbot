@@ -79,10 +79,8 @@ class TestBracketProbabilities:
         assert max(probs) > 0.3
 
     def test_interior_c_brackets_from_parser_nonzero(self):
-        """Regression: before the continuous-range fix, 1°C interior brackets
-        from parse_bracket_bounds collapsed to p=0 because lo==hi. With the
-        parser emitting [X-0.5, X+0.5), every interior bracket near the
-        ensemble mean must carry real probability mass."""
+        """Regression: before the continuous-range fix, 1°C interior brackets from
+        parse_bracket_bounds collapsed to p=0 because lo==hi."""
         from scipy.stats import norm
 
         # Brackets as produced post-fix by parse_bracket_bounds for non-US

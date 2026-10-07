@@ -51,10 +51,7 @@ def db_path(tmp_path: Path) -> str:
 
 
 def _seed_fresh_lut(conn: sqlite3.Connection, station_id: str) -> None:
-    """Insert a minimal lut_bucket_stats row with refreshed_at=now.
-
-    Required by tests that want to exercise gates AFTER the stale-LUT gate.
-    """
+    """Insert a minimal lut_bucket_stats row with refreshed_at=now."""
     from datetime import datetime as _dt, timezone as _tz
     now_sql = _dt.now(_tz.utc).strftime("%Y-%m-%d %H:%M:%S")
     conn.execute(
@@ -81,11 +78,7 @@ def _insert_pending_bet(
     side="YES", token_id="yes_tok_1", fill_price=0.30, bet_size=10.0,
     bracket_low=61.5, bracket_high=63.5, event_type="bet",
 ):
-    """Insert a PENDING bet into the ledger with bracket bounds in event_detail.
-
-    Stores fill_price + fill_size so fee accounting (which reads those
-    columns) sees the same shape production-filled rows have.
-    """
+    """Insert a PENDING bet into the ledger with bracket bounds in event_detail."""
     import json
     event_detail = json.dumps({
         "bracket_low": bracket_low,
@@ -110,15 +103,7 @@ def _insert_pending_bet(
 
 
 def _make_resolved_market_data(winning_idx=3):
-    """Create market data where bracket `winning_idx` has resolved (price ~1.0).
-
-    Bounds use continuous [lo, hi) semantics produced by parse_bracket_bounds:
-      - floor "<60°F" → (None, 59.5)
-      - interior "60-61°F" → (59.5, 61.5)  (2°F-wide)
-      - ceiling "≥78°F" → (77.5, None)
-
-    Returns (market_data, winning_bracket_bounds).
-    """
+    """Create market data where bracket `winning_idx` has resolved (price ~1.0)."""
     base = 59
     result = {}
     for i in range(11):
@@ -532,14 +517,7 @@ class TestBettingTick:
         _mock_sleep,
         db_path,
     ):
-        """An event-level Gamma-resolved target skips before Gamma/CLOB.
-
-        Once the resolution tick stamps a ledger row with
-        ``resolution_source='polymarket_gamma_closed'`` and a terminal outcome,
-        the bracket winner is pinned. Further betting ticks for the same
-        target_date must stop scraping Gamma / CLOB / Open-Meteo for the rest
-        of the local day so the scrape budget isn't burned on a settled market.
-        """
+        """An event-level Gamma-resolved target skips before Gamma/CLOB."""
         import json
 
         station = MockStation("KDAL")
@@ -613,12 +591,9 @@ class TestBettingTick:
         _mock_sleep,
         db_path,
     ):
-        """PUSH is an accounting downgrade (NULL fill_price), not a market-
-        wide resolution — the gate must NOT skip when one bracket carries a
-        PUSH outcome (finding #1). Without this guard, a single PUSH on any
-        bracket would silence the station for the rest of the day even while
-        other brackets are still trading.
-        """
+        """PUSH is an accounting downgrade (NULL fill_price), not a market- wide
+        resolution — the gate must NOT skip when one bracket carries a PUSH outcome
+        (finding #1)."""
         import json
         station = MockStation("KDAL")
         mock_dt.now.return_value = datetime(2026, 4, 7, 0, 0)
@@ -680,11 +655,8 @@ class TestBettingTick:
         _mock_sleep,
         db_path,
     ):
-        """``polymarket_gamma_closed_bracket`` represents one bracket closing
-        (typically a loser when intraday actual passes it). The winning
-        bracket is NOT pinned — other brackets are still actively trading.
-        The gate must NOT skip on a per-bracket close (finding #2).
-        """
+        """``polymarket_gamma_closed_bracket`` represents one bracket closing (typically
+        a loser when intraday actual passes it)."""
         import json
         station = MockStation("KDAL")
         mock_dt.now.return_value = datetime(2026, 4, 7, 0, 0)
@@ -740,11 +712,8 @@ class TestBettingTick:
         _mock_sleep,
         db_path,
     ):
-        """``wu_actual_fallback`` is a local-only resolution that Polymarket
-        might still override later. The gate must NOT treat it as a final
-        market resolution (finding #23) — locks the intent that the SQL
-        polymarket-only filter is deliberate.
-        """
+        """``wu_actual_fallback`` is a local-only resolution that Polymarket might still
+        override later."""
         import json
         station = MockStation("KDAL")
         mock_dt.now.return_value = datetime(2026, 4, 7, 0, 0)
@@ -800,11 +769,8 @@ class TestBettingTick:
         _mock_sleep,
         db_path,
     ):
-        """The gate is mode-aware: a stale ``dry_run`` row from yesterday's
-        staging test must not block today's LIVE bets, and vice-versa (#11).
-        Here a LIVE resolved row exists; the gate fires for live mode but
-        NOT for dry_run mode.
-        """
+        """The gate is mode-aware: a stale ``dry_run`` row from yesterday's staging test
+        must not block today's LIVE bets, and vice-versa (#11)."""
         import json
         station = MockStation("KDAL")
         mock_dt.now.return_value = datetime(2026, 4, 7, 0, 0)
@@ -864,13 +830,7 @@ class TestBettingTick:
         _mock_sleep,
         db_path,
     ):
-        """Trading window is full local calendar day of target_date.
-
-        Was: bot traded the UTC cycle target (e.g. May 1) even when the
-        station's local clock was still on Apr 30. New spec (operator
-        2026-05-07): trade only when ``local_date == target_date``. Stations
-        west of UTC have to wait until local midnight.
-        """
+        """Trading window is full local calendar day of target_date."""
         import pytz
         station = MockStation("KDAL")
         # Dallas Apr 30 23:00 (UTC May 1 04:00). target = May 1 (UTC date).
@@ -1046,13 +1006,7 @@ class TestBettingTick:
     def test_stale_lut_gate_fires_when_lut_missing(
         self, mock_market, mock_dt, _mock_rand, _mock_sleep, db_path,
     ):
-        """Cold-start: no lut_bucket_stats row → SKIP before market fetch.
-
-        Patches `station_healing._fetch_market_data` (not the betting_tick
-        binding) because the single call we expect comes from
-        `_attempt_seed_missing_lut`, which lives in `station_healing.py`
-        post-U11 and reads its module-local binding.
-        """
+        """Cold-start: no lut_bucket_stats row → SKIP before market fetch."""
         station = MockStation("KDAL")
         mock_dt.now.return_value = datetime(2026, 4, 7, 0, 0)
         mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
@@ -1438,12 +1392,7 @@ class TestResolutionTick:
 
 
 class TestResolutionPolymarket:
-    """Tests for Polymarket price-based resolution (R26-R29).
-
-    These cover the CLOB threshold scan disabled in production via
-    EARLY_RESOLUTION_ENABLED=False. Patched True here so the legacy path
-    is still exercised and remains documented behavior.
-    """
+    """Tests for Polymarket price-based resolution (R26-R29)."""
 
     @pytest.fixture(autouse=True)
     def _enable_early_resolution(self):
@@ -1722,23 +1671,8 @@ class TestResolutionPolymarket:
         conn.close()
 
     def test_stale_pending_stays_pending_when_polymarket_dies(self, db_path):
-        """Old contract: a stale PENDING stayed PENDING when polymarket_* paths
-        couldn't resolve, even with a WU actual on file.
-
-        New contract (2026-05-20): once target_date is at least
-        POLYMARKET_FALLBACK_DAYS past and polymarket_* paths return nothing,
-        the resolution tick falls back to the local WU actual. This unblocks
-        bets stranded by Polymarket archiving closed daily events (see the
-        TestResolutionWuFallback class for the full happy-path coverage).
-
-        Test scenario: target is a sliding 2 days past today (so days_past >=
-        POLYMARKET_FALLBACK_DAYS regardless of when tests run; finding #17),
-        NO bet on bracket [70.0, 71.0) (legacy 2°F integer-label form). WU
-        actual = 17°C → 62.6°F display, which lands OUTSIDE [69.5, 71.5)
-        (legacy bounds converted to continuous form via
-        `_continuous_bracket_bounds`). NO bet on a bracket that didn't win →
-        NO wins.
-        """
+        """Old contract: a stale PENDING stayed PENDING when polymarket_* paths couldn't
+        resolve, even with a WU actual on file."""
         from datetime import date as _date, timedelta as _td
         target_date_iso = (_date.today() - _td(days=2)).isoformat()
         conn = get_connection(db_path)
@@ -1773,12 +1707,7 @@ class TestResolutionPolymarket:
         conn.close()
 
     def test_stale_pending_stays_pending_when_no_actual_on_file(self, db_path):
-        """Negative case: WU fallback refuses to fire without an actual.
-
-        Preserves the original "PENDING stays PENDING" contract for stations
-        that lack a usable actual — e.g., resolution_source=ncei stations
-        where the midnight scrape never wrote a row.
-        """
+        """Negative case: WU fallback refuses to fire without an actual."""
         conn = get_connection(db_path)
         _insert_pending_bet(conn, bracket_low=62.0, bracket_high=63.0, side="YES", fill_price=0.30)
         # No actuals row inserted — fallback gate refuses.
@@ -1890,12 +1819,7 @@ class TestResolutionPolymarket:
         bracket_high: float = 63.5,
         bet_size: float = 10.0,
     ) -> None:
-        """Insert a PENDING bet with both fill_price and limit_price=0.
-
-        Mirrors the realistic crash state the null-fill PUSH path guards
-        against: bet recorded with no executable price provenance, so the
-        pnl ternary would fabricate a loss without the PUSH downgrade.
-        """
+        """Insert a PENDING bet with both fill_price and limit_price=0."""
         import json
         conn.execute(
             """INSERT INTO ledger
@@ -1917,10 +1841,7 @@ class TestResolutionPolymarket:
     def test_winning_bracket_with_null_fill_price_settles_push_not_fake_pnl(
         self, db_path,
     ):
-        """YES bet on the winning bracket with NULL fill_price downgrades to
-        PUSH. Without an executable entry price the pnl ternary's WIN payout
-        is unknowable, so the row books pnl=0 and records the bracket's true
-        resolution via `bracket_resolution = "WIN"` in event_detail."""
+        """YES bet on the winning bracket with NULL fill_price downgrades to PUSH."""
         import json
 
         conn = get_connection(db_path)
@@ -1957,11 +1878,7 @@ class TestResolutionPolymarket:
     def test_terminal_yes_with_null_fill_price_settles_push_records_loss(
         self, db_path,
     ):
-        """A bet on the terminal-yes path with NULL fill_price downgrades to
-        PUSH. When the bracket truly LOST, `unrecorded_loss = True` is set so
-        operators can SQL-enumerate capital lost without entry-price audit
-        trail. The terminal_yes path fires when no bracket reaches the win
-        threshold but at least one has an ask <= the loss-price floor."""
+        """A bet on the terminal-yes path with NULL fill_price downgrades to PUSH."""
         import json
 
         conn = get_connection(db_path)
@@ -2004,12 +1921,7 @@ class TestResolutionPolymarket:
 
 
 class TestResolutionGammaPerBracket:
-    """Per-bracket Gamma close-state must not settle production rows.
-
-    A single bracket can show closed=True/outcomePrices while the wallet
-    position is still open and the full event has not resolved. Production
-    settlement now waits for event-level Gamma close-state instead.
-    """
+    """Per-bracket Gamma close-state must not settle production rows."""
 
     @staticmethod
     def _assert_pending_without_resolution(conn, row_id: int = 1) -> dict:
@@ -2241,12 +2153,7 @@ class TestResolutionGammaPerBracket:
         bracket_high: float,
         bet_size: float = 10.0,
     ) -> None:
-        """Insert a PENDING bet with both fill_price and limit_price=0.
-
-        Mirrors the crash state the per-bracket Gamma null-fill PUSH path
-        guards against: a bet recorded with no executable entry price so
-        the pnl ternary would book a fabricated -bet_size loss.
-        """
+        """Insert a PENDING bet with both fill_price and limit_price=0."""
         import json
         conn.execute(
             """INSERT INTO ledger
@@ -2326,13 +2233,7 @@ class TestResolutionGammaPerBracket:
 
 
 class TestResolutionGammaCloseEventLevel:
-    """Event-level Gamma close-state path (`_resolve_via_gamma_close`).
-
-    Fires when every bracket on the event is closed and exactly one has
-    ``yes_price >= RESOLUTION_PRICE_THRESHOLD``. The historical bug: when
-    ``fill_price`` and ``limit_price`` are both NULL/0 the pnl ternary
-    falls through to ``-bet_size`` even on a WIN, fabricating a loss.
-    """
+    """Event-level Gamma close-state path (`_resolve_via_gamma_close`)."""
 
     @staticmethod
     def _gamma_all_closed_one_winner(winning_idx: int = 2) -> dict[int, dict]:
@@ -2363,12 +2264,7 @@ class TestResolutionGammaCloseEventLevel:
         bracket_high: float = 62.5,
         bet_size: float = 10.0,
     ) -> None:
-        """Insert a PENDING bet with both fill_price and limit_price=0.
-
-        Mirrors the realistic crash state the bug fires on: bet was placed
-        but never filled, and limit_price was never recorded (or was zeroed
-        by a buggy path), so `fill_price or limit_price or 0.0` returns 0.0.
-        """
+        """Insert a PENDING bet with both fill_price and limit_price=0."""
         import json
 
         conn.execute(
@@ -2391,10 +2287,8 @@ class TestResolutionGammaCloseEventLevel:
     def test_no_bet_winning_bracket_with_zero_fill_settles_push_not_fake_loss(
         self, db_path,
     ):
-        """A WIN with NULL fill_price must downgrade to PUSH (pnl=0), not
-        get booked as -bet_size loss. The pre-fix bug fired here because
-        the ternary required `won AND fill_price > 0` and otherwise fell
-        through to the loss branch."""
+        """A WIN with NULL fill_price must downgrade to PUSH (pnl=0), not get booked as
+        -bet_size loss."""
         conn = get_connection(db_path)
         gamma_markets = self._gamma_all_closed_one_winner(winning_idx=2)
         # Bet on bracket-2 (the winner). NO bet on the winning bracket loses
@@ -2432,9 +2326,8 @@ class TestResolutionGammaCloseEventLevel:
     def test_yes_bet_losing_bracket_with_zero_fill_also_settles_push(
         self, db_path,
     ):
-        """LOSS with NULL fill_price also downgrades to PUSH — the rule is
-        about provenance, not about which side won. Without provenance we
-        cannot honestly compute pnl on either side."""
+        """LOSS with NULL fill_price also downgrades to PUSH — the rule is about
+        provenance, not about which side won."""
         conn = get_connection(db_path)
         gamma_markets = self._gamma_all_closed_one_winner(winning_idx=2)
         loser_idx = 3
@@ -2466,14 +2359,8 @@ class TestResolutionGammaCloseEventLevel:
 
 
 class TestResolutionWuFallback:
-    """WU actuals fallback path — fires when every polymarket_* path returns
-    0 resolutions AND target_date is at least POLYMARKET_FALLBACK_DAYS past.
-
-    Context (2026-05-20): Polymarket Gamma archives daily-temperature events
-    some time after close (`/events?slug=` and `/markets?condition_ids=` both
-    go empty). Without this fallback, PENDINGs linger forever after the
-    archive — confirmed against 5/17 + 5/18 events.
-    """
+    """WU actuals fallback path — fires when every polymarket_* path returns 0
+    resolutions AND target_date is at least POLYMARKET_FALLBACK_DAYS past."""
 
     @staticmethod
     def _seed_actual(conn, station_id: str, local_date: str, tmax_c: float) -> None:
@@ -2629,9 +2516,9 @@ class TestResolutionWuFallback:
         conn.close()
 
     def test_refuses_when_bracket_bounds_missing(self, db_path):
-        """Legacy rows with no bracket_low/high MUST NOT be resolved via
-        fallback — token-only matching is unsafe under Polymarket relisting
-        and the safety contract refuses to guess."""
+        """Legacy rows with no bracket_low/high MUST NOT be resolved via fallback —
+        token-only matching is unsafe under Polymarket relisting and the safety contract
+        refuses to guess."""
         import json
         from datetime import date, timedelta
 
@@ -2668,10 +2555,7 @@ class TestResolutionWuFallback:
         conn.close()
 
     def test_resolves_yes_bet_via_wu_actuals(self, db_path):
-        """YES-side WU fallback coverage. Without this test the
-        ``side.upper() == 'NO'`` branch in the WU fallback is the only path
-        exercised (finding #6).
-        """
+        """YES-side WU fallback coverage."""
         import json
         from datetime import date, timedelta
 
@@ -2697,10 +2581,8 @@ class TestResolutionWuFallback:
         conn.close()
 
     def test_resolves_celsius_station_via_wu_actuals(self, db_path):
-        """°C station WU fallback — the ``unit.upper() == 'F'`` else-branch
-        was previously untested (finding #6). Bracket bounds and actual stay
-        in °C; no °F conversion fires.
-        """
+        """°C station WU fallback — the ``unit.upper() == 'F'`` else-branch was
+        previously untested (finding #6)."""
         import json
         from datetime import date, timedelta
 
@@ -2727,10 +2609,8 @@ class TestResolutionWuFallback:
         conn.close()
 
     def test_null_fill_price_downgrades_to_push(self, db_path):
-        """NULL fill_price in the WU fallback must downgrade to PUSH (the
-        sixth `_apply_null_fill_push` call site was previously uncovered;
-        finding #6).
-        """
+        """NULL fill_price in the WU fallback must downgrade to PUSH (the sixth
+        `_apply_null_fill_push` call site was previously uncovered; finding #6)."""
         import json
         from datetime import date, timedelta
 
@@ -2772,12 +2652,7 @@ class TestResolutionWuFallback:
         conn.close()
 
     def test_refuses_empty_unit_station(self, db_path):
-        """``station_cfg.unit == ''`` is unresolvable — fail closed.
-
-        Empty-string unit semantics: refuses to convert °C → display unit so
-        no bracket comparison runs. Mirrors the dry-run preview guard in
-        `hightempbot.cli.resolve_pending_via_wu` (finding #14).
-        """
+        """``station_cfg.unit == ''`` is unresolvable — fail closed."""
         from datetime import date, timedelta
 
         conn = get_connection(db_path)
@@ -2798,16 +2673,10 @@ class TestResolutionWuFallback:
 
     def test_bankers_rounding_boundary_uses_raw_value(self, db_path):
         """68.5°F boundary case — the prior implementation used
-        ``round(actual_display)`` which under banker's rounding gives
-        ``round(68.5) == 68``, putting the actual in ``[67.5, 68.5)`` (the
-        "68°F" bracket) instead of ``[68.5, 69.5)`` (the "69°F" bracket where
-        Polymarket would place it; finding #8). The fix is to compare the raw
-        display value against the bracket bounds.
-
-        Scenario: actual = 20.2778°C → 68.5°F exactly. YES bet on the "69°F"
-        bracket [68.5, 69.5). With raw comparison 68.5 ∈ [68.5, 69.5) → YES
-        wins. With the old banker's-rounded comparison this would have lost.
-        """
+        ``round(actual_display)`` which under banker's rounding gives ``round(68.5) ==
+        68``, putting the actual in ``[67.5, 68.5)`` (the "68°F" bracket) instead of
+        ``[68.5, 69.5)`` (the "69°F" bracket where Polymarket would place it; finding
+        #8)."""
         import json
         from datetime import date, timedelta
 
@@ -2833,11 +2702,8 @@ class TestResolutionWuFallback:
         conn.close()
 
     def test_legacy_bracket_bounds_match_continuous_form(self, db_path):
-        """Legacy 2°F integer-label rows (lo=70, hi=71) must resolve via the
-        same continuous bounds Polymarket uses ([69.5, 71.5)). Without the
-        legacy-format heuristic the WU fallback would mis-resolve these rows
-        (finding #7).
-        """
+        """Legacy 2°F integer-label rows (lo=70, hi=71) must resolve via the same
+        continuous bounds Polymarket uses ([69.5, 71.5))."""
         from datetime import date, timedelta
 
         conn = get_connection(db_path)
@@ -2862,9 +2728,8 @@ class TestResolutionWuFallback:
         conn.close()
 
     def test_per_bet_exception_does_not_block_peers(self, db_path):
-        """One corrupted bet must not abort resolution for remaining bets in
-        the same (station, target_date) group (finding #9).
-        """
+        """One corrupted bet must not abort resolution for remaining bets in the same
+        (station, target_date) group (finding #9)."""
         from datetime import date, timedelta
 
         conn = get_connection(db_path)

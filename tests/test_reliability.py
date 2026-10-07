@@ -1,14 +1,4 @@
-"""Tests for the reliability-calibration layer + °C quarantine gate.
-
-Covers:
-  * PAV isotonic fit correctness (monotonicity, known small fixtures, ties).
-  * ReliabilityCurve.apply (interpolation, clamping, identity fallback).
-  * Curve persistence round-trip + latest-active-per-group semantics.
-  * ReliabilityProvider guardrail fallbacks (n_pairs < MIN_PAIRS, age > MAX_AGE_DAYS).
-  * NO gate behavior with calibration on/off (calibrated value flows to edge +
-    prob_safe_floor; claimed_raw/claimed_calibrated recorded).
-  * °C quarantine gate for NO and TAIL (unit_allowed recorded, fail-closed).
-"""
+"""Tests for the reliability-calibration layer + °C quarantine gate."""
 
 from __future__ import annotations
 

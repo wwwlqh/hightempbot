@@ -1,10 +1,4 @@
-"""Tests for polymarket_relayer.submit_deposit_wallet_pusd_transfer.
-
-ce-code-review P0 #5: cover the missing-library raise + the amount-validation
-guard. Full end-to-end relayer flow needs network mocks against
-``py_builder_relayer_client`` internals; those live in adversarial setups
-upstream. These tests pin the cheap-to-verify safety branches.
-"""
+"""Tests for polymarket_relayer.submit_deposit_wallet_pusd_transfer."""
 
 from __future__ import annotations
 

@@ -1,7 +1,4 @@
-"""TP/SL monitor: fire/skip/idempotency/age-out/None-handling.
-
-Covers F-001 (TTL on close_in_flight flag) and F-007 (None-safe price reads).
-"""
+"""TP/SL monitor: fire/skip/idempotency/age-out/None-handling."""
 
 from __future__ import annotations
 
@@ -185,12 +182,7 @@ def _insert_pending_ymid(
     event_type: str = "dry_run",
     extra_detail: dict | None = None,
 ) -> int:
-    """Insert a PENDING YMID ledger row.
-
-    Default ``event_type='dry_run'`` so dry-run-mode tests pick it up under
-    the mode-aware ``pending_positions_by_strategy`` filter (ce-review
-    correctness #3). Live-path tests pass ``event_type='bet'``.
-    """
+    """Insert a PENDING YMID ledger row."""
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
     detail = {"strategy": "YMID", "bracket_low": 20.0, "bracket_high": 25.0}
@@ -682,14 +674,7 @@ def test_monitor_live_explicit_safe_response_can_close_without_fill_fields(db: s
 
 
 def test_monitor_live_orphan_close_marker_when_ledger_write_fails(db: str) -> None:
-    """Live: close_position succeeds but record_position_close raises 3x.
-
-    Post ce-code-review P1 #5: the ledger row transitions to the new
-    terminal state ORPHAN_CLOSED with pnl=0.0 and an event_detail.orphan_close
-    marker carrying the exchange-side fill data. Both the TP/SL monitor and
-    the resolution settler ignore non-PENDING rows, so the row no longer
-    triggers re-close attempts on subsequent ticks.
-    """
+    """Live: close_position succeeds but record_position_close raises 3x."""
     bet_id = _insert_pending_ymid(db, fill_price=0.30, fill_size=100.0, event_type="bet")
     src = FakePriceSource(
         books={"TOK_YES": {"bids": [{"price": "0.46", "size": "1000"}]}},
@@ -731,14 +716,7 @@ def test_monitor_live_orphan_close_marker_when_ledger_write_fails(db: str) -> No
 
 
 def test_monitor_skips_orphan_closed_rows_on_subsequent_tick(db: str) -> None:
-    """Once a row is ORPHAN_CLOSED, the next monitor tick must NOT re-close it.
-
-    Regression for ce-code-review P1 #5: prior to this fix the row stayed
-    PENDING after orphan_close, so the next monitor tick would re-detect
-    the TP fire and call close_position against a wallet with zero shares.
-    Now the row's outcome is ORPHAN_CLOSED (non-PENDING) so
-    pending_positions_by_strategy filters it out.
-    """
+    """Once a row is ORPHAN_CLOSED, the next monitor tick must NOT re-close it."""
     bet_id = _insert_pending_ymid(db, fill_price=0.30, fill_size=100.0, event_type="bet")
     # Directly transition the row to ORPHAN_CLOSED as if a prior tick had
     # written the marker.
@@ -820,10 +798,7 @@ def _insert_pending_tail(
 
 def test_multi_row_tail_slot_closes_each_row_at_own_threshold(db: str) -> None:
     """AE4: two TAIL rows on the same slot entered at fill_price=0.04 and
-    fill_price=0.05 must close independently. At bid=0.24, row-A (entered
-    at 0.04, trigger at 0.04+0.20=0.24) fires while row-B (entered at 0.05,
-    trigger at 0.05+0.20=0.25) stays PENDING. A later bid=0.25 fires row-B.
-    """
+    fill_price=0.05 must close independently."""
     row_a = _insert_pending_tail(db, fill_price=0.04, fill_size=100.0)
     row_b = _insert_pending_tail(db, fill_price=0.05, fill_size=100.0)
 
@@ -955,9 +930,8 @@ def test_tp_sl_gate_tick_1_skips_new_close(db: str) -> None:
 
 
 def test_tp_sl_gate_was_retry_exempt_at_tick_1(db: str) -> None:
-    """was_retry exemption: a stale-cleared close_in_flight row proceeds past
-    the gate on tick 1+. A TP whose first attempt failed mid-flight at tick 0
-    must still be allowed to complete on tick 1+ regardless of the gate."""
+    """was_retry exemption: a stale-cleared close_in_flight row proceeds past the gate
+    on tick 1+."""
     stale_ts = datetime.now(timezone.utc) - timedelta(seconds=TP_SL_FLAG_STALE_SECONDS + 60)
     _insert_pending_ymid(
         db, fill_price=0.30, fill_size=100.0,

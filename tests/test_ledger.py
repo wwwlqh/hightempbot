@@ -141,13 +141,7 @@ class TestRecordBet:
         assert row["fill_ts"] is not None
 
     def test_entry_top_price_persists_through_event_detail(self, db: sqlite3.Connection):
-        """entry_top_price must round-trip through event_detail JSON.
-
-        - A positive value persists.
-        - A 0.0 value also persists (is-not-None check, not truthiness — a
-          0.0 sentinel must never silently drop).
-        - A None value must NOT write the key (legacy compatibility).
-        """
+        """entry_top_price must round-trip through event_detail JSON."""
         # Positive value.
         sig_pos = _make_signal(entry_top_price=0.7)
         rid_pos = record_bet(db, sig_pos, None, dry_run=True)

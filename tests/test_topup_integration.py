@@ -1,16 +1,4 @@
-"""Cross-tick top-up integration tests.
-
-Exercises ``_evaluate_strategy`` end-to-end with synthetic ledger fixtures
-simulating prior slot state. Covers origin requirements doc acceptance
-examples AE1-AE3 and AE5 (sticky-anchor sequencing, edge-gate fail-then-
-resume, capital recompute) plus new behaviors introduced by the top-up
-work: legacy-slot lock, dust-row guard, PENDING-as-target exposure
-counting, and order-time-walker anchor alignment.
-
-The TP/SL exit side (AE4) is covered by ``test_tp_sl_monitor.py`` —
-per-row TP fires correctly today on multi-row positions because each
-ledger row carries its own ``fill_price`` and the monitor is row-level.
-"""
+"""Cross-tick top-up integration tests."""
 
 from __future__ import annotations
 
@@ -44,11 +32,7 @@ def _no_market(
     no_ask_levels: list | None = None,
     volume: float = 1000.0,
 ) -> dict:
-    """Build market_data[bi] for a NO-side bet at the given best_bid.
-
-    Matches the shape used by ``test_decision_strategies.py::_bracket_market``:
-    NO ask levels start at the scanner-time fill price (``best_bid`` is the
-    label both sides use because the YES bid and NO ask price-mirror)."""
+    """Build market_data[bi] for a NO-side bet at the given best_bid."""
     if no_ask_levels is None:
         # Deep cheap NO asks at the scanner-time top, plus walk-room above.
         no_ask_levels = [
@@ -195,11 +179,8 @@ def _evaluate_tail(
 # --------------------------------------------------------- AE1: multi-tick top-up
 
 def test_ae1_first_fill_then_top_up_uses_sticky_anchor(conn: sqlite3.Connection) -> None:
-    """AE1 leg 1+2: first-fill records the scanner-time anchor; the second
-    tick on the same slot reuses it instead of re-anchoring to the new top.
-
-    Both ticks use ``best_bid=0.75`` (so the NO edge gate stays in band on
-    both); the test pins anchor stickiness specifically, not edge-tracking."""
+    """AE1 leg 1+2: first-fill records the scanner-time anchor; the second tick on the
+    same slot reuses it instead of re-anchoring to the new top."""
     # Tick 1: empty slot — first fill should set entry_top_price=0.75
     # and stamp slot_filled_pre=0 on the signal.
     sig1 = _evaluate_no(conn, best_bid=0.75, capital=10000.0)
@@ -224,9 +205,8 @@ def test_ae1_first_fill_then_top_up_uses_sticky_anchor(conn: sqlite3.Connection)
 
 
 def test_top_up_anchor_stays_sticky_across_minor_drift(conn: sqlite3.Connection) -> None:
-    """When the scanner-time top has drifted up but the slot has prior
-    exposure, the anchor must remain the slot's original first-fill
-    anchor, not the new (drifted) top."""
+    """When the scanner-time top has drifted up but the slot has prior exposure, the
+    anchor must remain the slot's original first-fill anchor, not the new (drifted) top."""
     # Slot has prior fill at original anchor=0.75.
     _insert_slot_row(conn, bet_ts="2026-05-10 10:00:00",
                      bet_size=200.0, entry_top_price=0.75)
@@ -274,11 +254,8 @@ def test_no_first_fill_uses_vwap_edge_floor_not_five_cent_leash(conn: sqlite3.Co
 
 
 def test_no_preserves_entry_edge_when_walking_to_five_pct_vwap_floor(conn: sqlite3.Connection) -> None:
-    """Entry passes at 9%+; execution can now walk below the entry edge down to
-    the 5% realized-VWAP floor (L2 champion: NO execution_min_edge 0.03 -> 0.05).
-    The walked level (0.91) realizes ~5.3pp — above the floor — so the fill
-    places; a level realizing <5pp would be left on the book.
-    """
+    """Entry passes at 9%+; execution can now walk below the entry edge down to the 5%
+    realized-VWAP floor (L2 champion: NO execution_min_edge 0.03 -> 0.05)."""
     p_emos = 0.0325505153150214
     prob_safe_floor = 1.0 - p_emos
     entry_price = 0.87
@@ -327,11 +304,8 @@ def test_no_vwap_edge_floor_stops_before_bad_depth(conn: sqlite3.Connection) -> 
 
 
 def test_tail_first_fill_uses_seven_pct_vwap_edge_floor_not_five_cent_leash(conn: sqlite3.Connection) -> None:
-    """TAIL fills by the realized-VWAP floor (L2 champion: 0.03 -> 0.07), NOT a
-    fixed 5-cent leash. top_ask=0.02 would cap a leash at 0.07, but with a high
-    enough tail probability the walker pushes PAST 0.07 to the 0.10 level while
-    the realized VWAP edge stays >= 7pp.
-    """
+    """TAIL fills by the realized-VWAP floor (L2 champion: 0.03 -> 0.07), NOT a fixed
+    5-cent leash."""
     sig = _evaluate_tail(
         conn,
         best_ask=0.02,
@@ -371,9 +345,9 @@ def test_tail_vwap_edge_floor_stops_before_bad_depth(conn: sqlite3.Connection) -
 # ------------------------------------------------------- AE3: edge gate cycles
 
 def test_ae3_edge_gate_fail_does_not_lock_slot(conn: sqlite3.Connection) -> None:
-    """When the current tick's edge moves out of the gate band but the slot
-    has prior exposure, the bet is skipped without closing the slot — a
-    later tick can resume top-up when the gate is back in band."""
+    """When the current tick's edge moves out of the gate band but the slot has prior
+    exposure, the bet is skipped without closing the slot — a later tick can resume
+    top-up when the gate is back in band."""
     _insert_slot_row(conn, bet_ts="2026-05-10 10:00:00",
                      bet_size=150.0, entry_top_price=0.75)
     # Edge moves out of band: p_emos=0.50 makes NO edge way too low.
@@ -411,8 +385,7 @@ def test_ae5_capital_change_between_ticks_recomputes_target(conn: sqlite3.Connec
 
 def test_legacy_slot_lock_skips_when_anchor_missing(conn: sqlite3.Connection) -> None:
     """A slot with prior fills written before the top-up rollout has no
-    ``entry_top_price`` in event_detail. The new gate must skip it rather
-    than silently re-anchor (origin Scope Boundary: forward-only)."""
+    ``entry_top_price`` in event_detail."""
     _insert_slot_row(conn, bet_ts="2026-05-10 10:00:00",
                      bet_size=300.0, entry_top_price=None)  # legacy row
     sig = _evaluate_no(conn, best_bid=0.75, capital=10000.0)
@@ -423,9 +396,8 @@ def test_legacy_slot_lock_skips_when_anchor_missing(conn: sqlite3.Connection) ->
 
 
 def test_legacy_lock_does_not_fire_on_empty_slot(conn: sqlite3.Connection) -> None:
-    """Cold-start with no prior rows must NOT fire legacy-slot-lock — the
-    reader returns None but slot_filled is 0, so the cold-start path uses
-    the scanner-time anchor."""
+    """Cold-start with no prior rows must NOT fire legacy-slot-lock — the reader returns
+    None but slot_filled is 0, so the cold-start path uses the scanner-time anchor."""
     sig = _evaluate_no(conn, best_bid=0.75, capital=10000.0)
     assert sig is not None
     assert sig.passed_all_gates
@@ -480,9 +452,9 @@ def test_precision_grid_dust_top_up_is_skipped_before_order_submit(conn: sqlite3
 # -------------------------------------------- PENDING counts as exposure
 
 def test_pending_row_counts_as_exposure(conn: sqlite3.Connection) -> None:
-    """A still-PENDING first fill must count toward slot_filled_usd so
-    the next tick doesn't race into additive over-stake before the
-    reconciler corrects bet_size from target to realized."""
+    """A still-PENDING first fill must count toward slot_filled_usd so the next tick
+    doesn't race into additive over-stake before the reconciler corrects bet_size from
+    target to realized."""
     _insert_slot_row(conn, bet_ts="2026-05-10 10:00:00",
                      bet_size=300.0, entry_top_price=0.75,
                      outcome="PENDING")
@@ -559,9 +531,9 @@ def test_slot_anchor_returns_none_when_legacy_row_lacks_key(conn: sqlite3.Connec
 # ----------------------------------------- AE2: window-close blocks top-up
 
 def test_ae2_window_close_blocks_top_up(conn: sqlite3.Connection) -> None:
-    """When the local hour falls outside NO's entry_hour_set, the hour gate
-    fires (returns None) before the slot query runs — no top-up regardless
-    of prior exposure or anchor."""
+    """When the local hour falls outside NO's entry_hour_set, the hour gate fires
+    (returns None) before the slot query runs — no top-up regardless of prior exposure
+    or anchor."""
     _insert_slot_row(conn, bet_ts="2026-05-10 10:00:00",
                      bet_size=300.0, entry_top_price=0.65)
     flavors = _compute_signal_flavors(0.19, 50, 10)
@@ -625,11 +597,7 @@ def test_ae2_no_top_up_can_ignore_sticky_price_cap_when_vwap_edge_holds(conn: sq
 # ------------------------ slot isolation across different brackets
 
 def test_slot_predicate_isolates_different_brackets(conn: sqlite3.Connection) -> None:
-    """slot_filled_usd must scope by bracket_low. Two slots sharing
-    (station, date, threshold, side, strategy) but with different
-    bracket_low values must be counted independently. A bracket_low_val=None
-    query targets the floor-bracket slot (event_detail.bracket_low IS NULL)
-    and must NOT pick up rows with explicit bracket_low values."""
+    """slot_filled_usd must scope by bracket_low."""
     _insert_slot_row(
         conn, bet_ts="2026-05-10 10:00:00",
         bet_size=400.0, entry_top_price=0.75, bracket_low=20.0,
@@ -664,12 +632,7 @@ def test_slot_predicate_isolates_different_brackets(conn: sqlite3.Connection) ->
 # ----------------------- NO top-up edge-floor behavior (slip leash removed 2026-05-31)
 
 def test_no_topup_walks_to_edge_floor_without_slip_leash(conn: sqlite3.Connection) -> None:
-    """A NO top-up no longer stops at first_fill_vwap + 0.04.
-
-    The prior first-fill VWAP is still available for audit, but fill depth is
-    now bounded by the current entry gates plus the 5pp realized VWAP edge floor.
-    The 0.82 level clears that floor, so the top-up can consume it.
-    """
+    """A NO top-up no longer stops at first_fill_vwap + 0.04."""
     _insert_slot_row(
         conn, bet_ts="2026-05-10 10:00:00", bet_size=1.0,
         entry_top_price=0.75, entry_fill_vwap=0.75,
@@ -710,10 +673,9 @@ def test_no_topup_book_above_old_slip_bound_still_fills_if_edge_allows(
 def test_no_topup_null_fill_vwap_anchor_falls_back_without_reanchor(
     conn: sqlite3.Connection,
 ) -> None:
-    """NULL-anchor guard: a transition slot (entry_top_price present,
-    entry_fill_vwap absent) falls back to normal NO behavior: current gates
-    plus the 5pp realized VWAP edge floor. The 0.82 level is consumed.
-    """
+    """NULL-anchor guard: a transition slot (entry_top_price present, entry_fill_vwap
+    absent) falls back to normal NO behavior: current gates plus the 5pp realized VWAP
+    edge floor."""
     _insert_slot_row(
         conn, bet_ts="2026-05-10 10:00:00", bet_size=1.0,
         entry_top_price=0.75, entry_fill_vwap=None,   # transition slot
@@ -732,11 +694,7 @@ def test_no_topup_null_fill_vwap_anchor_falls_back_without_reanchor(
 
 
 def test_no_first_fill_walks_to_edge_floor_and_records_fill_vwap(conn: sqlite3.Connection) -> None:
-    """First fill walks to the edge floor and records the walked VWAP.
-
-    The recorded value remains useful for audit even though NO top-ups no
-    longer use it as a slip cap.
-    """
+    """First fill walks to the edge floor and records the walked VWAP."""
     sig = _evaluate_no(
         conn, best_bid=0.75, capital=100.0,
         no_ask_levels=[{"price": "0.82", "size": "100000"}],

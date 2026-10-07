@@ -1,9 +1,4 @@
-"""Tests for Unit 4: bet decision pipeline.
-
-Exercises station evaluation coverage, signal ranking with the per-day
-notional cap, and the WU consensus gate modes. Per-strategy gate coverage
-(NO/YMID/TAIL) lives in tests/test_decision_strategies.py.
-"""
+"""Tests for Unit 4: bet decision pipeline."""
 
 from __future__ import annotations
 
@@ -41,15 +36,7 @@ def db(tmp_path: Path) -> sqlite3.Connection:
 
 @pytest.fixture(autouse=True)
 def _mock_wu_forecast():
-    """Stub fetch_wu_forecast so tests never hit api.weather.com.
-
-    Default: WU unavailable (returns None). Tests that need a specific
-    verdict patch the symbol explicitly within their own scope (see
-    TestWuConsensusGateModes). The default-None keeps cutoff and edge
-    tests backward-compatible: the gate's verdict is None, which under
-    SHADOW (production default) does not write to gate_results at all
-    and under BLOCK is mapped to False (fail-closed) before the write.
-    """
+    """Stub fetch_wu_forecast so tests never hit api.weather.com."""
     import hightempbot.ingestion.wu_forecast as wuf
     wuf.clear_cache()
     with patch("hightempbot.decision.strategies.fetch_wu_forecast", return_value=None) as m:
@@ -58,13 +45,7 @@ def _mock_wu_forecast():
 
 
 def _make_market_data(n_brackets: int = 11, best_ask: float = 0.30, volume: float = 50000.0):
-    """Create mock market data for n brackets with F-station bracket bounds.
-
-    Simulates Polymarket brackets: ≤59°F, 60-61°F, 62-63°F, ..., 76-77°F, ≥78°F (2°F wide).
-    Includes a synthetic YES/NO book so walk_book reuses fill_price.
-    Bracket labels carry the °F unit token because evaluate_station infers
-    bracket_unit from the labels and fails closed if no token is present.
-    """
+    """Create mock market data for n brackets with F-station bracket bounds."""
     result = {}
     base = 59
     for i in range(n_brackets):
@@ -128,13 +109,7 @@ def _seed_lut(
 
 
 def _seed_all_buckets(conn: sqlite3.Connection, station_id: str, n: int, observed: float) -> None:
-    """Seed every notebook Cell F bucket for a station with identical (n, observed).
-
-    Also seeds ``pred_bucket_history`` so ``lookup_with_cumulative`` returns
-    a non-zero ``n_cum`` (the cold-start guard added in 2026-05-07 skips
-    bets when n_cum < LUT_MIN_N_FOR_SHRINKAGE — without history rows the
-    guard fires and these tests' bets never reach the gate-under-test).
-    """
+    """Seed every notebook Cell F bucket for a station with identical (n, observed)."""
     from hightempbot.calibration.lut import BUCKETS
     for lo, hi in BUCKETS:
         _seed_lut(conn, station_id, lo, hi, n=n, hits=int(round(n * observed)))
@@ -327,16 +302,7 @@ class TestRankSignals:
 
 
 class TestWuConsensusGateModes:
-    """Regression tests for SHADOW vs BLOCK gate aggregator semantics.
-
-    These pin the contract:
-      * SHADOW: WU verdict is recorded on BetSignal.wu_consensus_verdict for
-        telemetry but does NOT participate in passed_all_gates. A False
-        verdict from WU must not block bets during the soak period.
-      * BLOCK: WU verdict participates in passed_all_gates. False blocks; None
-        (WU unavailable) is mapped to False so unavailability fails closed,
-        not silently passes.
-    """
+    """Regression tests for SHADOW vs BLOCK gate aggregator semantics."""
 
     def _seed_passable_no_bet(self, db: sqlite3.Connection):
         from tests.test_decision import _seed_all_buckets, _make_model, _make_market_data

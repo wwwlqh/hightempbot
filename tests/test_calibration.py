@@ -176,14 +176,7 @@ class TestCalibrationModel:
         mock_fit.assert_called_once()
 
     def test_retrain_excludes_data_outside_rolling_window(self, db):
-        """Days older than ROLLING_WINDOW_DAYS must be silently excluded.
-
-        Boundary check: 30 fresh days (inside window) + 30 stale days (just
-        outside) — the retrain should see only the fresh 30 and still return
-        a model. If it grabbed the stale set too, it would see 60 pairs and
-        we'd lose the regression guard against off-by-one (>= vs >) drift
-        in the cutoff predicate.
-        """
+        """Days older than ROLLING_WINDOW_DAYS must be silently excluded."""
         from hightempbot.calibration.model import retrain, ROLLING_WINDOW_DAYS
 
         fresh_start = date.today() - timedelta(days=ROLLING_WINDOW_DAYS - 1)

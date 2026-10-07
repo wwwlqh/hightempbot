@@ -1,17 +1,4 @@
-"""Smoke tests for the v2 trading-journal dashboard.
-
-The legacy operator's-terminal dashboard (live.html + /partials/* HTMX) was
-deleted in the 2026-05-06 v2 cutover. The 45 tests that targeted those routes
-were removed alongside their behaviour. The v2 dashboard is a React+Babel SPA
-fed by /api/v2/data; we test the JSON shape directly instead of rendered HTML.
-
-Coverage:
-- /, /v2, /api/v2/data, /health respond 200 or expected redirect
-- /api/v2/data returns the documented HTB_DATA shape with the right top-level
-  keys, including /strategies (NO/YMID/TAIL) and /halt-related fields
-- Auth still works on the v2 routes (cookie required when password set)
-- The 3-strategy halt thresholds match the strategy spec
-"""
+"""Smoke tests for the v2 trading-journal dashboard."""
 
 from __future__ import annotations
 
@@ -23,14 +10,7 @@ import pytest
 
 
 def _utc_today() -> date:
-    """Mirror dashboard `_active_target_date()` — UTC date, not local.
-
-    SGT (UTC+8) tests using `date.today()` diverge from production for
-    ~8h/day, which surfaced as `test_grouped_trade_counts_and_target_size`
-    failing during early SGT mornings (local 2026-05-22 vs UTC 2026-05-21).
-    Pinning every test-seeded `target_date` to UTC eliminates the
-    time-of-day flake.
-    """
+    """Mirror dashboard `_active_target_date()` — UTC date, not local."""
     return datetime.now(timezone.utc).date()
 from fastapi.testclient import TestClient
 
@@ -126,14 +106,7 @@ def _insert_ledger_row(
     event_type: str = "bet",
     strategy: str | None = None,
 ):
-    """Insert a minimal ledger row for testing v2_data aggregations.
-
-    ``bet_ts`` and ``target_date`` default to "today" (2026-05-08) so the
-    dashboard's ``target_date = active_target_date`` filter (today KPIs) and
-    its ``bet_ts >= session_floor`` filter (cumulative views) both include
-    the row by default. Tests that need pre-cutoff or off-target rows can
-    override either kwarg explicitly.
-    """
+    """Insert a minimal ledger row for testing v2_data aggregations."""
     import json
     detail = {"bracket_low": 17.0, "bracket_high": 21.0}
     if strategy:
@@ -252,13 +225,7 @@ class TestRoot:
 
 
 class TestLoginRateLimit:
-    """ce-code-review P1 #28: /login is rate-limited after 5 failures in 60s.
-
-    These tests exercise the rate-limit helpers directly because the FastAPI
-    /login endpoint relies on `python-multipart` for form parsing, which isn't
-    in the project's runtime deps. Direct testing of the in-process counter
-    is sufficient: the endpoint is a thin wrapper that calls the same helpers.
-    """
+    """ce-code-review P1 #28: /login is rate-limited after 5 failures in 60s."""
 
     def test_failed_attempts_lock_after_threshold(self):
         from hightempbot.dashboard.app import (
@@ -863,13 +830,7 @@ class TestV2DataEndpoint:
             set_config(None)
 
     def test_transfer_submit_endpoint_auth_and_safety(self, tmp_path, monkeypatch):
-        """ce-code-review P2 #45: e2e coverage for POST /transfer/submit.
-
-        Covers:
-        - dry-run boot rejects with 409 (live actions disabled)
-        - live boot with TransferSafetyError surfaces as 4xx, not 500
-        - successful submission returns ok+transfer envelope
-        """
+        """ce-code-review P2 #45: e2e coverage for POST /transfer/submit."""
         from datetime import datetime, timedelta, timezone
 
         from hightempbot.db.connection import utc_now_sql
@@ -1157,11 +1118,8 @@ class TestV2DataEndpoint:
             set_config(None)
 
     def test_halt_thresholds_match_optimum_strategy(self, client):
-        """Halt at MAX_DD=0.40; dashboard halt banner must fire at the
-        same DD as the bot's pipeline halt gate (execution.pipeline:
-        ``drawdown >= MAX_DD``). 2026-05-20: switched from halve-at-MAX_DD
-        to halt-at-MAX_DD; no reduced band anymore.
-        """
+        """Halt at MAX_DD=0.40; dashboard halt banner must fire at the same DD as the
+        bot's pipeline halt gate (execution.pipeline: ``drawdown >= MAX_DD``)."""
         d = client.get("/api/v2/data").json()
         assert d["ddHaltThreshold"] == 40  # MAX_DD = 0.40 -> 40%
         # reducedSizeThreshold lingers in v2_data for back-compat with the
@@ -1306,14 +1264,8 @@ def _insert_return_transfer(db_path, amount_usd: float, *, status: str = "SUBMIT
 
 
 def _seed_withdrawal_redeposit_scenario(db_path):
-    """Production scenario 2026-06-13: IB=100, all-time realized PnL +54.54
-    (running-PnL peak +125.31), then a full $154.54 return transfer.
-
-    Two resolved rows walk the cumulative PnL up to +125.31 then down to
-    +54.54, so ``_ledger_peak`` sees a raw high-water of 225.31 (IB + peak).
-    A single SUBMITTED return transfer of 154.54 (the full withdrawal)
-    drives ``initial_bankroll + SUM(pnl) - transfers`` to exactly 0.
-    """
+    """Production scenario 2026-06-13: IB=100, all-time realized PnL +54.54 (running-PnL
+    peak +125.31), then a full $154.54 return transfer."""
     _insert_ledger_row(
         db_path, "WIN", station_id="KDAL", pnl=125.31,
         bet_ts="2026-06-01 12:00:00", target_date="2026-06-01", strategy="NO",
@@ -1326,16 +1278,11 @@ def _seed_withdrawal_redeposit_scenario(db_path):
 
 
 class TestLiveGateCapitalView:
-    """Pure-math tests for ``live_gate_capital_view`` — the read-only mirror of
-    the live halt gate the dashboard now displays after a withdrawal + re-fund.
-    """
+    """Pure-math tests for ``live_gate_capital_view`` — the read-only mirror of the live
+    halt gate the dashboard now displays after a withdrawal + re-fund."""
 
     def test_production_wallet_refunded_reads_wallet_not_zero(self, db):
-        """Re-deposited $99.88 reaches the wallet with no ledger row. The
-        gate view must report (99.88, 99.88) so the dashboard agrees with the
-        pipeline gate (which trades normally), not the fake $0/100%-DD the
-        ledger walk produces.
-        """
+        """Re-deposited $99.88 reaches the wallet with no ledger row."""
         from hightempbot.execution.capital import live_gate_capital_view
 
         _seed_withdrawal_redeposit_scenario(db)
@@ -1351,15 +1298,8 @@ class TestLiveGateCapitalView:
         assert peak == pytest.approx(99.88)
 
     def test_production_wallet_drained_floors_capital_but_keeps_ledger_peak(self, db, monkeypatch):
-        """Wallet fully withdrawn (~$0): capital floors to 0, but the peak is
-        the transfer-adjusted ledger high-water (225.31 - 154.54 = 70.77).
-
-        Epoch is backdated so the whole scenario is in-session: with all
-        history inside the session, ``_session_ledger_peak``'s reconstruction
-        reproduces the legacy transfer-adjusted numbers exactly (seed
-        collapses to IB=100), so this protection is unchanged by the
-        2026-08-10 zero-reset.
-        """
+        """Wallet fully withdrawn (~$0): capital floors to 0, but the peak is the
+        transfer-adjusted ledger high-water (225.31 - 154.54 = 70.77)."""
         from hightempbot.execution.capital import live_gate_capital_view
 
         monkeypatch.setattr(
@@ -1379,11 +1319,8 @@ class TestLiveGateCapitalView:
         assert peak == pytest.approx(70.77)
 
     def test_api_position_value_adds_to_stake_basis(self, db, monkeypatch):
-        """The ``api_position_value`` branch: capital = wallet + position value
-        (floored at ledger realized). With the whole withdrawal history
-        pre-epoch (2026-08-10 zero-reset), the session peak floors at the
-        current basis: (60, 60) with marks, (40, 40) without.
-        """
+        """The ``api_position_value`` branch: capital = wallet + position value (floored
+        at ledger realized)."""
         from hightempbot.execution.capital import live_gate_capital_view
 
         monkeypatch.setattr(
@@ -1407,12 +1344,8 @@ class TestLiveGateCapitalView:
         assert without_api == (pytest.approx(40.0), pytest.approx(40.0))
 
     def test_floors_capital_at_ledger_realized_when_wallet_lags(self, db, monkeypatch):
-        """Resolved-but-not-yet-redeemed proceeds: no withdrawal, ledger
-        realized = 100 + 54.54 = 154.54. A wallet reading of $50 (cash lags)
-        must NOT show as drawdown — capital floors up to 154.54, peak is the
-        raw ledger high-water 225.31. (Epoch backdated: in-session history
-        reproduces the legacy walk exactly.)
-        """
+        """Resolved-but-not-yet-redeemed proceeds: no withdrawal, ledger realized = 100
+        + 54.54 = 154.54."""
         from hightempbot.execution.capital import live_gate_capital_view
 
         monkeypatch.setattr(
@@ -1441,11 +1374,7 @@ class TestLiveGateCapitalView:
 
 class TestSessionZeroReset:
     """Operator zero-reset 2026-08-10: the gate re-bases at the session epoch
-    (``capital._session_ledger_peak``). Pre-epoch history — the $188.95
-    all-time peak and the stuck-SUBMITTED $84.05 withdrawal that had the live
-    gate silently halted at ~48% DD — must have zero influence, while
-    in-session losses must still ratchet DD toward the MAX_DD halt.
-    """
+    (``capital._session_ledger_peak``)."""
 
     EPOCH = "2026-08-10 00:00:00"
 
@@ -1486,10 +1415,8 @@ class TestSessionZeroReset:
         assert peak == pytest.approx(54.67)
 
     def test_session_losses_still_trip_the_halt(self, db, monkeypatch):
-        """A real in-session loss ratchets DD: losing $25 of the $54.67
-        session bankroll reads ~45.7% >= MAX_DD 0.40. The reset re-bases the
-        gate; it must not weaken it.
-        """
+        """A real in-session loss ratchets DD: losing $25 of the $54.67 session bankroll
+        reads ~45.7% >= MAX_DD 0.40."""
         from hightempbot.execution.capital import live_gate_capital_view
 
         self._pin_epoch(monkeypatch)
@@ -1557,9 +1484,8 @@ class TestSessionZeroReset:
 
 
 class TestDashboardLiveGateOverride:
-    """``build_htb_data`` live-mode override (via /api/v2/data): capital/peak
-    now mirror the halt gate; dry-run stays on the ledger walk.
-    """
+    """``build_htb_data`` live-mode override (via /api/v2/data): capital/peak now mirror
+    the halt gate; dry-run stays on the ledger walk."""
 
     def test_live_dashboard_agrees_with_gate_after_redeposit(self, db, client):
         from hightempbot.persistence.wallet_reconciliation import (
@@ -1655,9 +1581,8 @@ class TestDashboardLiveGateOverride:
             set_config(None)
 
     def test_dry_run_capital_unchanged_by_gate_override(self, db, client):
-        """Dry-run has no wallet snapshot, so capital/peak stay on the ledger
-        walk and ``capitalSource`` is the ledger source, never ``live_gate``.
-        """
+        """Dry-run has no wallet snapshot, so capital/peak stay on the ledger walk and
+        ``capitalSource`` is the ledger source, never ``live_gate``."""
         configure(str(db), dry_run=True, initial_bankroll=100.0)
         _insert_enrolled_station(db, "KDAL", "Dallas")
         _insert_ledger_row(
@@ -1845,18 +1770,11 @@ class TestCleanDisplayText:
 
 
 class TestEnrichLedgerPositionsRecoveredOrphan:
-    """RECOVERED orphan rows have no bracket bounds, so _enrich_ledger_positions
-    must surface ``event_detail.bracket_label`` instead of falling back to
-    the meaningless ``threshold`` string (e.g. ``"0.0°"``) for the display label.
-    """
+    """RECOVERED rows have no bounds, so the stored ``event_detail.bracket_label`` is shown."""
 
     @staticmethod
     def _row_with_recovered_orphan_detail(tmp_path) -> sqlite3.Row:
-        """Insert a synthetic RECOVERED orphan row and return it as an sqlite3.Row.
-
-        Going through INSERT + SELECT keeps the Row produced here identical
-        in shape to what the dashboard's actual SQL would yield.
-        """
+        """Insert a synthetic RECOVERED orphan row and return it as an sqlite3.Row."""
         import json
         db_path = tmp_path / "recovered.db"
         init_db(str(db_path))
@@ -1887,9 +1805,9 @@ class TestEnrichLedgerPositionsRecoveredOrphan:
         return row
 
     def test_recovered_orphan_uses_event_detail_bracket_label(self, tmp_path):
-        """Bracket bounds absent + event_detail.bracket_label='RECOVERED' must
-        surface 'RECOVERED' on the dashboard row, not the threshold fallback
-        ('0.0°') that would otherwise lie about a recovered fill's bracket."""
+        """Bracket bounds absent + event_detail.bracket_label='RECOVERED' must surface
+        'RECOVERED' on the dashboard row, not the threshold fallback ('0.0°') that would
+        otherwise lie about a recovered fill's bracket."""
         row = self._row_with_recovered_orphan_detail(tmp_path)
         enriched = _enrich_ledger_positions([row], all_st={})
         assert len(enriched) == 1
@@ -2232,19 +2150,11 @@ class TestPerStationEmos:
 
 
 class TestCapitalRangeDecoupled:
-    """Capital and Max DD are NOT scoped to the selected range.
-
-    When the operator selects 7d/30d, realized Net P&L narrows but Capital
-    must keep reflecting the current account balance (initial bankroll + all
-    session P&L). API open marks stay out of both visible Capital and Net P&L.
-    """
+    """Capital and Max DD are NOT scoped to the selected range."""
 
     def test_capital_includes_pre_window_session_pnl(self, db, client):
-        """An older in-session bet (>7d ago but after session floor) must
-        still be reflected in Capital when the user selects 7d range. The
-        bet's PnL is excluded from realized Net P&L but included in Capital
-        (current balance).
-        """
+        """An older in-session bet (>7d ago but after session floor) must still be
+        reflected in Capital when the user selects 7d range."""
         today = _utc_today()
         older_day = today - timedelta(days=9)
         recent_day = today - timedelta(days=1)
@@ -2278,11 +2188,8 @@ class TestCapitalRangeDecoupled:
         assert abs(d_all["capital"] - (1000.0 + 8.0)) < 0.01
 
     def test_max_dd_includes_pre_window_drawdown(self, db, client):
-        """Max DD reflects the realized peak-to-trough across the full
-        session, not just the selected window. The UI labels this KPI
-        ``current peak-to-trough`` — windowing it would hide the very
-        drawdown the halt gate is comparing against.
-        """
+        """Max DD reflects the realized peak-to-trough across the full session, not just
+        the selected window."""
         # Big WIN early in session → sets peak well above baseline.
         _insert_ledger_row(
             db, "WIN", pnl=200.0,
@@ -2302,10 +2209,8 @@ class TestCapitalRangeDecoupled:
 
 
 class TestAdminResolvePending:
-    """POST /api/v2/admin/resolve-pending — HTTP parity for the WU-fallback
-    operator workflow (finding #24). Mirrors the CLI script's semantics:
-    dry-run by default, refuses pre-threshold dates without ``force``, source-
-    filtered actuals reads, audit reason on commit."""
+    """POST /api/v2/admin/resolve-pending — HTTP parity for the WU-fallback operator
+    workflow (finding #24)."""
 
     @staticmethod
     def _seed(db_path: str, *, station_id: str, target_date: str,
@@ -2581,10 +2486,8 @@ class TestAdminResolvePending:
         assert row["outcome"] == "WIN"
 
     def test_actuals_source_filter_rejects_non_wu(self, db, client):
-        """Defense-in-depth (finding #25): a non-WU actuals row must NOT
-        unblock the fallback even though the row exists for the (station,
-        date).
-        """
+        """Defense-in-depth (finding #25): a non-WU actuals row must NOT unblock the
+        fallback even though the row exists for the (station, date)."""
         from datetime import date, timedelta
         target = (date.today() - timedelta(days=2)).isoformat()
         bet_id = self._seed(

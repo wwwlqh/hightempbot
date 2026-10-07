@@ -574,15 +574,7 @@ class TestCapital:
 
 
 class TestL2ChampionParity:
-    """R8: pin the live config to the L2 champion JSON (the source of truth).
-
-    A hand-transcription drift in strategy_constants.py fails here against
-    ``backtest/configs/candidate_l2_depth.json`` rather than against a
-    co-edited literal. The JSON uses different key names than the live
-    StrategyConfig fields, so each assertion maps JSON -> live explicitly
-    (size_frac->capital_frac, alpha->alpha_ratio, entry_local_hours->
-    entry_hour_set, no_min_edge->min_edge).
-    """
+    """R8: pin the live config to the L2 champion JSON (the source of truth)."""
 
     @staticmethod
     def _champion() -> dict:
@@ -640,14 +632,7 @@ class TestL2ChampionParity:
 
 
 class TestL2ChampionConstantPins:
-    """Non-skipping value pins for the ported L2 champion constants.
-
-    These hardcoded expectations catch transcription drift even where
-    TestL2ChampionParity would skip (no backtest/ dir present). The parity
-    test then guards these literals against the JSON source of truth, so the
-    two layers together catch both "live drifted from JSON" and "literal
-    drifted in an environment without the JSON".
-    """
+    """Non-skipping value pins for the ported L2 champion constants."""
 
     def test_no_sleeve_values(self):
         no = STRATEGY_CONFIGS["NO"]

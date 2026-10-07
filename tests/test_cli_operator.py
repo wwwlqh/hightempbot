@@ -1,10 +1,4 @@
-"""Smoke tests for hightempbot.cli.operator.
-
-ce-code-review P1 #10: verify every subcommand exposes a working --help
-without requiring a configured DB. Mutation paths are intentionally not
-exercised here — they need a live DB + relayer fixture, which lives in
-the dashboard/integration test suites.
-"""
+"""Smoke tests for hightempbot.cli.operator."""
 
 from __future__ import annotations
 

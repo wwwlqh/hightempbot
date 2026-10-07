@@ -214,12 +214,7 @@ def test_clear_transfer_lock_cannot_override_dry_run_boot(tmp_path):
 
 
 def test_concurrent_update_raises_optimistic_conflict(tmp_path):
-    """ce-code-review P3 #71: monotonic version on operator_control_state.
-
-    Simulate a concurrent writer by bumping the version directly via SQL
-    between get_operator_state and set_operator_state. The next set call
-    sees a stale version and must raise OperatorControlError.
-    """
+    """ce-code-review P3 #71: monotonic version on operator_control_state."""
     from hightempbot.execution.operator_control import set_operator_state, LIVE
 
     conn = init_db(tmp_path / "test.db")

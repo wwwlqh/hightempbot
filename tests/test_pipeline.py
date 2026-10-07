@@ -61,11 +61,7 @@ def _make_ensemble():
 
 
 def _make_market_data(best_ask=0.30, volume=5000.0):
-    """Create mock market data with F-station bracket bounds (2°F wide).
-
-    Bracket labels carry the °F unit token because evaluate_station infers
-    bracket_unit from the labels and fails closed if no token is present.
-    """
+    """Create mock market data with F-station bracket bounds (2°F wide)."""
     result = {}
     base = 59
     for i in range(11):
@@ -202,12 +198,8 @@ class TestRunBettingCycle:
         mock_eval.assert_not_called()
 
     def test_local_now_minute_threads_through_to_hourly_gate(self, db):
-        """Plumbing check: run_betting_cycle's local_now_minute reaches the
-        per-strategy hourly-first-tick gate in _evaluate_strategy. The empty
-        ledger means every bracket has slot_filled=0, so passing a tick-1
-        minute should cause every strategy on every bracket to return None,
-        emptying the signals list. The same setup without local_now_minute
-        produces signals (see test_dry_run_produces_signals_no_orders)."""
+        """Plumbing check: run_betting_cycle's local_now_minute reaches the per-strategy
+        hourly-first-tick gate in _evaluate_strategy."""
         from hightempbot.execution.strategy_constants import (
             SCAN_INTERVAL_MINUTES, icao_tick_offset,
         )
@@ -245,13 +237,7 @@ class TestRunBettingCycle:
         assert result.n_placed == 0
 
     def test_drawdown_hard_stop_live_mode(self, db, monkeypatch):
-        """At drawdown >= MAX_DD (default 0.40) the LIVE pipeline halts before
-        any evaluation. Operator decision 2026-05-20 — replaces the prior
-        "halve at MAX_DD" semantic. Existing PENDING positions still resolve;
-        only new placement is suspended. (Epoch backdated so the seeded loss
-        is in-session — the 2026-08-10 zero-reset gate must still halt on
-        session losses.)
-        """
+        """At drawdown >= MAX_DD (default 0.40) the LIVE pipeline halts before any evaluation."""
         monkeypatch.setattr(
             "hightempbot.execution.strategy_constants.DASHBOARD_SESSION_START_UTC",
             "2026-01-01 00:00:00",
@@ -305,11 +291,8 @@ class TestRunBettingCycle:
         assert ">= MAX_DD" in row["message"]
 
     def test_drawdown_hard_stop_skipped_in_dry_run(self, db):
-        """Dry-run mode bypasses the MAX_DD halt so operators can flip to
-        dry_run to investigate behavior after a live drawdown (finding #16).
-        Capital snapshots already filter on event_type='bet', so dry_run
-        state can't fire the halt against itself.
-        """
+        """Dry-run mode bypasses the MAX_DD halt so operators can flip to dry_run to
+        investigate behavior after a live drawdown (finding #16)."""
         station = MockStation("KDAL")
         # Same 60% drawdown as the live-mode test.
         db.execute(
@@ -359,10 +342,7 @@ class TestRunBettingCycle:
         assert mock_eval.called
 
     def test_drawdown_at_exact_threshold_halts(self, db):
-        """Boundary case: drawdown == MAX_DD must halt (>= comparison, not >).
-        Without this test a future refactor that flips >= to > would slip
-        through (finding #22).
-        """
+        """Boundary case: drawdown == MAX_DD must halt (>= comparison, not >)."""
         station = MockStation("KDAL")
         # Exact 40% drawdown: $1000 initial - $400 loss = $600 realized -> 40%.
         db.execute(
@@ -393,11 +373,8 @@ class TestRunBettingCycle:
         mock_eval.assert_not_called()
 
     def test_drawdown_recovers_resumes_betting(self, db):
-        """Recovery transition: after a WIN brings realized capital back above
-        the (1 - MAX_DD) × peak threshold, the next tick must NOT halt
-        (finding #18). Guards against any change that would make the halt
-        sticky via persistent state.
-        """
+        """Recovery transition: after a WIN brings realized capital back above the (1 -
+        MAX_DD) × peak threshold, the next tick must NOT halt (finding #18)."""
         station = MockStation("KDAL")
         # Step 1: realized LOSS = -600 → 60% drawdown → halt would fire.
         # Step 2: realized WIN = +400 → net realized = -200 → 20% drawdown
@@ -448,11 +425,7 @@ class TestRunBettingCycle:
         assert mock_eval.called
 
     def test_drawdown_below_threshold_does_not_halt(self, db):
-        """Drawdown < MAX_DD lets the pipeline reach evaluate_station.
-
-        Without this companion test the halt assertion above could pass
-        trivially against any change that breaks evaluate_station entirely.
-        """
+        """Drawdown < MAX_DD lets the pipeline reach evaluate_station."""
         station = MockStation("KDAL")
         # 20% DD ($1000 - $200 = $800 realized) — well below MAX_DD=0.40.
         db.execute(

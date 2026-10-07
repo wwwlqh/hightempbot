@@ -47,12 +47,7 @@ def db(tmp_path: Path) -> sqlite3.Connection:
 
 
 def _mock_client() -> MagicMock:
-    """Mock OrderClient with a real ``_with_timeout`` pass-through.
-
-    ``walker._bounded_client_call`` always routes through ``_with_timeout``
-    when present; a bare MagicMock attribute would swallow the wrapped call
-    instead of invoking it.
-    """
+    """Mock OrderClient with a real ``_with_timeout`` pass-through."""
     client = MagicMock()
     client._with_timeout = lambda fn, *args, **kwargs: fn(*args, **kwargs)
     return client
@@ -240,9 +235,9 @@ class TestReconciliation:
         assert result.failed is False
 
     def test_matched_orphan_writes_recovery_row(self, db):
-        """A MATCHED CLOB order with no ledger linkage must NOT be cancelled
-        (it's a real fill); it must be persisted as a PENDING recovery row
-        carrying every NOT NULL ledger column and the recovered_orphan flag."""
+        """A MATCHED CLOB order with no ledger linkage must NOT be cancelled (it's a
+        real fill); it must be persisted as a PENDING recovery row carrying every NOT
+        NULL ledger column and the recovered_orphan flag."""
         import json
 
         client = _mock_client()
@@ -314,9 +309,9 @@ class TestReconciliation:
         assert row["bet_size"] == pytest.approx(0.42 * 7)
 
     def test_matched_orphan_with_no_trades_fails_without_writing_row(self, db):
-        """When trades come back empty/unknown for a MATCHED orphan we cannot
-        rebuild the fill — leave the order without ledger linkage and surface
-        result.failed so startup forces dry-run rather than running blind."""
+        """When trades come back empty/unknown for a MATCHED orphan we cannot rebuild
+        the fill — leave the order without ledger linkage and surface result.failed so
+        startup forces dry-run rather than running blind."""
         client = _mock_client()
         client._client.get_open_orders.return_value = [{"id": "ord_matched_no_trades"}]
         client._client.get_order.return_value = {"status": "MATCHED"}
@@ -333,15 +328,9 @@ class TestReconciliation:
         ).fetchone()["n"] == 0
 
     def test_matched_orphan_recovery_insert_failure_surfaces_failed_no_row(self, db):
-        """When the recovery INSERT itself raises sqlite3.Error the function
-        must NOT swallow the failure silently: return False so reconcile_orders
-        flags `result.failed` and startup downgrades to dry-run. We selectively
-        raise on the INSERT statement so the SELECTs that read the ledger
-        beforehand still succeed (the read path is uninvolved in the bug).
-
-        Wraps the connection in a proxy because sqlite3.Connection.execute is
-        a read-only attribute on Python 3.13+ (patch.object can't override it).
-        """
+        """When the recovery INSERT itself raises sqlite3.Error the function must NOT
+        swallow the failure silently: return False so reconcile_orders flags
+        `result.failed` and startup downgrades to dry-run."""
         client = _mock_client()
         client._client.get_open_orders.return_value = [{"id": "ord_insert_fails"}]
         client._client.get_order.return_value = {"status": "MATCHED"}

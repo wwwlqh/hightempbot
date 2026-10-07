@@ -1,9 +1,4 @@
-"""Walk-forward cumulative LUT lookup: strict less-than asof semantics.
-
-Mirrors the leakage-safe semantics of `backtest/lib/sweep_lib.py::lut_lookup_for_rows`
-which uses `merge_asof(direction='backward', allow_exact_matches=False)` —
-same-day rows are NEVER included.
-"""
+"""Walk-forward cumulative LUT lookup: strict less-than asof semantics."""
 
 from __future__ import annotations
 

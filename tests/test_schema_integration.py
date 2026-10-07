@@ -1,10 +1,4 @@
-"""Regression guard against piecemeal-merge schema drift.
-
-Boot a fresh DB from schema.sql + _migrate_db and drive the production
-read/write paths that previously hit `OperationalError: no such table`
-on main. If a production module starts querying a column/table the
-schema no longer creates, these tests fail immediately at CI time.
-"""
+"""Regression guard against piecemeal-merge schema drift."""
 from __future__ import annotations
 
 import sqlite3

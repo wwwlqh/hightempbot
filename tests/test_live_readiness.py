@@ -197,9 +197,8 @@ def test_read_erc20_balance_rejects_bad_addresses():
 
 
 def test_read_erc20_balance_decodes_hex_result(monkeypatch):
-    """Encodes the eth_call payload (selector 0x70a08231 + padded wallet) and
-    decodes the hex JSON-RPC result by the configured decimals.
-    """
+    """Encodes the eth_call payload (selector 0x70a08231 + padded wallet) and decodes
+    the hex JSON-RPC result by the configured decimals."""
     from hightempbot.execution import live_readiness as _lr
 
     captured = {}

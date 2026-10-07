@@ -1,9 +1,4 @@
-"""CLI-level smoke tests for the WU-fallback operator CLI.
-
-Covers the argument validators (finding #21) and the dry-run/--commit shape
-so a future refactor that changes argparse types or the floor gate is caught
-without needing to drive the real production helper.
-"""
+"""CLI-level smoke tests for the WU-fallback operator CLI."""
 
 from __future__ import annotations
 

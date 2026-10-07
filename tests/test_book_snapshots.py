@@ -1,10 +1,4 @@
-"""Tests for per-tick book_snapshots persistence + retention prune (FIX 2).
-
-The bot acts on CLOB prices every tick but historically never persisted them.
-``scheduler.betting_tick._persist_book_snapshots`` writes one top-of-book row
-per bracket per tick; ``persistence.ledger.prune_book_snapshots`` bounds the
-(long, 180-day) retention. Snapshot failure must never break the betting tick.
-"""
+"""Tests for per-tick book_snapshots persistence + retention prune (FIX 2)."""
 
 from __future__ import annotations
 

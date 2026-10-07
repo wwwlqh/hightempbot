@@ -1,9 +1,4 @@
-"""Smoke tests for the Polymarket credential-derivation CLI.
-
-Network/CLOB calls are mocked so the test doesn't hit api.polymarket.com.
-The real value of this CLI is covered by manual operator use (one-shot per
-wallet); these tests just pin the argparse contract + the key validator.
-"""
+"""Smoke tests for the Polymarket credential-derivation CLI."""
 
 from __future__ import annotations
 

@@ -65,14 +65,7 @@ def _insert_health(conn, station_id, stage, status, message="test"):
 
 class TestScheduler:
     def test_creates_correct_job_count(self, db, tmp_path):
-        """n midnight + n betting + n resolution + n tpsl + 8 global.
-
-        2026-05-06: per-station TP/SL monitor added (4th per-station job).
-        2026-05-13: daily Open-Meteo forecast backfill added — global count
-        bumped 6 -> 7 (housekeeping + hist_retrain + weekly_backfill +
-        daily_backfill + periodic_retrain + enrollment + system_health).
-        2026-05-15: rolling actuals backfill added — global count 7 -> 8.
-        """
+        """n midnight + n betting + n resolution + n tpsl + 8 global."""
         scheduler = BackgroundScheduler()
         schedule_all_jobs(scheduler, db, tmp_path, db_path=str(tmp_path / "test.db"), stations=_TEST_STATIONS)
         jobs = scheduler.get_jobs()

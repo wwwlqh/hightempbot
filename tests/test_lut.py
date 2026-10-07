@@ -1,11 +1,4 @@
-"""Tests for calibration.lut — bucket_of, seed + rebuild.
-
-Covers Unit 2 of the live deployment plan:
-  * ``bucket_of`` grid + boundary semantics
-  * ``rebuild_lut`` empty/full/after-append behaviors
-  * ``stamp_refreshed`` touches ``refreshed_at``
-  * ``append_triples_for_date`` end-to-end against fixture data
-"""
+"""Tests for calibration.lut — bucket_of, seed + rebuild."""
 
 from __future__ import annotations
 

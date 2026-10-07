@@ -1,9 +1,4 @@
-"""Tests for Unit 8: monthly_retrain._retrain_station triggers LUT refresh.
-
-Unit tests for the post-retrain LUT hook — rebuild_lut when the LUT already
-exists, seed_lut_from_history as the cold-start fallback, and log routing
-to pipeline_health stage='lut'.
-"""
+"""Tests for Unit 8: monthly_retrain._retrain_station triggers LUT refresh."""
 
 from __future__ import annotations
 

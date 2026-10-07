@@ -358,12 +358,7 @@ def test_submit_records_failed_status_on_relayer_exception(tmp_path):
 
 
 def test_pusd_amount_to_base_units_catches_systemexit():
-    """ce-code-review P1 #15: invalid amount raises TransferSafetyError, not SystemExit.
-
-    The CLI delegates to pusd_amount_to_base_units (P2 #46). The execution
-    boundary must surface TransferSafetyError so the dashboard/submit code
-    paths can format it as a 4xx without leaking SystemExit through FastAPI.
-    """
+    """ce-code-review P1 #15: invalid amount raises TransferSafetyError, not SystemExit."""
     from hightempbot.execution.polymarket_transfer import (
         pusd_amount_to_base_units,
         TransferSafetyError,
@@ -570,9 +565,8 @@ def test_submit_invokes_snapshot_refresher_for_agent_callers(tmp_path):
 
 
 def test_submit_tolerates_snapshot_refresher_failure(tmp_path):
-    """ce-code-review #38/#39: refresher failure is non-fatal — the existing
-    freshness gate inside preview is the real gatekeeper. This mirrors the
-    dashboard's upstream behavior at _assert_fresh_live_action_context."""
+    """ce-code-review #38/#39: refresher failure is non-fatal — the existing freshness
+    gate inside preview is the real gatekeeper."""
     conn = init_db(tmp_path / "test.db")
     try:
         _fresh_wallet(conn)

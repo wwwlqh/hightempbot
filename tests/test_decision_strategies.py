@@ -1,14 +1,4 @@
-"""Per-strategy router behavior: gate logic, hour gate, idempotency, sizing.
-
-Covers the doc-review fixes:
-  F-003 â€” idempotency SQL uses COALESCE(...,'NO') so legacy rows don't break duplicate detection.
-  F-005 â€” TAIL min-n guard prevents 4-of-4 vote degenerating to 1 EMOS-derived signal.
-  F-009 â€” TAIL signals carry tail_components for ledger persistence.
-
-The router-level integration with WU consensus, MAX_PER_MARKET trim, and walk-book
-is exercised end-to-end by test_decision.py / test_pipeline.py; this file focuses
-on the strategy-specific gates in isolation.
-"""
+"""Per-strategy router behavior: gate logic, hour gate, idempotency, sizing."""
 
 from __future__ import annotations
 
@@ -39,12 +29,7 @@ from tests.conftest import eval_strategy as _eval
 
 
 def slot_filled_usd(conn, **kwargs):
-    """Test helper: thin wrapper over slot_state that returns the filled USD only.
-
-    The standalone slot_filled_usd helper was removed from production code on
-    2026-05-23; tests retain this local shim so the existing SUM-only
-    assertions stay readable without rewriting every call site.
-    """
+    """Test helper: thin wrapper over slot_state that returns the filled USD only."""
     return slot_state(conn, **kwargs)[0]
 
 
@@ -56,12 +41,7 @@ def _bracket_market(
     yes_ask_levels: list | None = None,
     no_ask_levels: list | None = None,
 ) -> dict:
-    """Build a fake `market_data[bi]` dict that the router can consume.
-
-    Books follow the py-clob-client shape: `{"asks": [{price, size}, ...]}`.
-    `walk_book_edge_preserving` walks the asks side because the bot is buying
-    on whichever token it picks (YES or NO).
-    """
+    """Build a fake `market_data[bi]` dict that the router can consume."""
     if yes_ask_levels is None:
         # Cheap deep YES asks: lots of size at the quoted ask price.
         yes_ask_levels = [{"price": str(best_ask if best_ask is not None else 0.05), "size": "10000"}]
@@ -248,11 +228,7 @@ def test_ymid_ratio_gate_fails(conn: sqlite3.Connection) -> None:
 # --------------------------------------------------------------- TAIL strategy
 
 def test_tail_emits_skip_signal_when_n_below_min(conn: sqlite3.Connection) -> None:
-    """F-005: at small n, p_L_loose=p_E and p_B_50=p_E; vote degenerates.
-
-    Was: returned None silently. Now: emits a SKIP BetSignal so the
-    dashboard records the rejection (ce-review correctness/kieran-python #21).
-    """
+    """F-005: at small n, p_L_loose=p_E and p_B_50=p_E; vote degenerates."""
     flavors = _compute_signal_flavors(0.10, 5, 1)  # n=5 < vote_min_n=30
     sig = _eval(
         STRATEGY_CONFIGS["TAIL"], "TAIL",
@@ -890,9 +866,8 @@ def test_tick_0_opens_at_last_minute_of_decile(conn: sqlite3.Connection) -> None
 
 
 def test_tick_0_opens_under_one_minute_misfire(conn: sqlite3.Connection) -> None:
-    """The misfire-resilience fix: a tick scheduled at offset firing 1 min late
-    (offset + 1) still reads as tick 0 thanks to the offset-aware computation.
-    Before the fix, this would have been blocked as tick 1 for offset-9 stations."""
+    """The misfire-resilience fix: a tick scheduled at offset firing 1 min late (offset
+    + 1) still reads as tick 0 thanks to the offset-aware computation."""
     minute = (_GATE_OFFSET + 1) % 60
     sig = _no_passing_evaluate(conn, local_now_minute=minute)
     assert sig is not None
@@ -907,18 +882,16 @@ def test_tick_1_blocks_new_open(conn: sqlite3.Connection) -> None:
 
 
 def test_tick_1_blocks_new_open_under_misfire(conn: sqlite3.Connection) -> None:
-    """A tick scheduled at offset+SCAN_INTERVAL firing 1 min late still reads as
-    tick 1 — the gate continues to block. Confirms misfire-resilience holds at
-    the tick-1 boundary too (we don't accidentally let everything through)."""
+    """A tick scheduled at offset+SCAN_INTERVAL firing 1 min late still reads as tick 1
+    — the gate continues to block."""
     minute = (_GATE_OFFSET + SCAN_INTERVAL_MINUTES + 1) % 60
     sig = _no_passing_evaluate(conn, local_now_minute=minute)
     assert sig is None
 
 
 def test_tick_1_allows_topup_when_slot_filled(conn: sqlite3.Connection) -> None:
-    """Top-up path: when slot_filled > 0 (a prior tick partially filled), the
-    gate does NOT block on tick 1+. The bot can keep topping up through the
-    full entry hour."""
+    """Top-up path: when slot_filled > 0 (a prior tick partially filled), the gate does
+    NOT block on tick 1+."""
     _insert_gate_slot_row(conn, bet_size=200.0)
     minute = (_GATE_OFFSET + SCAN_INTERVAL_MINUTES) % 60  # tick 1
     sig = _no_passing_evaluate(conn, local_now_minute=minute)
@@ -959,9 +932,9 @@ def test_dislocated_book_can_trade_when_realized_edge_holds(conn: sqlite3.Connec
     assert sig.passed_all_gates
 
 def test_tail_skipped_at_disallowed_hour_zero(conn: sqlite3.Connection) -> None:
-    """After the L2 champion moved TAIL to local hour {1}, an otherwise-valid
-    TAIL candidate at local hour 0 must hard-skip via the hour gate (-> None),
-    not silently slip through. Guards the entry_hour_set {0} -> {1} shift."""
+    """After the L2 champion moved TAIL to local hour {1}, an otherwise-valid TAIL
+    candidate at local hour 0 must hard-skip via the hour gate (-> None), not silently
+    slip through."""
     flavors = _compute_signal_flavors(0.25, 50, 13)
     sig = _eval(
         STRATEGY_CONFIGS["TAIL"], "TAIL",
@@ -988,14 +961,7 @@ def test_tail_skipped_at_disallowed_hour_zero(conn: sqlite3.Connection) -> None:
 
 
 def _reliability_variants() -> list[tuple[str, ReliabilityProvider | None]]:
-    """Calibration off, a shrinking isotonic curve, and a market-aware blend.
-
-    Curves are constructed directly (``ReliabilityProvider.load`` guardrails
-    don't apply). The isotonic curve maps claimed -> 0.95*claimed — enough to
-    push edges across the [min_edge, max_edge] boundaries. The logit-blend
-    curve consumes the market price at apply time, so a mismatch in which
-    price the two branches feed the calibrator would break parity here.
-    """
+    """Calibration off, a shrinking isotonic curve, and a market-aware blend."""
     iso = ReliabilityProvider({
         GROUP_NO_F: ReliabilityCurve(breakpoints=[0.0, 1.0], values=[0.0, 0.95]),
     })
@@ -1008,14 +974,7 @@ def _reliability_variants() -> list[tuple[str, ReliabilityProvider | None]]:
 
 
 def test_flip_fires_iff_no_fires_across_gate_grid() -> None:
-    """Grid sweep: FLIP's gate decision + shared numbers match NO exactly.
-
-    Prices straddle every boundary of the live NO gate (strict fp_min 0.75,
-    ceiling fp_min 0.50) and the p/hits grid sweeps edges across min_edge
-    0.05 / max_edge 0.15 / max_edge_for_ceiling 0.35, with calibration off,
-    isotonic, and market-aware blend, on interior and ceiling brackets, for
-    calibrated (F), uncalibrated-group (C), and unknown ("") bracket units.
-    """
+    """Grid sweep: FLIP's gate decision + shared numbers match NO exactly."""
     no_cfg = STRATEGY_CONFIGS["NO"]
     flip_cfg = STRATEGY_CONFIGS["FLIP"]
     prices = [0.40, 0.49, 0.50, 0.55, 0.70, 0.74, 0.75, 0.76, 0.80, 0.85, 0.90, 0.97]
@@ -1087,11 +1046,7 @@ def test_flip_fires_iff_no_fires_across_gate_grid() -> None:
 
 
 def test_flip_requires_valid_no_price_while_no_does_not() -> None:
-    """FLIP's single extra precondition: mirrored NO book price in (0, 1).
-
-    A missing/degenerate NO quote silently disables FLIP (returns None); the
-    NO branch itself never reads ``no_price`` and evaluates normally.
-    """
+    """FLIP's single extra precondition: mirrored NO book price in (0, 1)."""
     flavors = _compute_signal_flavors(0.11, 100, 30)
     for bad in (None, 0.0, 1.0, 1.5, -0.2):
         flip_res = _evaluate_flip_branch(

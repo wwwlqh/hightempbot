@@ -1,15 +1,4 @@
-"""Retry loop + 2-step verification tests for execute_or_log.
-
-Exercises the Unit 6 retry loop layered on top of the edge-preserving walker:
-- success on attempt 1 records tx_hash + verify_attempts=1
-- dry-run stamps DRY_RUN_<uuid> on ledger and skips verify
-- exhaustion CANCELLEDs the row, writes pipeline_health ERROR, fires alert
-- positive fill without tx_hash flips verification_downgraded without an
-  immediate Telegram alert
-- idempotency: retry reuses an open order instead of resubmitting
-- place_order raising counts as a failed attempt
-- alert payload never leaks probs / edge / kelly / order_id / credentials
-"""
+"""Retry loop + 2-step verification tests for execute_or_log."""
 from __future__ import annotations
 
 import sqlite3
@@ -458,10 +447,7 @@ class TestVerifyRetryLoop:
         )
 
     def test_timeout_retry_reuses_buy_open_order_without_resubmitting(self, db):
-        """Attempt 1 submits ord_X but verify times out. Attempt 2 finds
-        ord_X still live on CLOB (in bot_placed_ids) and reuses it instead
-        of resubmitting.
-        """
+        """Attempt 1 submits ord_X but verify times out."""
         sig = _sig()
         row_id = record_bet(db, sig, None, dry_run=False)
         client = _make_client()
@@ -493,11 +479,7 @@ class TestVerifyRetryLoop:
         assert client.place_order.call_count == 1
 
     def test_retry_refuses_to_adopt_foreign_open_order(self, db):
-        """If get_open_orders returns an order_id NOT placed by this bot
-        (e.g. a manual order on the same Polymarket account), the retry
-        idempotency check must refuse to adopt it (ce-code-review P0 #2 /
-        ADV-002).
-        """
+        """An open order this bot didn't place (e.g. a manual one) is never adopted."""
         sig = _sig()
         row_id = record_bet(db, sig, None, dry_run=False)
         client = _make_client()
