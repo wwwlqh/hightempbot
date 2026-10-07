@@ -36,7 +36,6 @@ def run_monthly_retrain(
     Returns:
         {station_id: {kept, reason, ...}}
     """
-    from hightempbot.calibration.model import retrain
     from hightempbot.db.connection import get_connection
     from hightempbot.ingestion.openmeteo_forecast import backfill_openmeteo
     from hightempbot.stations import get_all_stations

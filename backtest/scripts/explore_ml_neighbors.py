@@ -41,7 +41,6 @@ sys.path.insert(0, str(_REPO_ROOT))
 sys.path.insert(0, str(_REPO_ROOT / "src"))
 
 import backtest.scripts.sweep_calibrated_gate as S  # noqa: E402
-from backtest.lib.honest_report import slice_metrics, reliability_table  # noqa: E402
 
 MLDS = Path(r"C:\Users\leowq\AppData\Local\Temp\claude"
             r"\c--Users-leowq-OneDrive-Desktop-hightempbot"
@@ -296,7 +295,6 @@ def compute_pml_for_decision(feat, model="M1", neighbors=True, era5_lag="D1"):
 
     pml = np.full(len(dec), np.nan)
     # assign each row a window by market_date
-    starts = sorted(WINDOW_STARTS.items(), key=lambda kv: kv[1])
     for wlab, wstart in WINDOW_STARTS.items():
         # rows whose window this is
         if wlab == "A":

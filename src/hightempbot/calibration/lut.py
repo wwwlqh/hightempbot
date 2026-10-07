@@ -21,7 +21,7 @@ import logging
 import sqlite3
 from dataclasses import dataclass
 from datetime import date, timedelta
-from typing import Iterable, Sequence
+from typing import Sequence
 
 import numpy as np
 

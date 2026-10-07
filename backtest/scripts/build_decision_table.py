@@ -10,15 +10,12 @@ Run: python backtest/build_decision_table.py
 from __future__ import annotations
 
 import logging
-import os
 import sqlite3
 import sys
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
-from scipy.stats import norm
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(REPO_ROOT))
@@ -27,7 +24,7 @@ from backtest.lib.sweep_lib import (  # noqa: E402
     ENTRY_LOCAL_HOURS, LUT_RECENCY_HALF_LIVES,
     LIVE_DB, MARKET_DB, PARQUET_OUT,
     add_signal_flavors, assert_no_leakage,
-    bucket_low_for, emos_for_rows, emos_p_in_bracket,
+    emos_for_rows, emos_p_in_bracket,
     load_actuals, load_ensembles, load_entry_prices, load_entry_prices_by_local_hour,
     load_station_timezones, load_walk_forward_emos, load_walk_forward_lut,
     lut_lookup_for_rows, parse_bracket, predict_emos,

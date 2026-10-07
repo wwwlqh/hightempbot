@@ -24,18 +24,16 @@ from __future__ import annotations
 import logging
 import math
 import sqlite3
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime
 from typing import Any
 
 import pytz
 
 from hightempbot.db.connection import get_connection
-from hightempbot.decision.brackets import actual_in_bracket
 from hightempbot.persistence.actuals import actual_source_clause
 from hightempbot.persistence.ledger import decode_event_detail
 from hightempbot.resolution.gamma import (
     fetch_gamma_resolution_markets,
-    parse_bracket_bounds,
     winning_bracket_from_gamma,
 )
 from hightempbot.scheduler.market_data import _fetch_market_data
@@ -49,7 +47,6 @@ from hightempbot.stations import (
     StationConfig,
     celsius_to_fahrenheit,
     get_all_stations,
-    supports_live_resolution_source,
 )
 
 logger = logging.getLogger(__name__)

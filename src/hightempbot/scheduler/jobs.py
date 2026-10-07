@@ -1191,7 +1191,7 @@ def schedule_all_jobs(
             )
 
             forecast_counts = forecast_activity_counts(hc_conn)
-            forecasts_2h = forecast_counts["forecast_ok"]
+            forecast_counts["forecast_ok"]
 
             active = hc_conn.execute(
                 "SELECT COUNT(*) FROM enrolled_stations WHERE status IN ('DRY_RUN', 'LIVE')"

@@ -70,7 +70,6 @@ from hightempbot.calibration.reliability import (  # noqa: E402
 from hightempbot.execution.walker import walk_book_edge_preserving  # noqa: E402
 from hightempbot.persistence.ledger import poly_fee_per_share  # noqa: E402
 from backtest.lib.honest_report import (  # noqa: E402
-    proportion_se,
     reliability_table,
     slice_metrics,
 )

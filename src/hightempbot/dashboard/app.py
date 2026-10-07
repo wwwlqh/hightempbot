@@ -1,10 +1,4 @@
-"""Live trading dashboard — FastAPI + Jinja2 + HTMX polling.
-
-- Summary bar: capital, win rate, open positions, P&L
-- Signal log: evaluated brackets with gate pass/fail (3-day retention)
-- Positions: open (PENDING) + resolved (30 days)
-- Stations: per-station BSS, bet stats, accordion expansion
-"""
+"""FastAPI dashboard: serves the v2 SPA, its data payload and operator controls."""
 
 from __future__ import annotations
 
@@ -29,7 +23,6 @@ from hightempbot.stations import (
 from hightempbot.execution.strategy_constants import (
     DASHBOARD_SESSION_START_UTC,
     MAX_DD,
-    MIN_COVERAGE_PCT,
 )
 
 _STATIC_DIR = Path(__file__).parent / "static"
@@ -43,14 +36,8 @@ def _filter_v2_payload(
     month: str | None,
     station: str | None,
 ) -> dict:
-    """Trim the v2 payload by the ``range`` / ``month`` / ``station`` filters.
-
-    Pure function on the dict — no DB access, runs after build_htb_data.
-    Unknown / missing filters are no-ops. Each filter narrows independently:
-      * ``range``: keep last N days of equityCurve, weeklyPnl, calendar
-      * ``month``: keep only that ``YYYY-MM`` key in calendar
-      * ``station``: keep only ICAO matches across station-keyed lists
-    """
+    """Apply the ``range`` (last N days), ``month`` (YYYY-MM calendar) and
+    ``station`` (ICAO) filters to a built payload. Unknown values are ignored."""
     if not isinstance(payload, dict):
         return payload
     range_days_map = {"7d": 7, "30d": 30, "90d": 90}
@@ -94,18 +81,7 @@ def _filter_v2_payload(
 
 
 def _session_floor() -> str:
-    """Fixed session-start cutoff (UTC timestamp string).
-
-    Used for `bet_ts >= ?` cumulative-history filters in the dashboard
-    (capital, equity curve, calendar, weeklyPnl, streaks, performance,
-    strategies, etc.). Anchored to ``DASHBOARD_SESSION_START_UTC`` from
-    ``execution.config`` — a fixed instant chosen by the operator at each
-    cutover. Stays the same across UTC midnights so resolved-history
-    aggregations don't blank out at 00:00 UTC.
-
-    "Today" KPIs (todayBets, todayVolume, todaySignals) use a separate,
-    rolling ``active_target_date = ?`` filter set in ``build_htb_data``.
-    """
+    """``DASHBOARD_SESSION_START_UTC``: the floor for all session history."""
     return DASHBOARD_SESSION_START_UTC
 
 
@@ -148,25 +124,12 @@ def _clean_display_text(value: object | None) -> str:
     return text
 
 def _session_baseline_capital(conn, initial_bankroll: float) -> float:
-    """Session baseline = the bare initial bankroll (no pre-cutover PnL fold).
-
-    Operator chose 2026-05-04: dashboard starts fresh from initial bankroll at
-    the cutover, as if the bot just booted. Pre-cutover PnL is excluded from
-    every dashboard surface. The `conn` arg is unused but kept so callers can
-    later swap to a baseline-from-DB strategy without a signature change.
-    """
-    del conn  # unused — kept for stable signature
+    """The session starts from the initial bankroll."""
+    del conn
     return float(initial_bankroll)
 
 def _sum_polymarket_fees(conn) -> float:
-    """Sum modeled Polymarket taker fees on POST-cutover live + dry-run bets.
-
-    Uses the same θ × p × (1-p) shares formula the bot prices its edge with
-    so the dashboard reflects what the wallet actually pays in live mode.
-    Recomputes from fill_price/fill_size on the fly so historical rows
-    (resolved before fee accounting was added) are still counted.
-    """
-    import json
+    """Modeled taker fees (θ·p·(1−p) per share) on session bets, from fill price/size."""
 
     rows = conn.execute(
         """SELECT outcome, fill_price, fill_size, bet_size, event_detail
@@ -205,13 +168,7 @@ def _sum_polymarket_fees(conn) -> float:
 def _dashboard_peak_capital(
     conn, initial_bankroll: float, cutoff_utc: str | None = None
 ) -> float:
-    """Peak capital over bets at-or-after `cutoff_utc` (defaults to session floor).
-
-    When `cutoff_utc` is supplied, the running-capital walk starts from the
-    session baseline and walks only bets at or after that point. The v2
-    dashboard keeps current account P&L on the capital/API basis and uses
-    windowed ledger P&L only for explicit realized-audit fields.
-    """
+    """Peak running ledger capital over bets since ``cutoff_utc`` (default: session start)."""
     baseline = _session_baseline_capital(conn, initial_bankroll)
     floor = cutoff_utc if cutoff_utc is not None else _session_floor()
     peak_row = conn.execute(
@@ -234,12 +191,7 @@ def _dashboard_peak_capital(
 def _dashboard_realized_capital(
     conn, initial_bankroll: float, cutoff_utc: str | None = None
 ) -> float:
-    """Realized capital over bets at-or-after `cutoff_utc` (defaults to session floor).
-
-    When `cutoff_utc` is supplied, the realized ledger sum starts there.
-    Current v2 Capital and visible Net P&L are realized-only. This helper
-    remains a ledger fallback and for older non-v2 consumers.
-    """
+    """Baseline plus realized ledger P&L since ``cutoff_utc`` (default: session start)."""
     baseline = _session_baseline_capital(conn, initial_bankroll)
     floor = cutoff_utc if cutoff_utc is not None else _session_floor()
     row = conn.execute(
@@ -271,19 +223,8 @@ def _coverage_by_station(conn, ref_start_date: str) -> dict[str, float]:
     return coverage
 
 def _lut_by_station(conn) -> dict[str, dict[str, object]]:
-    """Return per-station LUT summary used by the stations table.
-
-    Surfaces the decision-path forensics the LUT calibration consumes:
-    * ``refreshed_at`` — timestamp of the most recent bucket row.
-    * ``age_hours``    — hours since that refresh (``None`` if never seeded).
-    * ``stale``        — True when ``age_hours`` exceeds ``LUT_STALE_HOURS``.
-    * ``seeded_days``  — distinct resolved station-days stored in
-      ``pred_bucket_history``. This is the scan-friendly Stations-tab count.
-    * ``mean_pred / mean_n / mean_observed`` — sample-weighted averages
-      across the station's bucket rows (headline number for scanability).
-    * ``bucket_rows`` — count of distinct buckets with rows.
-    * ``total_n``     — summed triple count across LUT buckets.
-    """
+    """Per-station LUT summary for the Stations table: refresh time/age/staleness,
+    seeded days, weighted bucket means, bucket count and the latest actual."""
     from hightempbot.execution.strategy_constants import LUT_STALE_HOURS
     import datetime as _dtmod
 
@@ -305,10 +246,7 @@ def _lut_by_station(conn) -> dict[str, dict[str, object]]:
         ).fetchall()
     }
 
-    # Per-station latest actuals lookup feeds the Stations table's
-    # last_actual / actual_fresh columns (ce-review api-contract finding).
-    # "Fresh" = the latest stored actual is for yesterday or today UTC; older
-    # than that means the resolution scrape stalled.
+    # An actual is fresh if it is for yesterday or today (UTC).
     last_actual_by_station: dict[str, str] = {
         row["station_id"]: (row["d"] or "")
         for row in conn.execute(
@@ -358,8 +296,7 @@ def _lut_by_station(conn) -> dict[str, dict[str, object]]:
             "last_actual_date": last_actual_iso,
             "actual_fresh": last_actual_iso in (today_utc_iso, yday_utc_iso),
         }
-    # Stations that have an actual on file but no LUT row yet (cold-start)
-    # still need their last_actual surfaced — include them as bare entries.
+    # Stations with actuals but no LUT rows yet.
     for icao, last_iso in last_actual_by_station.items():
         if icao not in result:
             result[icao] = {
@@ -526,7 +463,6 @@ def _enrich_ledger_positions(
     all_st: dict[str, StationConfig],
 ) -> list[dict[str, object]]:
     """Add bracket bounds, display labels, and display-unit actuals to ledger rows."""
-    import json
 
     def _is_half_step(val: float | None) -> bool:
         return val is not None and abs((val % 1.0) - 0.5) < 1e-6
@@ -569,21 +505,14 @@ def _enrich_ledger_positions(
             item["bracket_low"] = blo
             item["bracket_high"] = bhi
 
-        # When bracket bounds are absent (e.g. RECOVERED orphan rows) the
-        # reconstructed `label` is None and the threshold-only fallback is
-        # meaningless (`0.0°` for recovery rows). Prefer the stored
-        # `event_detail.bracket_label` sentinel/label when present.
+        # Rows without bounds (e.g. RECOVERED) use the stored label.
         detail_bracket_label = detail.get("bracket_label") if isinstance(detail, dict) else None
         if not label and detail_bracket_label:
             display_label = detail_bracket_label
         else:
             display_label = label or f"{item.get('threshold', '')}°"
         item["bracket_label"] = _clean_display_text(display_label)
-        # `bracket_kind` discriminator: lets dashboard consumers (and any
-        # programmatic reader of /api/v2/data) tell a real temperature
-        # bracket from the RECOVERED orphan sentinel without parsing the
-        # label string. "RECOVERED" rows need operator action; "normal"
-        # rows are real bets.
+        # "RECOVERED" orphan rows need operator action; "normal" rows are real bets.
         if (
             isinstance(detail, dict)
             and detail.get("recovered_orphan")
@@ -608,13 +537,6 @@ def _enrich_ledger_positions(
         item.setdefault("bracket_low", None)
         item.setdefault("bracket_high", None)
 
-        # Always surface the WU actual when we have it. The old gate also
-        # required ``resolution_actual_label`` for resolved rows, which hid
-        # the temperature on CLOSED (TAIL TP-exit) rows and on rows resolved
-        # via wu_actual_fallback — both real outcomes operators need to see.
-        # `_actual_display_for_v2` already prefers ``actual_label`` over
-        # ``actual_display`` when present, so the bracket label still wins
-        # for Polymarket-resolved rows.
         if item.get("actual_tmax") is not None and cfg and cfg.unit == "F":
             item["actual_display"] = round(celsius_to_fahrenheit(item["actual_tmax"]))
             item["actual_unit"] = "F"
@@ -627,10 +549,7 @@ def _enrich_ledger_positions(
 
         item["actual_from_bracket"] = False
         if item.get("actual_tmax") is not None:
-            # For resolved rows, compare against the WINNING bracket (from
-            # Polymarket resolution) when present, not the bet's own bracket.
-            # A NO bet on bracket A that won has actual_tmax matching the
-            # winning bracket B's midpoint, never bracket A's.
+            # Compare against the winning bracket, not the bet's own.
             res_low = detail.get("resolution_bracket_low")
             res_high = detail.get("resolution_bracket_high")
             if is_resolved and (res_low is not None or res_high is not None):
@@ -671,28 +590,20 @@ _dashboard_pass: str = ""
 _dashboard_tls_terminated: bool = False
 _auth_token: str = ""  # generated at startup
 
-# --- /login rate-limit (ce-code-review P1 #28) ---
-# In-process counter: 5 failed attempts within 60s from the same client IP
-# locks that IP out for 5 minutes. No external lib; reset on process restart.
-# Server is single-process, so module-level state is fine. Records are keyed by
-# the request.client.host string; X-Forwarded-For is intentionally ignored so
-# an attacker can't cycle the bucket by spoofing the header.
+# /login rate limit: 5 failures in 60s locks the client IP out for 5 minutes.
+# Keyed on request.client.host; X-Forwarded-For is ignored so it can't be spoofed.
 import threading as _threading
 
 _LOGIN_WINDOW_SECONDS: float = 60.0
 _LOGIN_MAX_ATTEMPTS: int = 5
 _LOGIN_LOCKOUT_SECONDS: float = 300.0
-# Bounded LRU-style trim so a hostile client can't grow the dict unboundedly.
 _LOGIN_MAX_TRACKED_IPS: int = 4096
 _login_attempts_lock = _threading.Lock()
 _login_attempts: dict[str, dict[str, float]] = {}
 
 
 def _login_rate_limited(client_ip: str, *, now: float | None = None) -> bool:
-    """Return True if `client_ip` is currently locked out from /login.
-
-    Side-effect: trims expired entries opportunistically.
-    """
+    """True if ``client_ip`` is locked out of /login. Also trims expired entries."""
     import time as _time
 
     ts = now if now is not None else _time.monotonic()
@@ -702,7 +613,6 @@ def _login_rate_limited(client_ip: str, *, now: float | None = None) -> bool:
             return False
         if entry.get("locked_until", 0.0) > ts:
             return True
-        # Stale entry (window expired and not locked) — clean up.
         if (ts - entry.get("first_ts", 0.0)) > _LOGIN_WINDOW_SECONDS and entry.get("locked_until", 0.0) <= ts:
             _login_attempts.pop(client_ip, None)
         return False
@@ -714,7 +624,6 @@ def _record_login_failure(client_ip: str, *, now: float | None = None) -> None:
 
     ts = now if now is not None else _time.monotonic()
     with _login_attempts_lock:
-        # Opportunistic trim: drop expired buckets if we're past the cap.
         if len(_login_attempts) >= _LOGIN_MAX_TRACKED_IPS:
             for ip, ent in list(_login_attempts.items()):
                 if ent.get("locked_until", 0.0) <= ts and (ts - ent.get("first_ts", 0.0)) > _LOGIN_WINDOW_SECONDS:
@@ -765,18 +674,13 @@ def _check_auth(request: Request):
     token = request.cookies.get("htb_session")
     if token and secrets.compare_digest(token, _auth_token):
         return
-    # For HTMX partials (XHR), return 401 so the browser triggers a full reload.
-    # For full page loads, redirect to login.
+    # XHR gets 401; page loads redirect to /login.
     if request.headers.get("HX-Request"):
         raise HTTPException(status_code=401, headers={"HX-Redirect": "/login"})
     raise HTTPException(status_code=307, headers={"Location": "/login"})
 
 def _compute_health_status() -> dict[str, object]:
-    """Shared health-status compute. Returns full payload with metrics.
-
-    Pulled out of the `/health` handler so the auth-gated detailed endpoint can
-    expose the metrics without re-implementing the SQL (ce-code-review P2 #35).
-    """
+    """Health status with metrics (shared by /health and the admin endpoint)."""
     import sqlite3 as _sql
     from datetime import datetime as _dt, timedelta as _td, timezone as _tz
 
@@ -825,13 +729,7 @@ def _compute_health_status() -> dict[str, object]:
 
 @app.get("/health")
 async def health_check():
-    """Unauth liveness probe — emits only `{"status": ...}`.
-
-    Hardened for ce-code-review P2 #35: the metrics fields (last_scan,
-    forecasts_2h, errors_15m) reveal pipeline timing to anyone who can hit
-    port 8080. Restrict that detail to the auth-gated /api/v2/admin/health
-    endpoint below; external monitors only need the coarse status.
-    """
+    """Unauthenticated liveness probe; metrics are only on the admin endpoint."""
     return {"status": _compute_health_status().get("status", "down")}
 
 
@@ -867,10 +765,6 @@ async def login_page(request: Request, error: str = ""):
 async def login_submit(request: Request):
     client_ip = (request.client.host if request.client else "") or "unknown"
     if _login_rate_limited(client_ip):
-        # 429 with a brief Retry-After. Don't return the form HTML so an
-        # automated tool sees a clean failure instead of looking like a valid
-        # response cycle. The lockout is rolling — first failure after
-        # `_LOGIN_LOCKOUT_SECONDS` resets the bucket.
         raise HTTPException(
             status_code=429,
             detail="Too many login attempts; try again in a few minutes.",
@@ -883,12 +777,7 @@ async def login_submit(request: Request):
     if secrets.compare_digest(username, _dashboard_user) and secrets.compare_digest(password, _dashboard_pass):
         _clear_login_attempts(client_ip)
         response = RedirectResponse("/", status_code=303)
-        # SameSite=Strict prevents the cookie from leaking on cross-site
-        # navigations (CSRF defense + XS-Leaks). Secure flag is True only
-        # under HTTPS; on HTTP the cookie is sniffable on any unencrypted
-        # hop, so HTTP deploys must sit behind an SSH tunnel or VPN.
-        # Reduced max_age from 30d -> 7d so a leaked cookie has a shorter
-        # window to abuse.
+        # Secure only under HTTPS; plain-HTTP deploys need a tunnel or VPN.
         response.set_cookie(
             "htb_session",
             _auth_token,
@@ -915,7 +804,6 @@ def _active_target_date(cfg, conn=None) -> str:
 from datetime import timezone as _tz_utc
 _boot_time = _dt.now(_tz_utc.utc)
 
-# --- Main page (redirects to v2 trading journal) ---
 
 @app.get("/", response_class=HTMLResponse, dependencies=[Depends(_check_auth)])
 async def index() -> RedirectResponse:
@@ -923,19 +811,11 @@ async def index() -> RedirectResponse:
     return RedirectResponse(url="/v2", status_code=302)
 
 
-# --- v2 trading-journal dashboard (Edgewonk-style, polished re-skin) ---
-# Static SPA at /v2, fed by /api/v2/data which mirrors the HTB_DATA shape from
-# docs/design/project/ui_kits/dashboard_v2/data.js.
+# --- v2 SPA at /v2, fed by /api/v2/data ---
 
 @app.get("/v2", response_class=HTMLResponse, dependencies=[Depends(_check_auth)])
 async def v2_index():
-    """Serve the v2 SPA shell with per-asset cache-busting.
-
-    Each /static/v2/*.jsx script tag gets a `?v=<mtime>` suffix so browsers
-    pick up file changes immediately without manual hard-reload. The mtime is
-    the latest modified time across the bundled JSX/CSS files, evaluated at
-    each request — cheap (~6 stat calls).
-    """
+    """Serve the SPA shell with ``?v=<mtime>`` cache-busting on its assets."""
     from fastapi.responses import Response as _Resp
 
     v2_dir = _STATIC_DIR / "v2"
@@ -1024,11 +904,7 @@ def _degraded_v2_payload(exc: Exception) -> dict:
         "lastScanAgo": "-",
         "uptime": "-",
         "mode": "DRY-RUN" if _dry_run else "LIVE",
-        # degraded envelope is a strict subset of the
-        # live envelope. Missing keys are filled with sentinel values
-        # (null reason / empty snapshot / empty events) rather than omitted so
-        # the UI can address them unconditionally without optional-chaining
-        # everywhere.
+        # Fill every key with a sentinel so the UI needn't null-check.
         "operator": {
             "state": None,
             "bootDryRun": _dry_run,
@@ -1110,13 +986,7 @@ def _build_v2_payload(
 
 @app.get("/api/v2/data.js", dependencies=[Depends(_check_auth)])
 def v2_data_js():
-    """Serve the dashboard data as a JS bootstrap (`window.HTB_DATA = {...}`).
-
-    The prototype loads `data.js` synchronously with a static <script> tag, then
-    runs Babel-compiled JSX after. We replicate that contract dynamically so
-    Babel standalone (which only auto-compiles <script type="text/babel"> tags
-    present at parse time) sees the JSX modules and compiles them in order.
-    """
+    """Payload as ``window.HTB_DATA = {...}``, loaded before the Babel-compiled JSX."""
     import json as _json
 
     from fastapi.responses import Response
@@ -1130,79 +1000,19 @@ def v2_data_js():
     return Response(content=body, media_type="application/javascript", headers={"Cache-Control": "no-store"})
 
 
-# --- Legacy URL aliases ---
-# The 2026-05-06 cutover removed /partials/* (HTMX), /api/pnl-data, and /legacy.
-# Redirect old bookmarks to /v2 instead of 404. These use 308 (permanent) so
-# browsers cache the redirect and stop hitting the dead URLs.
-
-@app.get("/partials/{rest_of_path:path}", dependencies=[Depends(_check_auth)])
-async def legacy_partials_redirect(rest_of_path: str) -> RedirectResponse:
-    """Redirect any /partials/* URL to /v2."""
-    return RedirectResponse(url="/v2", status_code=308)
-
-
-@app.get("/legacy", dependencies=[Depends(_check_auth)])
-async def legacy_alias_redirect() -> RedirectResponse:
-    """The /legacy alias was removed — redirect to /v2."""
-    return RedirectResponse(url="/v2", status_code=308)
-
-
-@app.get("/api/pnl-data", dependencies=[Depends(_check_auth)])
-async def legacy_pnl_data_gone() -> JSONResponse:
-    """Old Chart.js endpoint with shape ``{labels, pnl, bets}`` is retired.
-
-    Redirecting to ``/api/v2/data`` would deliver an entirely different
-    payload shape; clients expecting the old keys would silently get
-    ``undefined`` instead of failing loudly. A 410 Gone with a documented
-    successor URL is the honest contract.
-    """
-    return JSONResponse(
-        {
-            "error": "Gone",
-            "message": (
-                "/api/pnl-data was retired in the v2 cutover. The replacement "
-                "/api/v2/data returns a different (richer) payload shape — "
-                "update consumers explicitly rather than swapping URLs."
-            ),
-            "successor": "/api/v2/data",
-        },
-        status_code=410,
-    )
-
-
 @app.get("/api/v2/data", dependencies=[Depends(_check_auth)])
 def v2_data(
     range: str | None = None,
     month: str | None = None,
     station: str | None = None,
 ) -> JSONResponse:
-    """Return the real-data HTB_DATA dict consumed by the v2 SPA.
-
-    Optional filter params (ce-review agent-native #27 — UI controls now have
-    programmatic equivalents):
-      * ``range`` — ``7d`` / ``30d`` / ``90d`` / ``all``. Tightens KPI
-        cutoffs (wins/losses/totalPnl/realizedPnl/avgEdge) AND trims equityCurve,
-        weeklyPnl, pnlDist, calendar, station_sparks. The KPI cards in
-        the React UI label themselves "(window)", so the data must
-        actually scope to the selected range — not just the charts.
-      * ``month`` — ``YYYY-MM``. Limits the calendar dict to a single month.
-      * ``station`` — ICAO. Trims openPositionsList, resolvedPositionsList,
-        performanceByStation, ensembleByStation, and stationSparks to one row.
-
-    Wraps ``build_htb_data`` with a degraded-payload fallback so a single
-    sub-aggregation failure (schema drift, partial deploy, NULL coercion)
-    doesn't 500 the entire dashboard. The SPA gets a minimal envelope with
-    an ``error`` field it can render as a banner instead of a blank screen.
-    """
+    """HTB_DATA for the SPA. Filters: ``range`` (7d/30d/90d/all, also scopes
+    KPIs), ``month`` (YYYY-MM calendar), ``station`` (ICAO). On failure returns
+    a degraded payload with an ``error`` field instead of a 500."""
     conn = _conn()
     try:
-        # Plumb the range through so wins/losses/realizedPnl/avgEdge reflect
-        # the selected window. Wallet/API marks stay out of visible Capital.
         range_days = _RANGE_TO_DAYS.get(range or "")
         payload = _build_v2_payload(conn, range_days=range_days)
-        # Apply optional UI-equivalent filters AFTER the full payload is
-        # built. Doing it post-hoc keeps the SQL aggregations simple and
-        # ensures the cached/error envelope is also filterable.
         payload = _filter_v2_payload(payload, range, month, station)
         return JSONResponse(payload)
     finally:
@@ -1249,17 +1059,11 @@ def _assert_fresh_live_action_context(
 
 
 def _admin_actor(request: Request) -> str:
-    """Resolve the operator actor for an admin POST.
-
-    ce-code-review P2 #64: read the optional X-Operator-Actor header so the
-    audit log records who actually pressed the button. Falls back to
-    'dashboard-admin' (the legacy default) when no header is present. Values
-    are clipped to 64 chars and stripped of control characters.
-    """
+    """Audit actor from the X-Operator-Actor header (default 'dashboard-admin'),
+    clipped to 64 chars without control characters."""
     raw = (request.headers.get("X-Operator-Actor") or "").strip()
     if not raw:
         return "dashboard-admin"
-    # Strip control characters that could leak into log lines.
     cleaned = "".join(ch for ch in raw if ch.isprintable())[:64]
     return cleaned or "dashboard-admin"
 
@@ -1317,15 +1121,8 @@ async def admin_operator_start(request: Request) -> JSONResponse:
 
 @app.post("/api/v2/admin/operator/transfer/preview", dependencies=[Depends(_check_auth)])
 async def admin_transfer_preview(request: Request) -> JSONResponse:
-    """Preview a return transfer (dry-run sizing / safety inspection).
-
-    Response shape diverges from sibling admin endpoints by design: a blocking
-    safety check (e.g. open orders, exposure cap, wallet mismatch) returns 200
-    with ``{"ok": false, "preview": {...errors...}}`` so the UI can render the
-    full diagnostic to the operator. Other endpoints raise 4xx because they
-    refuse to perform an action; preview is read-only, so a non-OK preview is
-    a valid result rather than a failed request (ce-code-review P1 #27).
-    """
+    """Read-only transfer preview. A blocked transfer is still a 200 with
+    ``{"ok": false, "preview": {...}}`` so the UI can show why."""
     from hightempbot.execution.polymarket_transfer import preview_return_transfer
     from hightempbot.persistence.wallet_reconciliation import refresh_wallet_snapshot
     from hightempbot.runtime_config import get_config
@@ -1407,14 +1204,7 @@ async def admin_transfer_submit(request: Request) -> JSONResponse:
         conn.close()
 
 
-# --- Admin mutation endpoints ----------------------------------------------
-# Agent-native parity for the WU-fallback operator workflow (finding #24).
-# Anything the operator does via `hightempbot.cli.resolve_pending_via_wu` should
-# also be reachable through HTTP so an agent in the loop can act without
-# SSHing into the box. Shares the same per-bet preview helper as the script
-# (`resolution.settler.preview_wu_fallback_outcome`) so dry-run output can't
-# drift from the script's, and the same `_resolve_via_wu_actual_fallback`
-# helper on commit so the audit trail matches the auto-path.
+# --- Admin: HTTP twin of cli/resolve_pending_via_wu (same helpers) ---
 
 
 _ISO_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
@@ -1456,18 +1246,10 @@ def _parse_admin_station(value: str | None) -> str | None:
 
 @app.post("/api/v2/admin/resolve-pending", dependencies=[Depends(_check_auth)])
 async def admin_resolve_pending(request: Request) -> JSONResponse:
-    """Manually settle PENDING bets via the WU actuals fallback.
+    """Settle PENDING bets from WU actuals.
 
-    Body (JSON):
-        ``target_date`` (required, ISO YYYY-MM-DD, not future).
-        ``station`` (optional, 4-char ICAO).
-        ``commit`` (default false). When false, returns a dry-run preview.
-        ``force`` (default false). When true, allows --commit on dates
-            before POLYMARKET_FALLBACK_DAYS — the auto-path's safety floor.
-        ``reason`` (optional, audit string written to event_detail).
-
-    Mirrors the CLI semantics so the script and the endpoint are
-    interchangeable. See ``hightempbot.cli.resolve_pending_via_wu``.
+    JSON body: ``target_date`` (required), ``station``, ``commit`` (false =
+    preview), ``force`` (skip the POLYMARKET_FALLBACK_DAYS floor), ``reason``.
     """
     from datetime import date as _date, datetime as _dtm
     import pytz as _pytz
@@ -1536,7 +1318,6 @@ async def admin_resolve_pending(request: Request) -> JSONResponse:
                 })
                 continue
 
-            # Source-filtered actuals read (defense-in-depth, finding #25).
             actuals_clause, actuals_params = actual_source_clause()
             actual_row = conn.execute(
                 f"SELECT tmax_celsius FROM actuals "
@@ -1554,8 +1335,6 @@ async def admin_resolve_pending(request: Request) -> JSONResponse:
                 continue
             actual_tmax = float(actual_row["tmax_celsius"])
 
-            # days_past in station-local timezone — same TZ the auto-path
-            # uses so the floor gate fires consistently.
             try:
                 _tz = _pytz.timezone(getattr(station_cfg, "timezone", "UTC"))
                 today_local = _dtm.now(_tz).date()
@@ -1591,10 +1370,6 @@ async def admin_resolve_pending(request: Request) -> JSONResponse:
             }
 
             if commit:
-                # Audit who/why the manual fallback was invoked. The
-                # auto-path doesn't take a reason, so a presence-or-absence
-                # of `manual_resolution_reason` distinguishes the two paths
-                # in event_detail (residual risk #4).
                 resolved = _resolve_via_wu_actual_fallback(
                     conn, sid, target_date, grp, actual_tmax, station_cfg,
                     days_past=days_past,

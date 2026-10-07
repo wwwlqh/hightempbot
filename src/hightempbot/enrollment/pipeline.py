@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import logging
 import sqlite3
-import time
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
@@ -23,7 +22,6 @@ from hightempbot.execution.strategy_constants import MIN_COVERAGE_PCT, REF_START
 from hightempbot.stations import (
     StationConfig,
     _city_to_slug,
-    get_poly_slug,
     register_enrolled_station,
     supports_live_resolution_source,
 )

@@ -17,7 +17,6 @@ import argparse
 import functools
 import json
 import time
-from decimal import Decimal, InvalidOperation, ROUND_DOWN
 from typing import Any
 
 from hightempbot.polymarket.primitives import (
@@ -29,13 +28,11 @@ from hightempbot.polymarket.primitives import (
     DEFAULT_RELAYER_URL,
     DEPLOYED_PATH,
     FAILED_STATES,
-    MAX_UINT256,
     NEG_RISK_ADAPTER_ADDRESS,
     NEG_RISK_CTF_COLLATERAL_ADAPTER_ADDRESS,
     NEG_RISK_CTF_EXCHANGE_ADDRESS,
     NONCE_PATH,
     PUSD_ADDRESS,
-    PUSD_DECIMALS,
     RELAY_PAYLOAD_PATH,
     RELAYER_KEY_PATH,
     SUBMIT_PATH,

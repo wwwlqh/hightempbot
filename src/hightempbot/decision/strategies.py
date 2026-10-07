@@ -10,7 +10,7 @@ import logging
 import math
 import sqlite3
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Callable, NamedTuple
 
 import numpy as np
@@ -731,7 +731,7 @@ def _evaluate_strategy(
     bracket_label_str = bracket.bracket_label
     bracket_unit = bracket.bracket_unit
 
-    p_emos = calibration.p_emos
+    calibration.p_emos
     pred_bucket = calibration.pred_bucket
     flavors = calibration.flavors
     n_cum = calibration.n_cum

@@ -2020,39 +2020,6 @@ class TestOpenPositionApiValues:
         assert "Waiting for Polymarket Data API" in row["apiReminder"]
 
 
-# ---------------------------- legacy endpoints redirect to /v2 (no 404)
-
-class TestLegacyRoutesRedirect:
-    @pytest.mark.parametrize("url", [
-        "/partials/summary",
-        "/partials/stations",
-        "/partials/trading",
-        "/partials/overview/performance",
-        "/partials/station/KDAL",
-        "/partials/station/KDAL/buckets",
-        "/legacy",
-    ])
-    def test_legacy_redirects_to_v2(self, client, url):
-        resp = client.get(url, follow_redirects=False)
-        assert resp.status_code == 308, f"{url} should redirect to /v2"
-        assert resp.headers["location"] == "/v2"
-
-    def test_legacy_pnl_data_returns_410_gone(self, client):
-        """Old /api/pnl-data shape was {labels, pnl, bets}; /api/v2/data is a
-        full payload. A 308 to v2 would silently deliver the wrong shape;
-        a 410 with `successor` in the body is the honest contract.
-        """
-        resp = client.get("/api/pnl-data", follow_redirects=False)
-        assert resp.status_code == 410
-        body = resp.json()
-        assert body["successor"] == "/api/v2/data"
-
-    def test_legacy_partials_follow_redirect_lands_on_v2(self, client):
-        resp = client.get("/partials/summary")  # follow_redirects=True default
-        assert resp.status_code == 200
-        assert "HighTempBot" in resp.text or "Trading Journal" in resp.text
-
-
 # ------------------------ Per-station WIN/LOSS SQL (2026-05-16 ce-review)
 #
 # After commit 88aadb7 (and the 2026-05-16 review pass), the per-station

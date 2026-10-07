@@ -300,7 +300,7 @@ def wf_slice(cand, mask_fn, price_col, label):
 
 def main():
     df = pd.read_parquet(PARQUET)
-    N = len(df)
+    len(df)
     print("=" * 100)
     print("TAIL SLICE HUNT  --  walk-forward-honest edge search on cheap YES tails")
     print("=" * 100)
@@ -317,7 +317,7 @@ def main():
     unit = np.array([("F" if "F" in str(l).upper() else ("C" if "C" in str(l).upper() else "?"))
                      for l in df["bracket_label"].to_numpy()])
     # model argmax bucket per station-date (for hot/cold)
-    pe = df["p_E"].to_numpy(float)
+    df["p_E"].to_numpy(float)
     argmax_bucket = {}
     for (stn, md), g in df.groupby(["station_id", "market_date"]):
         sub = g[["bracket_index", "p_E"]].dropna()
@@ -342,11 +342,11 @@ def main():
     print(f"  n={len(cand)}, wins={int(cand['won'].sum())}, "
           f"wr={cand['won'].mean()*100:.2f}%, delayed-entry(to 2c) hit rate={cand['de_hit'].mean()*100:.1f}%")
 
-    won_a = cand["won"].to_numpy()
-    yp_a = cand["yp"].to_numpy()
+    cand["won"].to_numpy()
+    cand["yp"].to_numpy()
     # entry-price arrays: signal price, and delayed-2c price (NaN when never dumped)
-    de_hit = cand["de_hit"].to_numpy()
-    de_price = cand["de_price"].to_numpy()
+    cand["de_hit"].to_numpy()
+    cand["de_price"].to_numpy()
 
     be = "  [breakeven wr@2c ~ 2.1%]"
     print("\n" + "=" * 100)

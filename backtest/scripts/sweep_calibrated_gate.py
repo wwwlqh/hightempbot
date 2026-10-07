@@ -66,7 +66,6 @@ from hightempbot.calibration.reliability import (  # noqa: E402
     blend_degenerate_reason,
 )
 from backtest.lib.honest_report import (  # noqa: E402
-    proportion_se,
     reliability_table,
     slice_metrics,
 )
@@ -378,7 +377,6 @@ def _rgap_pp(m: dict) -> float:
 
 def variant_row(name, transform, min_edge, cap_on, units, per_window, oos, n_oos_days):
     m = slice_metrics(oos)
-    win_days = {"B": 23, "C": 23, "D": 22}
     pw = {}
     for w in ("B", "C", "D"):
         mm = slice_metrics(per_window.get(w, []))

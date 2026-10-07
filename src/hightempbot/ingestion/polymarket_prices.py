@@ -11,15 +11,14 @@ Usage:
 import argparse
 import json
 import logging
-import re
 import sqlite3
 import time
-from datetime import datetime, date, timedelta
+from datetime import date
 
 import requests
 
 from hightempbot.db.connection import utc_now_sql
-from hightempbot.stations import ICAO_TO_CITY, _city_to_slug
+from hightempbot.stations import ICAO_TO_CITY
 
 logger = logging.getLogger(__name__)
 
