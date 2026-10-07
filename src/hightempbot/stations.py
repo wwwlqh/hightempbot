@@ -1,10 +1,4 @@
-"""Station configuration and registry — all stations loaded from enrolled_stations DB.
-
-Auto-enrollment pipeline discovers markets on Polymarket, parses resolution
-source + ICAO from WU URLs, geocodes lat/lon/timezone, and populates the DB.
-At startup, main.py calls get_all_stations(conn) and register_enrolled_station()
-to build the runtime lookup maps.
-"""
+"""Station config and the runtime registry, loaded from ``enrolled_stations``."""
 
 from __future__ import annotations
 
@@ -27,7 +21,7 @@ class StationConfig:
     timezone: str                # IANA timezone (e.g. "America/New_York")
     unit: str                    # "F" or "C" — Polymarket resolution unit
     resolution_source: str       # e.g. "wu", "cwa", "ims"
-    poly_slug: str = ""          # Polymarket city slug override (auto-derived from city if empty)
+    poly_slug: str = ""          # defaults to the slugified city
     notes: str = ""
 
 
@@ -54,13 +48,7 @@ def _row_value(row, key: str, index: int):
 
 
 def poly_slug_for_station_id(station_id: str, conn=None) -> str | None:
-    """Return the Polymarket city slug for a station.
-
-    Long-running bot processes populate ``ICAO_TO_CITY`` at startup, but CLI
-    helpers and one-off worker processes can call market-resolution code before
-    that registry has been bootstrapped. Fall back to ``enrolled_stations`` so
-    Gamma lookups don't silently build ``None`` slugs on cold start.
-    """
+    """Polymarket city slug, from the registry or (before it's loaded) the DB."""
     with _registry_lock:
         slug = ICAO_TO_CITY.get(station_id)
         station = STATIONS.get(station_id)
@@ -109,39 +97,23 @@ def supports_live_resolution_source(resolution_source: str | None) -> bool:
     return (resolution_source or "").lower() in SUPPORTED_LIVE_SOURCES
 
 
-# ---------------------------------------------------------------------------
-# Runtime station registry — populated from enrolled_stations DB at startup
-# ---------------------------------------------------------------------------
+# Runtime registry, filled from enrolled_stations at startup.
 
-# `_registry_lock` guards STATIONS and ICAO_TO_CITY against concurrent
-# mutation by the enrollment scan job (jobs.py) and reads by scheduler
-# threads (station_scanner.py). Without it the scanner can iterate the
-# dict while enrollment is rebinding entries — CPython's GIL makes single
-# dict ops atomic, but iteration is not.
+# Guards STATIONS and ICAO_TO_CITY (enrollment writes while ticks iterate).
 _registry_lock = threading.Lock()
 
 STATIONS: dict[str, StationConfig] = {}
 
-# Auto-derived ICAO → Polymarket slug mapping. Initially empty; populated
-# by `register_enrolled_station` at startup and by the auto-enrollment
-# scan thereafter. The original module-level comprehension over STATIONS
-# evaluated to {} every time anyway (STATIONS was empty at import) — the
-# explicit empty dict here makes that contract obvious.
 ICAO_TO_CITY: dict[str, str] = {}
 
 
 def load_enrolled_stations(conn) -> dict[str, StationConfig]:
-    """Load auto-enrolled stations from the database.
-
-    Returns stations with status IN ('DRY_RUN', 'LIVE') as StationConfig objects.
-    """
+    """DRY_RUN and LIVE stations from the database."""
     try:
         rows = conn.execute(
             "SELECT * FROM enrolled_stations WHERE status IN ('DRY_RUN', 'LIVE')"
         ).fetchall()
     except sqlite3.OperationalError:
-        # Most common cause: schema migration hasn't run yet on this DB.
-        # Returning {} lets boot continue; warn so the operator can see it.
         logger.warning(
             "load_enrolled_stations: enrolled_stations table missing or unreadable",
             exc_info=True,
@@ -164,23 +136,14 @@ def load_enrolled_stations(conn) -> dict[str, StationConfig]:
 
 
 def get_all_stations(conn=None) -> dict[str, StationConfig]:
-    """Get all stations from the enrolled_stations DB table.
-
-    If conn is None, returns empty dict (no stations available without DB).
-    """
+    """All active stations; {} without a connection."""
     if conn is None:
         return {}
     return load_enrolled_stations(conn)
 
 
 def register_enrolled_station(station: StationConfig) -> None:
-    """Register a newly enrolled station in the runtime lookup maps.
-
-    Updates ICAO_TO_CITY so discovery and market fetch can find the station.
-    Called after a station transitions to DRY_RUN or LIVE. Mutations are
-    serialized via `_registry_lock` so concurrent enrollment scans cannot
-    interleave with reader iteration.
-    """
+    """Add a DRY_RUN/LIVE station to the runtime maps."""
     slug = get_poly_slug(station)
     with _registry_lock:
         STATIONS[station.icao] = station

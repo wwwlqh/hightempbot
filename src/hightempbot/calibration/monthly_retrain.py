@@ -1,16 +1,5 @@
-"""Monthly historical retrain: backfill previous month's forecasts from
-Open-Meteo Previous Runs API and retrain EMOS.
-
-Schedule: 2nd of each month.
-
-Flow per station:
-  1. Backfill last month's forecasts from Previous Runs API (true day-ahead)
-  2. Retrain EMOS with expanded data
-  3. Log to retrain_history table
-
-BSS is recalculated separately by the monthly BSS job (1st of month).
-BSS gate (0.88) filters out bad stations at betting time.
-"""
+"""Monthly job: backfill last month's forecasts, retrain EMOS per station,
+refresh the LUT, and log to retrain_history."""
 
 from __future__ import annotations
 
@@ -26,21 +15,12 @@ def run_monthly_retrain(
     db_path: str,
     target_month: date | None = None,
 ) -> dict[str, dict]:
-    """Backfill historical forecasts for last month and retrain all stations.
-
-    Args:
-        conn: DB connection (for reads + retrain_history writes).
-        db_path: Path to SQLite DB (for forecast backfill which opens its own conn).
-        target_month: First day of the month to backfill (default: last month).
-
-    Returns:
-        {station_id: {kept, reason, ...}}
-    """
+    """Backfill ``target_month`` (default: last month) and retrain every station.
+    Aborts entirely if the backfill fails. Returns {station_id: result}."""
     from hightempbot.db.connection import get_connection
     from hightempbot.ingestion.openmeteo_forecast import backfill_openmeteo
     from hightempbot.stations import get_all_stations
 
-    # Determine target month (previous month)
     if target_month is None:
         today = date.today()
         first_of_this_month = today.replace(day=1)
@@ -105,7 +85,6 @@ def run_monthly_retrain(
         result = _retrain_station(conn, icao, month_label)
         results[icao] = result
 
-    # Log summary
     n_ok = sum(1 for r in results.values() if r["kept"] == "ok")
     n_skip = sum(1 for r in results.values() if r["kept"] == "skip")
     logger.info(
@@ -121,11 +100,7 @@ def _retrain_station(
     station_id: str,
     month_label: str,
 ) -> dict:
-    """Retrain a single station and record the outcome.
-
-    retrain() persists EMOS params via its own commit, so wrapping it in a
-    savepoint is not safe: SQLite drops savepoints on commit.
-    """
+    """Retrain one station and record the outcome (no savepoint: retrain commits)."""
     from hightempbot.calibration.model import retrain
 
     result = {
@@ -149,10 +124,6 @@ def _retrain_station(
             _log_health(conn, station_id, "retrain", "OK",
                         f"{month_label}: retrained n={n}")
             logger.info("Monthly retrain %s %s: ok n=%d", month_label, station_id, n)
-            # A successful retrain invalidates the existing LUT bounds - rebuild
-            # from triples, or seed from history if this station has never had a
-            # LUT before. Empty-history stations silently no-op (seed returns
-            # (0, 0)) and will be picked up once actuals + brackets exist.
             try:
                 refresh_lut_after_retrain(conn, station_id, month_label)
             except Exception as exc:
@@ -167,7 +138,6 @@ def _retrain_station(
                     f"{month_label}: error {str(e)[:100]}")
         logger.error("Monthly retrain %s %s: error", month_label, station_id, exc_info=True)
 
-    # Always persist retrain history
     _save_history(conn, result)
     return result
 
@@ -177,16 +147,7 @@ def refresh_lut_after_retrain(
     station_id: str,
     month_label: str,
 ) -> None:
-    """Rebuild or seed ``lut_bucket_stats`` following a successful retrain.
-
-    * If the station already has rows in ``lut_bucket_stats``, call
-      ``rebuild_lut`` - the fresh EMOS params did not invent new triples,
-      so existing ``pred_bucket_history`` is still the source of truth;
-      we just need the Wilson bounds stamped with a new ``refreshed_at``.
-    * Otherwise, attempt ``seed_lut_from_history`` - the expanding walk-
-      forward seed handles the cold-start case once actuals + market
-      brackets exist.
-    """
+    """After a retrain: rebuild the LUT if it exists, otherwise seed it."""
     from hightempbot.calibration.lut import (
         clear_station_lut,
         rebuild_lut,

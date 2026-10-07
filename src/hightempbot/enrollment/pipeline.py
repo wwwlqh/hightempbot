@@ -1,11 +1,7 @@
-"""Auto-enrollment pipeline for new Polymarket temperature stations.
+"""Enroll a newly discovered city: parse source → geocode → backfill actuals →
+coverage gate → backfill forecasts → fit EMOS → seed LUT → register.
 
-Takes a newly discovered city through: parse source → geocode → backfill
-actuals → coverage gate → backfill forecasts → train calibration → BSS gate
-→ register as DRY_RUN.
-
-Each step updates the enrolled_stations table with status/step/detail
-for dashboard visibility.
+Progress is written to ``enrolled_stations`` at each step.
 """
 
 from __future__ import annotations
@@ -173,11 +169,8 @@ def enroll_station(
     market_date: date | None = None,
     runtime_dry_run: bool = True,
 ) -> str:
-    """Run the full enrollment pipeline for a newly discovered city.
-
-    Returns the final status: 'DRY_RUN', 'SKIPPED', or 'ERROR'.
-    Each step updates enrolled_stations for dashboard visibility.
-    """
+    """Enroll ``city``. Returns 'DRY_RUN'/'LIVE', 'CONFIGURING' (retry later) or
+    'SKIPPED'. Never raises."""
     icao = ""
     try:
         # ── Step 1: Parse resolution source ──────────────────────────────
@@ -191,7 +184,6 @@ def enroll_station(
 
         icao = candidate.icao
 
-        # Check if already enrolled
         existing = conn.execute(
             "SELECT icao, city, status, updated_at, skip_reason, coverage_pct, resolution_source "
             "FROM enrolled_stations WHERE icao = ? OR city = ? "
@@ -200,7 +192,7 @@ def enroll_station(
         ).fetchone()
         if existing:
             status = existing["status"]
-            # Recovery: if stuck in intermediate state for >2 hours, delete and restart
+            # Restart if stuck in an intermediate step for over 2 hours.
             if status in ("CONFIGURING", "BACKFILLING", "TRAINING"):
                 updated = existing["updated_at"] or ""
                 if updated:
@@ -234,7 +226,7 @@ def enroll_station(
                 return status
 
         # ── Step 2: Geocode ──────────────────────────────────────────────
-        # Insert initial record (OR IGNORE prevents race with concurrent enrollment)
+        # OR IGNORE: another enrollment run may own the row.
         poly_slug = _city_to_slug(candidate.city)
         conn.execute(
             """INSERT OR IGNORE INTO enrolled_stations
@@ -244,7 +236,6 @@ def enroll_station(
              candidate.resolution_source, poly_slug),
         )
         conn.commit()
-        # Check if INSERT took effect (another run may own this row)
         if conn.execute("SELECT changes()").fetchone()[0] == 0:
             logger.info("Station %s already being enrolled by another run, skipping", icao)
             return conn.execute("SELECT status FROM enrolled_stations WHERE icao = ?", (icao,)).fetchone()["status"]
@@ -257,7 +248,6 @@ def enroll_station(
             _log_health(conn, icao, "enrollment", "ERROR", "Geocoding failed")
             return "SKIPPED"
 
-        # Update with real coordinates
         conn.execute(
             "UPDATE enrolled_stations SET lat = ?, lon = ?, timezone = ? WHERE icao = ?",
             (geo.lat, geo.lon, geo.timezone, icao),
@@ -266,7 +256,6 @@ def enroll_station(
         _update_status(conn, icao, "CONFIGURING", "creating_config",
                         f"lat={geo.lat:.2f}, lon={geo.lon:.2f}, tz={geo.timezone}")
 
-        # Build StationConfig
         station = StationConfig(
             icao=icao,
             city=candidate.city,
@@ -343,7 +332,6 @@ def enroll_station(
             _update_status(conn, icao, "TRAINING", f"emos_h{h}", f"Training horizon {h}")
             retrain(icao, h, conn)
 
-        # Verify retrain produced EMOS params for h=1
         verify_row = conn.execute(
             "SELECT n_samples FROM calibration_params "
             "WHERE station_id = ? AND horizon = 1 AND param_type = 'emos' "
@@ -359,11 +347,7 @@ def enroll_station(
             return "SKIPPED"
 
         # ── Step 7: Seed LUT from history ────────────────────────────────
-        # Replaces the legacy BSS gate (deleted in Phase F 2026-04-22).
-        # seed_lut_from_history walks every resolved (actual, forecast)
-        # pair since REF_START_DATE, writes triples to pred_bucket_history,
-        # and aggregates Wilson bounds into lut_bucket_stats. Zero triples
-        # means the station has no usable history and is not ready to bet.
+        # Zero triples means no usable history yet.
         _update_status(conn, icao, "TRAINING", "lut_seed", "Seeding LUT from history")
         seeded_brackets = _seed_market_tokens_from_event(conn, icao, market_date, event)
         if seeded_brackets > 0:
@@ -426,7 +410,6 @@ def enroll_station(
             f"Enrolled as {final_status} (LUT {days}d/{triples}t, coverage={coverage:.1%})",
         )
 
-        # Register in runtime maps
         register_enrolled_station(station)
 
         logger.info(
@@ -455,19 +438,14 @@ def _backfill_actuals(
     data_dir: Path,
     icao: str,
 ) -> tuple[int, bool]:
-    """Backfill actuals day by day from the resolution source.
-
-    Returns count of days successfully fetched.
-    Updates enrolled_stations progress periodically.
-    Aborts early if 30 consecutive fetches fail (wrong country code, API down, etc.).
-    Returns (count, aborted) tuple.
-    """  # noqa: E501
+    """Fetch actuals day by day. Skips ahead a year (up to 3 times) while there's
+    no data yet; aborts after 30 straight failures. Returns ``(count, aborted)``."""
     from hightempbot.ingestion.actuals import fetch_actual, upsert_actual
 
     count = 0
     consecutive_failures = 0
     max_consecutive_failures = 30
-    max_skips = 3  # skip forward up to 3 times (1 year each) before aborting
+    max_skips = 3
     skips_used = 0
     total_days = (end - start).days + 1
     current = start
@@ -483,7 +461,6 @@ def _backfill_actuals(
             consecutive_failures += 1
             if consecutive_failures >= max_consecutive_failures:
                 if count == 0 and skips_used < max_skips:
-                    # No data found yet — station may not have existed. Skip forward 1 year.
                     skip_to = current + timedelta(days=365)
                     logger.info(
                         "Backfill %s: %d consecutive failures with 0 data — skipping forward to %s (skip %d/%d)",
@@ -496,7 +473,6 @@ def _backfill_actuals(
                     skips_used += 1
                     continue
                 else:
-                    # Already have some data, or exhausted skips — real failure
                     logger.error(
                         "Backfill %s: %d consecutive failures — aborting (%d fetched, %d skips used)",
                         icao, max_consecutive_failures, count, skips_used,
@@ -504,7 +480,6 @@ def _backfill_actuals(
                     aborted = True
                     break
 
-        # Update progress every 100 days
         if count > 0 and count % 100 == 0:
             _update_status(conn, icao, "BACKFILLING", "actuals",
                             f"{count}/{total_days} days ({count/total_days:.0%})",

@@ -26,10 +26,7 @@ class OperatorState:
     reason: str
     updated_by: str
     updated_at: str
-    # monotonic version for optimistic concurrency
-    # control on the single-row operator_control_state. Every mutation reads
-    # this then writes new = current + 1; a 0-rowcount UPDATE signals that
-    # another writer overtook us, and the caller must retry.
+    # Optimistic-concurrency version, incremented on every mutation.
     version: int = 0
 
     @property
@@ -57,13 +54,7 @@ _verified_conns: weakref.WeakSet = weakref.WeakSet()
 
 
 def ensure_operator_schema(conn: sqlite3.Connection) -> None:
-    """Assert operator_control tables exist; schema.sql is authoritative.
-
-    schema.sql (applied by db.connection.init_db) is the single source of
-    truth — this helper just verifies the tables exist. After a connection
-    has been verified once, results are cached per-conn: schema can't change
-    at runtime, and the check fires once per tick × bracket on the hot path.
-    """
+    """Check the operator_control tables exist (cached per connection)."""
     if conn in _verified_conns:
         return
     required = ("operator_control_state", "operator_control_events")
@@ -80,9 +71,7 @@ def ensure_operator_schema(conn: sqlite3.Connection) -> None:
     try:
         _verified_conns.add(conn)
     except TypeError:
-        # Some Connection subclasses (e.g. MagicMock in tests) don't
-        # support weak refs; skipping the cache is safe — only impact is
-        # repeated checks for that conn.
+        # Not weak-referenceable (e.g. a mock): just skip the cache.
         pass
 
 
@@ -91,18 +80,9 @@ def get_operator_state(
     *,
     boot_dry_run: bool | None = None,
 ) -> OperatorState:
-    """Return the durable operator-control state.
-
-    ce-code-review P2 #37: ``boot_dry_run`` is sticky after boot. The caller
-    that knows the boot mode (main.py at process start) passes it once; all
-    later callers (processing_block_reason, dashboard reads) pass None so the
-    stored flag isn't repeatedly rewritten — that overwrote a future
-    operator-set boot mode every tick.
-    """
+    """Current operator state. Only main.py passes ``boot_dry_run`` (once, at boot)."""
     ensure_operator_schema(conn)
     if boot_dry_run is not None:
-        # Only update when an explicit value is provided AND it differs from
-        # what's already stored. Avoids spurious commits on every status read.
         current = conn.execute(
             "SELECT boot_dry_run FROM operator_control_state WHERE id=1"
         ).fetchone()
@@ -166,14 +146,8 @@ def set_operator_state(
     boot_dry_run: bool | None = None,
     detail: dict[str, object] | None = None,
 ) -> OperatorState:
-    """Mutate the durable operator_control state with optimistic concurrency.
-
-    ce-code-review P3 #71: reads the current ``version`` and conditional-
-    UPDATEs ``WHERE version=?``. If 0 rows are affected, another writer
-    overtook us between our read and write — we raise ``OperatorControlError
-    ("concurrent state change detected; retry")`` and let the caller decide
-    whether to retry. The new row version is ``current + 1``.
-    """
+    """Update operator state; raises OperatorControlError if another writer
+    changed it first (``WHERE version=?`` matched nothing)."""
     ensure_operator_schema(conn)
     if new_state not in ALLOWED_STATES:
         raise OperatorControlError(f"unsupported operator state: {new_state}")
@@ -285,8 +259,6 @@ def processing_block_reason(
     *,
     dry_run: bool,
 ) -> str | None:
-    # don't rewrite boot_dry_run on every gate check —
-    # the value is set once at boot from main.py / set_operator_state.
     state = get_operator_state(conn)
     if state.state == LIVE:
         return None
@@ -333,18 +305,7 @@ def prune_audit_tables(
     *,
     retention_days: int = 30,
 ) -> dict[str, int]:
-    """Prune time-series audit tables to ``retention_days`` of history.
-
-    ce-code-review P2 #50: the 5 audit tables (operator_control_events,
-    live_readiness_reports, transfer_requests, redemption_requests,
-    wallet_reconciliation_runs, wallet_reconciliation_records) had no
-    retention policy and were growing unbounded. Operator-control events drive an audit log shown only for
-    recent transitions; the rest are debugging snapshots. Keep 30 days.
-
-    wallet_reconciliation_records carry a FK to runs; runs delete first and
-    records cascade-or-orphan depending on the FK setup. We delete records by
-    join on the run age so behaviour is correct either way.
-    """
+    """Delete audit rows older than ``retention_days`` (in-flight transfers are kept)."""
     deleted: dict[str, int] = {}
     cutoff = f"-{int(retention_days)} days"
 
@@ -361,8 +322,6 @@ def prune_audit_tables(
     try:
         _prune("operator_control_events", "created_at")
         _prune("live_readiness_reports", "created_at")
-        # Don't prune SUBMITTING transfers; only terminal (SUBMITTED / FAILED /
-        # cancelled) rows can be safely dropped.
         _prune(
             "transfer_requests",
             "created_at",
@@ -401,8 +360,6 @@ def public_operator_payload(
     *,
     dry_run: bool,
 ) -> dict[str, object]:
-    # Status reads are intentionally non-mutating. main.py and state mutation
-    # helpers are the only callers that should write the sticky boot mode.
     state = get_operator_state(conn)
     payload = state.to_public_dict()
     payload["events"] = latest_operator_events(conn, limit=10)
