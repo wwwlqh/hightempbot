@@ -1,23 +1,7 @@
-"""Open-Meteo deterministic multi-model forecasts — historical + live.
+"""Open-Meteo multi-model daily-high forecasts (EXPECTED_MODELS), historical and live.
 
-Uses the Previous Runs API for historical and the Forecast API for live.
-Same models in both phases (canonical list lives in `execution/strategy_constants.py:EXPECTED_MODELS`).
-
-IMPORTANT: Historical forecasts use `temperature_2m_previous_day1` (hourly)
-to get TRUE day-ahead forecasts. The `daily=temperature_2m_max` endpoint
-returns same-day composite data (includes 12Z/18Z runs issued AFTER tmax
-already occurred) and must NOT be used for calibration.
-
-9 models, each gives 1 daily tmax forecast per station per day:
-  - ecmwf_ifs025       (ECMWF IFS 0.25deg)
-  - gfs_seamless       (NCEP GFS)
-  - icon_seamless      (DWD ICON)
-  - gem_seamless       (Canada GEM)
-  - meteofrance_seamless (Meteo-France)
-  - ukmo_seamless      (UK Met Office)
-  - knmi_seamless      (KNMI Netherlands)
-  - dmi_seamless       (DMI Denmark)
-  - ncep_gfs013        (NCEP GFS 0.13deg)
+Always uses hourly ``temperature_2m_previous_day1`` (a true day-ahead run).
+``daily=temperature_2m_max`` mixes in same-day runs and must not be used.
 """
 
 from __future__ import annotations
@@ -46,7 +30,6 @@ _LIVE_FETCH_ENDPOINTS = (
     ("forecast", _FORECAST_URL, 30),
 )
 
-# 9 deterministic models (BoM offline since 2025-07; JMA excluded)
 MODELS = list(EXPECTED_MODELS)
 
 MODELS_CSV = ",".join(MODELS)
@@ -101,14 +84,7 @@ def fetch_historical(
     start: date,
     end: date,
 ) -> dict[date, dict[str, float | None]] | None:
-    """Fetch TRUE day-ahead historical tmax from all 11 models for a station.
-
-    Uses `temperature_2m_previous_day1` (hourly) to get forecasts from
-    the PREVIOUS day's model run, then computes tmax over local calendar day.
-
-    Returns dict: {local_date: {model_name: tmax_celsius, ...}, ...}
-    or None on failure.
-    """
+    """Historical day-ahead tmax: {local_date: {model: tmax_c}}, or None on failure."""
     params = {
         "latitude": station.lat,
         "longitude": station.lon,
@@ -134,33 +110,21 @@ def fetch_historical(
     return _parse_hourly_to_daily_tmax(data, "temperature_2m_previous_day1")
 
 
-# In-memory cache: {(station_icao, forecast_days): (timestamp, result)}
-# Forecasts change every ~6 hours; a cached forecast up to 6 hours old is fine.
-# `_forecast_cache_lock` guards mutation under concurrent scheduler threads;
-# wu_forecast.py uses the same pattern for its equivalent cache.
+# {(icao, forecast_days): (timestamp, result)}, used when the API fails.
 _forecast_cache: dict[tuple[str, int], tuple[float, dict[date, dict[str, float | None]]]] = {}
 _forecast_cache_lock = threading.Lock()
-_CACHE_MAX_AGE_S = 6 * 3600  # 6 hours
+_CACHE_MAX_AGE_S = 6 * 3600
 
 
 def fetch_live(
     station: StationConfig,
     forecast_days: int = 3,
 ) -> dict[date, dict[str, float | None]] | None:
-    """Fetch day-ahead forecast daily tmax from all configured models.
+    """Live day-ahead tmax: {target_date: {model: tmax_c}}.
 
-    Uses `hourly=temperature_2m_previous_day1`, so each target date's tmax is
-    derived from the model run initialized the PREVIOUS day (no contamination
-    from same-day model runs that have already ingested target-day
-    observations). Prefer the previous-runs host for train/live symmetry. If
-    that host is unreachable, try Open-Meteo's historical-forecast host and
-    then the live forecast host, accepting a fallback only when it returns
-    actual `previous_day1` model values.
-
-    ``forecast_days`` = number of target days starting from today (station-local).
-    Falls back to cached forecast (up to 6h old) if API fails.
-
-    Returns dict: {target_date: {model_name: tmax_celsius, ...}, ...}
+    Tries the previous-runs host, then historical-forecast, then forecast;
+    every date must carry exactly EXPECTED_MODELS. Falls back to a cache up
+    to 6h old.
     """
     import random
     import time as _time
@@ -193,7 +157,6 @@ def fetch_live(
                 membership_error = _live_membership_error(result, requested_dates)
                 if membership_error is None:
                     result = {target_date: result[target_date] for target_date in requested_dates}
-                    # Cache successful fetch
                     with _forecast_cache_lock:
                         _forecast_cache[(station.icao, forecast_days)] = (_time.time(), result)
                     logger.info(
@@ -236,8 +199,7 @@ def fetch_live(
                 station.icao, max_attempts,
             )
 
-    # API failed — try cache. Snapshot under the lock so we don't iterate
-    # while another thread is writing.
+    # API failed: use the cache.
     with _forecast_cache_lock:
         cache_snapshot = list(_forecast_cache.items())
     cached_candidates = [
@@ -283,15 +245,10 @@ def fetch_live(
 def _parse_hourly_to_daily_tmax(
     data: dict, var_prefix: str,
 ) -> dict[date, dict[str, float | None]]:
-    """Parse hourly response and compute daily tmax per model.
-
-    Groups hourly values by local calendar date (timezone already applied
-    by Open-Meteo via the timezone parameter) and takes the max.
-    """
+    """Daily max per model from an hourly response (already in local time)."""
     hourly = data.get("hourly", {})
     times = hourly.get("time", [])
 
-    # Find model-specific columns
     model_keys: dict[str, str] = {}
     for key in hourly.keys():
         if key.startswith(var_prefix + "_") and key != var_prefix:
@@ -302,12 +259,10 @@ def _parse_hourly_to_daily_tmax(
     if not model_keys and var_prefix in hourly:
         model_keys["default"] = var_prefix
 
-    # Group by date and compute tmax
-    # {date_str: {model: [hourly_vals]}}
     date_model_vals: dict[str, dict[str, list[float]]] = {}
 
     for i, time_str in enumerate(times):
-        date_str = time_str[:10]  # "2025-06-15T14:00" -> "2025-06-15"
+        date_str = time_str[:10]
         if date_str not in date_model_vals:
             date_model_vals[date_str] = {}
         for model_name, col_key in model_keys.items():
@@ -317,7 +272,6 @@ def _parse_hourly_to_daily_tmax(
                     date_model_vals[date_str][model_name] = []
                 date_model_vals[date_str][model_name].append(float(val))
 
-    # Compute tmax per date per model
     result: dict[date, dict[str, float | None]] = {}
     for date_str, model_vals in date_model_vals.items():
         d = date.fromisoformat(date_str)
@@ -335,12 +289,7 @@ def store_forecast_records(
     forecast_data: dict[date, dict[str, float | None]],
     source: str = "openmeteo",
 ) -> int:
-    """Store multi-model forecasts in forecast_archive table.
-
-    Each model stored as a separate "member" with centre = model name.
-    Horizon = 1 (day-ahead) only — previous_day1 data is always from
-    the previous day's model run.
-    """
+    """Store forecasts in forecast_archive: one row per model (centre), horizon 1."""
     count = 0
     rows = []
 
@@ -349,17 +298,15 @@ def store_forecast_records(
         for model_name, tmax in model_values.items():
             if tmax is None:
                 continue
-            # Use fixed MODELS list position for stable member_num
-            # (dict iteration order is not guaranteed to be consistent)
+            # Member number from the fixed MODELS order.
             try:
                 member_num = MODELS.index(model_name) + 1
             except ValueError:
-                # Unknown model — assign a high number to avoid collisions
                 member_num = 100 + hash(model_name) % 100
             rows.append((
                 station_id,
                 target_date.isoformat(),
-                1,  # horizon = 1 (true day-ahead)
+                1,  # horizon
                 issue_date.isoformat(),
                 model_name,
                 member_num,
@@ -387,16 +334,9 @@ def backfill_openmeteo(
     stations: dict[str, StationConfig] | None = None,
     chunk_days: int = 365,
 ) -> BackfillResult:
-    """Backfill forecasts for WU stations via Open-Meteo Previous Runs API.
-
-    Fetches in yearly chunks per station.
-    Callers must pass stations dict explicitly.
-    """
+    """Backfill forecasts in yearly chunks for stations that have actuals."""
     candidate_stations: dict = stations or {}
 
-    # Only fetch forecasts for stations that already have actuals in the DB.
-    # This keeps useless backfills out while still allowing any supported
-    # resolution source to participate once actual data exists.
     actual_station_ids = {
         row["station_id"]
         for row in conn.execute("SELECT DISTINCT station_id FROM actuals").fetchall()
@@ -417,9 +357,7 @@ def backfill_openmeteo(
     for i, (icao, station) in enumerate(active_stations.items()):
         logger.info("Station %d/%d: %s (%s)", i + 1, total_stations, icao, station.city)
 
-        # Per-station try/except: a network hiccup or sqlite contention on one
-        # station must not abort the whole loop. Each failure logs at WARNING +
-        # writes a per-station pipeline_health row so the dashboard surfaces it.
+        # One station's failure must not stop the loop.
         try:
             chunk_start = start
             station_rows = 0
@@ -428,8 +366,7 @@ def backfill_openmeteo(
             while chunk_start <= end:
                 chunk_end = min(chunk_start + timedelta(days=chunk_days - 1), end)
 
-                # Check if already in DB. Unknown/legacy centres must not
-                # satisfy completeness; calibration only consumes EXPECTED_MODELS.
+                # Skip chunks already complete (counting only EXPECTED_MODELS).
                 existing = conn.execute(
                     "SELECT COUNT(*) as cnt FROM ("
                     "SELECT target_date FROM forecast_archive "

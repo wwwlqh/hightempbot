@@ -1,67 +1,16 @@
-"""Fit reliability-calibration curves for the NO gate and persist them.
+"""Fit NO-gate reliability curves (NO_C, NO_F) and optionally save them.
 
-Fits one reliability curve per bracket-unit group ('NO_C' and 'NO_F'), mapping
-the NO gate's *claimed* probability (``P(NO wins) = 1 - p_yes``) to the
-*realized* win rate. The default — and what production's NO gate requires as
-the active curve — is the market-aware logit blend::
+Default curve: ``sigmoid(b0 + b1·logit(claimed) + b2·logit(no_price))``;
+``--curve-type isotonic`` fits the older 1D curve (saving it replaces the
+active blend). Degenerate blends are reported, never saved.
 
-    calibrated = sigmoid(b0 + b1*logit(claimed) + b2*logit(no_price))
+Training pairs, claimed in [0.70, 1.0]:
+  * decision-table parquet: claimed = 1 − p_E, won = 1 − won_yes, unit from the label
+  * ``--ledger-db``: resolved NO bets (claimed_raw or prob_safe_floor)
 
-The legacy 1D isotonic (pool-adjacent-violators) curve remains available via
-``--curve-type isotonic``. The curves are written to the ``reliability_curves``
-table of a target DB (deactivating any prior active curve per group — so
-committing an isotonic curve REPLACES an active logit_blend curve) and a
-reliability table (claimed vs realized vs n) is printed for each group.
-
-Training data
--------------
-Two sources, unioned per group:
-
-  (a) The local backtest decision-table parquet (required). Pair-extraction
-      rule (one pair per bracket row):
-        * claimed = 1 - p_yes, using the ``p_E`` column (the model's YES
-          probability). So claimed is the model's P(NO wins) for that bracket.
-        * won     = 1 - won_yes  (NO wins iff the actual high did NOT land in
-          the bracket).
-        * group   = 'NO_F' if the bracket_label carries a °F unit token, else
-          'NO_C' if it carries °C (rows with neither are dropped).
-        * keep only rows with claimed in [0.70, 1.0] — the NO gate's operating
-          regime (it needs fill_price >= 0.75, i.e. a high claimed prob).
-
-  (b) Optionally, resolved NO ledger rows from a live DB (``--ledger-db``).
-      For each ``side='NO'`` bet with a terminal WIN/LOSS outcome:
-        * claimed = event_detail.claimed_raw when present (the raw pre-calibration
-          claim), else prob_safe_floor (both are 1 - p_E at placement time).
-        * won     = 1 if outcome == 'WIN' else 0.
-        * group   = 'NO_F' / 'NO_C' from event_detail.bracket_unit.
-        * same [0.70, 1.0] claimed restriction.
-
-Usage
------
-    # CANONICAL: fit the market-aware logit blend (the default) and write the
-    # curves into a DB — this is what production's NO gate requires.
-    # A degenerate fit (price-dominant / wrong-signed) is reported but never
-    # written — see validate_calibrated_gate.py for the honest fired-slice test.
     python -m hightempbot.cli.fit_reliability \
         --parquet backtest/data/decision_table_may11plus_l2.parquet \
-        --db data/hightempbot.db --commit
-
-    # dry-run: fit + print the reliability tables, do NOT write curves
-    python -m hightempbot.cli.fit_reliability \
-        --parquet backtest/data/decision_table_may11plus_l2.parquet
-
-    # also fold in resolved live NO bets
-    python -m hightempbot.cli.fit_reliability \
-        --parquet backtest/data/decision_table_may11plus_l2.parquet \
-        --ledger-db data/hightempbot.db --db data/hightempbot.db --commit
-
-    # LEGACY: fit the 1D isotonic curve instead of the logit blend. Committing
-    # it deactivates the group's active logit_blend curve (which production's
-    # NO gate requires), so --commit emits a prominent warning.
-    python -m hightempbot.cli.fit_reliability \
-        --curve-type isotonic \
-        --parquet backtest/data/decision_table_may11plus_l2.parquet \
-        --db data/hightempbot.db --commit
+        [--ledger-db data/hightempbot.db] [--db data/hightempbot.db --commit]
 """
 
 from __future__ import annotations
@@ -88,8 +37,7 @@ logger = logging.getLogger(__name__)
 CLAIMED_LO = 0.70
 CLAIMED_HI = 1.0
 
-# event_detail keys, in priority order, that may carry a live NO bet's entry
-# market price for the market-aware blend fit.
+# event_detail keys that may hold a live bet's entry NO price, in priority order.
 _LEDGER_PRICE_KEYS = ("fill_price", "entry_top_price", "p_market", "no_price")
 
 
@@ -105,10 +53,7 @@ def _unit_group_from_label(label: str | None) -> str | None:
 
 
 def pairs_from_parquet(parquet_path: str) -> dict[str, list[tuple[float, float]]]:
-    """Extract (claimed, won) NO pairs per group from the decision table.
-
-    See the module docstring for the exact extraction rule.
-    """
+    """(claimed, won) NO pairs per group from the decision table."""
     import pandas as pd
 
     df = pd.read_parquet(parquet_path)
@@ -179,13 +124,7 @@ def pairs_from_ledger(ledger_db_path: str) -> dict[str, list[tuple[float, float]
 
 
 def triples_from_parquet(parquet_path: str) -> dict[str, list[tuple[float, float, float]]]:
-    """Extract ``(claimed, no_price, won)`` NO triples per group for the blend fit.
-
-    Same claimed/won/group rule as :func:`pairs_from_parquet`, plus the entry
-    market NO price (``no_price`` column). Rows with a missing/out-of-range price
-    (<=0 or >=1) are dropped — ``logit(price)`` is only defined on the open unit
-    interval and a boundary price carries no market signal.
-    """
+    """(claimed, no_price, won) triples per group; drops prices outside (0, 1)."""
     import pandas as pd
 
     df = pd.read_parquet(parquet_path)
@@ -220,13 +159,7 @@ def triples_from_parquet(parquet_path: str) -> dict[str, list[tuple[float, float
 
 
 def triples_from_ledger(ledger_db_path: str) -> dict[str, list[tuple[float, float, float]]]:
-    """Extract ``(claimed, no_price, won)`` triples from resolved live NO bets.
-
-    Best-effort market price: read the first present of ``_LEDGER_PRICE_KEYS``
-    from ``event_detail``. Rows without any usable entry price are dropped (the
-    blend cannot use them); such rows still feed the isotonic fit via
-    :func:`pairs_from_ledger`.
-    """
+    """(claimed, no_price, won) triples from resolved live NO bets that have a price."""
     conn = sqlite3.connect(ledger_db_path)
     conn.row_factory = sqlite3.Row
     out: dict[str, list[tuple[float, float, float]]] = {g: [] for g in NO_GROUPS}
@@ -272,10 +205,7 @@ def triples_from_ledger(ledger_db_path: str) -> dict[str, list[tuple[float, floa
 
 
 def reliability_table(pairs: list[tuple[float, float]], *, n_bins: int = 6) -> list[dict]:
-    """Bin pairs by claimed and return per-bin (claimed_mean, realized, n).
-
-    Bins span [CLAIMED_LO, CLAIMED_HI]; empty bins are omitted.
-    """
+    """Per-bin (claimed_mean, realized, n) over [CLAIMED_LO, CLAIMED_HI]; empty bins omitted."""
     edges = [CLAIMED_LO + (CLAIMED_HI - CLAIMED_LO) * i / n_bins for i in range(n_bins + 1)]
     bins: list[list[float]] = [[0.0, 0.0, 0] for _ in range(n_bins)]  # sum_claimed, sum_won, n
     for claimed, won in pairs:
@@ -449,12 +379,7 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def _run_blend(args) -> int:
-    """Fit + report + optionally persist market-aware logit-blend curves.
-
-    A degenerate fit (see :func:`blend_degenerate_reason`) is reported but NOT
-    written under ``--commit`` — shipping a curve that collapses the edge to ~0
-    would silently halt NO trading, so it is surfaced to the operator instead.
-    """
+    """Fit, report and optionally save blend curves (degenerate ones are not saved)."""
     triples_by_group = triples_from_parquet(args.parquet)
     if args.ledger_db:
         ledger_triples = triples_from_ledger(args.ledger_db)

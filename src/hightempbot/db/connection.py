@@ -25,13 +25,7 @@ def safe_float(value: object) -> float:
 
 
 def parse_utc_timestamp(value: object) -> datetime | None:
-    """Parse a UTC timestamp from SQLite text, ISO string, or epoch number.
-
-    Accepts: None, int/float (Unix seconds), and str values in either ISO
-    8601 (``YYYY-MM-DDTHH:MM:SS[+ZZ:ZZ]``) or SQLite canonical
-    (``YYYY-MM-DD HH:MM:SS``) form. ``Z`` suffix is normalized. Naive
-    datetimes are assumed UTC. Returns ``None`` on unparseable input.
-    """
+    """UTC datetime from epoch seconds, ISO 8601 or SQLite text (naive = UTC); None if unparseable."""
     if value is None or value == "":
         return None
     if isinstance(value, (int, float)):
@@ -58,12 +52,7 @@ def log_pipeline_health(
     status: str,
     message: str,
 ) -> None:
-    """Best-effort pipeline_health insert. Swallows DB errors.
-
-    Single shared writer for the table — every per-stage status row across
-    the bot funnels through here. Best-effort by contract: callers must not
-    fail because a health write failed.
-    """
+    """Insert a pipeline_health row; never raises."""
     try:
         conn.execute(
             "INSERT INTO pipeline_health (stage, station_id, status, message) "
@@ -89,25 +78,14 @@ def get_connection(db_path: str | Path) -> sqlite3.Connection:
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA synchronous=NORMAL")
     conn.execute("PRAGMA foreign_keys=ON")
-    # 5s busy_timeout converts immediate SQLITE_BUSY into bounded waits
-    # under concurrent-writer contention (42 stations x 4 job kinds share
-    # the DB). Without this the default is 0 -- the first contended write
-    # raises OperationalError instead of waiting, and pipeline.py:302's
-    # BEGIN IMMEDIATE silently falls through to autocommit, weakening the
-    # slot-serialization invariant. CLI scripts already set this; this
-    # propagates the pattern to the long-running bot. ce-code-review P1 #4.
+    # Wait up to 5s for a lock instead of failing immediately.
     conn.execute("PRAGMA busy_timeout = 5000")
     return conn
 
 
 def _migrate_pred_bucket_history(conn: sqlite3.Connection) -> None:
-    """Move bucket-key-unique LUT history to bracket-key-unique storage.
-
-    The old schema used UNIQUE(station_id, local_date, pred_bucket_low), which
-    collapsed multiple same-day brackets whenever their EMOS probabilities
-    landed in the same bucket. Those lost rows cannot be recovered from the
-    table, so preserve the old table as a backup and force LUT reseeding.
-    """
+    """Re-key pred_bucket_history per bracket (the old key lost same-bucket
+    brackets); keep the old table as a backup and force a LUT reseed."""
     cols = {r[1] for r in conn.execute("PRAGMA table_info(pred_bucket_history)").fetchall()}
     if "bracket_key" in cols:
         return
@@ -146,13 +124,7 @@ def _migrate_pred_bucket_history(conn: sqlite3.Connection) -> None:
 
 
 def _migrate_before_schema_seed(conn: sqlite3.Connection) -> None:
-    """Apply compatibility fixes required before schema.sql seed statements.
-
-    ``CREATE TABLE IF NOT EXISTS`` is harmless for legacy tables, but seed
-    INSERTs that name newly-added columns are not. Keep this tiny and only for
-    old-table/new-seed ordering hazards; the full migration pass still runs
-    after schema.sql.
-    """
+    """Add columns that schema.sql's seed INSERTs need on old tables."""
     try:
         op_cols = {
             r[1]
@@ -169,14 +141,8 @@ def _migrate_before_schema_seed(conn: sqlite3.Connection) -> None:
 
 
 def _migrate_db(conn: sqlite3.Connection) -> None:
-    """Apply schema migrations for existing production DBs.
-
-    CREATE TABLE IF NOT EXISTS handles new tables automatically.
-    This function handles column removals, index additions, and table drops
-    that CREATE TABLE cannot express.
-    """
-    # SQLite >= 3.35.0 supports ALTER TABLE DROP COLUMN.
-    # For older versions, silently skip — extra columns are harmless.
+    """Migrations schema.sql can't express: drops, added columns, indexes."""
+    # DROP COLUMN needs SQLite ≥ 3.35; older versions keep the harmless columns.
     import sqlite3 as _sqlite3
     major, minor, _ = (int(x) for x in _sqlite3.sqlite_version.split("."))
     can_drop = (major > 3) or (major == 3 and minor >= 35)
@@ -244,25 +210,13 @@ def _migrate_db(conn: sqlite3.Connection) -> None:
             )
         """)
 
-    # --- Add missing indexes ---
-    # Only indexes schema.sql does NOT already create belong here. The
-    # operator_control_state `version` column is handled earlier by
-    # _migrate_before_schema_seed (it must run before the schema seed
-    # INSERTs name the column).
-    # pipeline_health currently has no in-code reader (the v1 dashboard helper
-    # that scanned it was deleted 2026-08-09). The (stage, station_id,
-    # created_at DESC) index is retained for ad-hoc ops queries against the
-    # table, which otherwise full-scan as it grows between monthly prunes.
+    # --- Indexes not created by schema.sql ---
     conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_pipeline_health_stage_station_created "
         "ON pipeline_health(stage, station_id, created_at DESC, id DESC)"
     )
-    # `lookup_with_cumulative` filters on (station_id, pred_bucket_low, local_date < ?)
-    # 11x per betting tick. The existing idx_pred_bucket_cell omits local_date,
-    # forcing a post-scan over hundreds of historical rows per call.
-    # NOTE: this must stay here rather than move to schema.sql —
-    # _migrate_pred_bucket_history above renames the old table (taking any
-    # schema.sql-created index with it) and rebuilds pred_bucket_history.
+    # For lookup_with_cumulative. Lives here because _migrate_pred_bucket_history
+    # rebuilds the table.
     conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_pred_bucket_cell_date "
         "ON pred_bucket_history(station_id, pred_bucket_low, local_date)"
@@ -272,15 +226,10 @@ def _migrate_db(conn: sqlite3.Connection) -> None:
 
 
 def init_db(db_path: str | Path) -> sqlite3.Connection:
-    """Create all tables from schema.sql and return the connection.
+    """Create/migrate the schema and return a connection.
 
-    Wraps ``executescript`` so a failure on the partial UNIQUE INDEX over
-    ``ledger.order_id`` (added 2026-05-13) surfaces the duplicate rows the
-    operator needs to resolve, instead of dying with a bare IntegrityError
-    and a multi-line stack trace from inside sqlite3. Boot-blocking is the
-    correct response to duplicates — silently skipping the index would let
-    orphan-recovery write duplicates the next time a crash hits — but the
-    failure must be actionable.
+    Refuses to start if duplicate ledger order_ids block the unique index,
+    pointing at scripts/check_ledger_order_id_duplicates.py.
     """
     conn = get_connection(db_path)
     schema_sql = _SCHEMA_PATH.read_text(encoding="utf-8")
